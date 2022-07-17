@@ -159,6 +159,22 @@ initially run with 2 GB of memory and failed because of exceeding the limit,
 result the entire workflow fails again due to other reasons, the job will ask
 for 2 GB of memory during the first execution after the workflow is restarted.
 
+If you did not set the ``memoryMultiplier`` option, this command:
+
+.. code-block:: sh
+
+   condor_q -hold $USER
+
+will show any held jobs and the reasons for their being held, including running out of memory.
+
+This command:
+
+.. code-block:: sh
+
+   condor_q $USER | awk '{if($6 == "H") print "condor_qedit",$1,"RequestMemory 4096; condor_release",$1}' | bash
+
+will take any held jobs, change their requested memory size to 4096 MiB, and release them to be run again.
+
 .. _htc-plugin-troubleshooting:
 
 Troubleshooting
