@@ -1,0 +1,1 @@
+Made the plugin always report on the latest run even if the old run id was provided to ``bps report``.
