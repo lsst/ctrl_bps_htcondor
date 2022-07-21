@@ -955,7 +955,7 @@ def _report_from_path(wms_path):
     return run_reports, message
 
 
-def _report_from_id(wms_workflow_id, hist, schedds=None):
+def _report_from_id(wms_workflow_id, hist, schedds=None, retries=2):
     """Gather run information using workflow id.
 
     Parameters
@@ -967,6 +967,10 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
     schedds : `dict` [ `str`, `htcondor.Schedd` ], optional
         HTCondor schedulers which to query for job information. If None
         (default), all queries will be run against the local scheduler only.
+    retries : `int`, optional
+        Number of attempts to make to gather the necessary data for preparing
+        the report. The default values is 2 and there should be little to
+        no need to go above this value.
 
     Returns
     -------
@@ -976,52 +980,79 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
     message : `str`
         Message to be printed with the summary report.
     """
-    dag_constraint = 'regexp("dagman$", Cmd)'
-    try:
-        cluster_id = int(float(wms_workflow_id))
-    except ValueError:
-        dag_constraint += f' && GlobalJobId == "{wms_workflow_id}"'
+    # On rare occasions (the user providing the old job id of a restarted run),
+    # the entire information gathering process may need be rerun with the new
+    # run id. Hence, the for loop.
+    warning = ""
+    for _ in range(retries):
+        dag_constraint = 'regexp("dagman$", Cmd)'
+        try:
+            cluster_id = int(float(wms_workflow_id))
+        except ValueError:
+            dag_constraint += f' && GlobalJobId == "{wms_workflow_id}"'
+        else:
+            dag_constraint += f" && ClusterId == {cluster_id}"
+
+        # With the current implementation of the condor_* functions the query
+        # will always return only one match per Scheduler.
+        #
+        # Even in the highly unlikely situation where HTCondor history (which
+        # condor_search queries too) is long enough to have jobs from before
+        # the cluster ids were rolled over (and as a result there is more then
+        # one job with the same cluster id) they will not show up in
+        # the results.
+        schedd_dag_info = condor_search(constraint=dag_constraint, hist=hist, schedds=schedds)
+        if len(schedd_dag_info) == 0:
+            run_reports = {}
+            message = ""
+        elif len(schedd_dag_info) == 1:
+            _, dag_info = schedd_dag_info.popitem()
+            dag_id, dag_ad = dag_info.popitem()
+
+            # Create a mapping between jobs and their classads. The keys will
+            # be of format 'ClusterId.ProcId'.
+            job_info = {dag_id: dag_ad}
+
+            # Find jobs (nodes) belonging to that DAGMan job.
+            job_constraint = f"DAGManJobId == {int(float(dag_id))}"
+            schedd_job_info = condor_search(constraint=job_constraint, hist=hist, schedds=schedds)
+            if schedd_job_info:
+                _, node_info = schedd_job_info.popitem()
+                job_info.update(node_info)
+
+            # Collect additional pieces of information about jobs using
+            # HTCondor files in the submission directory.
+            path_dag_id, path_jobs, message = _get_info_from_path(dag_ad["Iwd"])
+            if path_dag_id != dag_id:
+                wms_workflow_id = path_dag_id
+                warning = (
+                    f"WARNING: Found newer workflow executions in same submit directory as id '{dag_id}'. "
+                    f"This normally occurs when a run is restarted. The report shown is for the most "
+                    f"recent status with run id '{path_dag_id}'"
+                )
+                continue
+            _update_jobs(job_info, path_jobs)
+
+            run_reports = _create_detailed_report_from_jobs(dag_id, job_info)
+            message = warning if warning else ""
+        else:
+            ids = [ad["GlobalJobId"] for dag_info in schedd_dag_info.values() for ad in dag_info.values()]
+            run_reports = {}
+            message = (
+                f"More than one job matches id '{wms_workflow_id}', "
+                f"their global ids are: {', '.join(ids)}. Rerun with one of the global ids"
+            )
+
+        # If we got here, we have all the information  we need (even if errors
+        # occurred), so there's no point in doing any retries.
+        break
     else:
-        dag_constraint += f" && ClusterId == {cluster_id}"
-
-    # With the current implementation of the condor_* functions the query will
-    # always return only one match per Scheduler.
-    #
-    # Even in the highly unlikely situation where HTCondor history (which
-    # condor_search queries too) is long enough to have jobs from before the
-    # cluster ids were rolled over (and as a result there is more then one job
-    # with the same cluster id) they will not show up in the results.
-    schedd_dag_info = condor_search(constraint=dag_constraint, hist=hist, schedds=schedds)
-    if len(schedd_dag_info) == 0:
-        run_reports = {}
-        message = ""
-    elif len(schedd_dag_info) == 1:
-        _, dag_info = schedd_dag_info.popitem()
-        dag_id, dag_ad = dag_info.popitem()
-
-        # Create a mapping between jobs and their classads. The keys will be
-        # of format 'ClusterId.ProcId'.
-        job_info = {dag_id: dag_ad}
-
-        # Find jobs (nodes) belonging to that DAGMan job.
-        job_constraint = f"DAGManJobId == {int(float(dag_id))}"
-        schedd_job_info = condor_search(constraint=job_constraint, hist=hist, schedds=schedds)
-        if schedd_job_info:
-            _, node_info = schedd_job_info.popitem()
-            job_info.update(node_info)
-
-        # Collect additional pieces of information about jobs using HTCondor
-        # files in the submission directory.
-        _, path_jobs, message = _get_info_from_path(dag_ad["Iwd"])
-        _update_jobs(job_info, path_jobs)
-
-        run_reports = _create_detailed_report_from_jobs(dag_id, job_info)
-    else:
-        ids = [ad["GlobalJobId"] for dag_info in schedd_dag_info.values() for ad in dag_info.values()]
+        # We didn't hit the break statement for some reason. In famous last
+        # words, it should not happen.
         run_reports = {}
         message = (
-            f"More than one job matches id '{wms_workflow_id}', "
-            f"their global ids are: {', '.join(ids)}. Rerun with one of the global ids"
+            f"ERROR: All {retries} attempts to generate the report for {wms_workflow_id} failed for an "
+            f"unknown reason. Please notify 'ctrl_bps_htcondor' developers."
         )
     return run_reports, message
 
