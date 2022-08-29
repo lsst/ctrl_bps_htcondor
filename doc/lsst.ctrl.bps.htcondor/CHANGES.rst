@@ -4,6 +4,8 @@ lsst-ctrl-bps-htcondor v24.0.0 (2022-08-29)
 New Features
 ------------
 
+- This package has been extracted from ``lsst_ctrl_bps`` into a standalone package to make it easier to manage development of the HTCondor plugin.
+  (`DM-33521 <https://jira.lsstcorp.org/browse/DM-33521>`_)
 - Add support for a new command,  ``bps restart``, that allows one to restart the failed workflow from the point of its failure. It restarts the workflow as it is just retrying failed jobs, no configuration changes are possible at the moment. (`DM-29575 <https://jira.lsstcorp.org/browse/DM-29575>`_)
 - Add support for a new option of ``bps cancel``, ``--global``, which allows the user to interact (cancel or get the report on) with jobs in any HTCondor job queue. (`DM-29614 <https://jira.lsstcorp.org/browse/DM-29614>`_)
 - Add a configurable memory threshold to the memory scaling mechanism. (`DM-32047 <https://jira.lsstcorp.org/browse/DM-32047>`_)
