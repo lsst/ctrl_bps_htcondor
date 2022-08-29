@@ -1,1 +1,0 @@
-Make HTCondor plugin pass a group and user attribute to any batch systems that require such attributes for accounting purposes.
