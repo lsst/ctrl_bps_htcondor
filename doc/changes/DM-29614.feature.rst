@@ -1,1 +1,0 @@
-Add support for a new option of ``bps cancel``, ``--global``, which allows the user to interact (cancel or get the report on) with jobs in any HTCondor job queue.
