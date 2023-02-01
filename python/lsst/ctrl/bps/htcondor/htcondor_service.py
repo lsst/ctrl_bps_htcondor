@@ -900,7 +900,6 @@ def _handle_job_inputs(generic_workflow: GenericWorkflow, job_name: str, use_sha
         if not use_shared:  # Copy file using push to job
             inputs.append(str(uri.relative_to(out_prefix)))
         elif not gwf_file.job_shared:  # Jobs require own copy
-
             # if using shared filesystem, but still need copy in job. Use
             # HTCondor's curl plugin for a local copy.
 
@@ -982,7 +981,6 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
     # HTCondor history.
     schedd_dag_info = _get_info_from_schedd(wms_workflow_id, hist, schedds)
     if len(schedd_dag_info) == 1:
-
         # Extract the DAG info without altering the results of the query.
         schedd_name = next(iter(schedd_dag_info))
         dag_id = next(iter(schedd_dag_info[schedd_name]))
