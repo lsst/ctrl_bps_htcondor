@@ -127,7 +127,7 @@ class HTCondorService(BaseWmsService):
                 config,
                 generic_workflow,
                 out_prefix,
-                f"{self.__class__.__module__}." f"{self.__class__.__name__}",
+                f"{self.__class__.__module__}.{self.__class__.__name__}",
             )
 
         with time_this(
@@ -524,7 +524,7 @@ class HTCondorWorkflow(BaseWmsWorkflow):
             )
             if "post" not in final_htjob.dagcmds:
                 final_htjob.dagcmds["post"] = (
-                    f"{os.path.dirname(__file__)}/final_post.sh" f" {final.name} $DAG_STATUS $RETURN"
+                    f"{os.path.dirname(__file__)}/final_post.sh {final.name} $DAG_STATUS $RETURN"
                 )
             htc_workflow.dag.add_final_job(final_htjob)
         elif final and isinstance(final, GenericWorkflow):
@@ -919,7 +919,7 @@ def _handle_job_inputs(generic_workflow: GenericWorkflow, job_name: str, use_sha
                     inputs.append(f"file://{uri / 'gen3.sqlite3'}")
             elif uri.is_dir():
                 raise RuntimeError(
-                    "HTCondor plugin cannot transfer directories locally within job " f"{gwf_file.src_uri}"
+                    f"HTCondor plugin cannot transfer directories locally within job {gwf_file.src_uri}"
                 )
             else:
                 inputs.append(f"file://{uri}")
@@ -1005,7 +1005,7 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
                 schedd_dag_info = _get_info_from_schedd(path_dag_id, hist, schedds)
                 messages.append(
                     f"WARNING: Found newer workflow executions in same submit directory as id '{dag_id}'. "
-                    f"This normally occurs when a run is restarted. The report shown is for the most "
+                    "This normally occurs when a run is restarted. The report shown is for the most "
                     f"recent status with run id '{path_dag_id}'"
                 )
 
