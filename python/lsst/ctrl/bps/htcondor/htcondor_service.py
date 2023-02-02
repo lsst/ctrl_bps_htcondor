@@ -127,7 +127,7 @@ class HTCondorService(BaseWmsService):
                 config,
                 generic_workflow,
                 out_prefix,
-                f"{self.__class__.__module__}." f"{self.__class__.__name__}",
+                f"{self.__class__.__module__}.{self.__class__.__name__}",
             )
 
         with time_this(
@@ -523,9 +523,9 @@ class HTCondorWorkflow(BaseWmsWorkflow):
                 out_prefix,
             )
             if "post" not in final_htjob.dagcmds:
-                final_htjob.dagcmds["post"] = (
-                    f"{os.path.dirname(__file__)}/final_post.sh" f" {final.name} $DAG_STATUS $RETURN"
-                )
+                final_htjob.dagcmds[
+                    "post"
+                ] = f"{os.path.dirname(__file__)}/final_post.sh {final.name} $DAG_STATUS $RETURN"
             htc_workflow.dag.add_final_job(final_htjob)
         elif final and isinstance(final, GenericWorkflow):
             raise NotImplementedError("HTCondor plugin does not support a workflow as the final job")
@@ -900,7 +900,6 @@ def _handle_job_inputs(generic_workflow: GenericWorkflow, job_name: str, use_sha
         if not use_shared:  # Copy file using push to job
             inputs.append(str(uri.relative_to(out_prefix)))
         elif not gwf_file.job_shared:  # Jobs require own copy
-
             # if using shared filesystem, but still need copy in job. Use
             # HTCondor's curl plugin for a local copy.
 
@@ -920,7 +919,7 @@ def _handle_job_inputs(generic_workflow: GenericWorkflow, job_name: str, use_sha
                     inputs.append(f"file://{uri / 'gen3.sqlite3'}")
             elif uri.is_dir():
                 raise RuntimeError(
-                    "HTCondor plugin cannot transfer directories locally within job " f"{gwf_file.src_uri}"
+                    f"HTCondor plugin cannot transfer directories locally within job {gwf_file.src_uri}"
                 )
             else:
                 inputs.append(f"file://{uri}")
@@ -982,7 +981,6 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
     # HTCondor history.
     schedd_dag_info = _get_info_from_schedd(wms_workflow_id, hist, schedds)
     if len(schedd_dag_info) == 1:
-
         # Extract the DAG info without altering the results of the query.
         schedd_name = next(iter(schedd_dag_info))
         dag_id = next(iter(schedd_dag_info[schedd_name]))
@@ -1007,7 +1005,7 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
                 schedd_dag_info = _get_info_from_schedd(path_dag_id, hist, schedds)
                 messages.append(
                     f"WARNING: Found newer workflow executions in same submit directory as id '{dag_id}'. "
-                    f"This normally occurs when a run is restarted. The report shown is for the most "
+                    "This normally occurs when a run is restarted. The report shown is for the most "
                     f"recent status with run id '{path_dag_id}'"
                 )
 
