@@ -1,3 +1,12 @@
+lsst-ctrl-bps-htcondor v25.0.0 (2023-03-02)
+===========================================
+
+Other Changes and Additions
+---------------------------
+
+- Made the plugin always report on the latest run even if the old run id was provided to ``bps report``. (`DM-35533 <https://jira.lsstcorp.org/browse/DM-35533>`_)
+
+
 lsst-ctrl-bps-htcondor v24.0.0 (2022-08-29)
 ===========================================
 
