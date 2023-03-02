@@ -1,4 +1,4 @@
 htcondor >= 8.8
-git+https://github.com/lsst/ctrl_bps.git@main#egg=lsst-ctrl-bps
-git+https://github.com/lsst/daf_butler@main#egg=lsst-daf-butler
-git+https://github.com/lsst/utils@main#egg=lsst-utils
+git+https://github.com/lsst/ctrl_bps.git@v25.0.x#egg=lsst-ctrl-bps
+git+https://github.com/lsst/daf_butler@v25.0.x#egg=lsst-daf-butler
+git+https://github.com/lsst/utils@v25.0.x#egg=lsst-utils
