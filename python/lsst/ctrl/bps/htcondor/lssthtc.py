@@ -929,7 +929,7 @@ def condor_q(constraint=None, schedds=None):
         schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
         schedds = {schedd_ad["Name"]: htcondor.Schedd(schedd_ad)}
 
-    queries = [schedd.xquery(requirements=constraint) for schedd in schedds.values()]
+    queries = [schedd.xquery(constraint=constraint) for schedd in schedds.values()]
 
     job_info = {}
     for query in htcondor.poll(queries):
@@ -974,7 +974,7 @@ def condor_history(constraint=None, schedds=None):
     job_info = {}
     for schedd_name, schedd in schedds.items():
         job_info[schedd_name] = {}
-        for job_ad in schedd.history(requirements=constraint, projection=[]):
+        for job_ad in schedd.history(constraint=constraint, projection=[]):
             del job_ad["Environment"]
             del job_ad["Env"]
             id_ = f"{int(job_ad['ClusterId'])}.{int(job_ad['ProcId'])}"
