@@ -1,0 +1,1 @@
+Replace ``requirements`` with ``constraint`` in selected HTCondor API calls to eliminate deprecation warnings when using ``bps report``.
