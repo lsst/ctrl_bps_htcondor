@@ -197,7 +197,7 @@ class RestrictedDict(MutableMapping):
         self.update(init_data)
 
     def __getitem__(self, key):
-        """Returns value for given key if exists.
+        """Return value for given key if exists.
 
         Parameters
         ----------
@@ -217,7 +217,7 @@ class RestrictedDict(MutableMapping):
         return self.data[key]
 
     def __delitem__(self, key):
-        """Deletes value for given key if exists.
+        """Delete value for given key if exists.
 
         Parameters
         ----------
@@ -232,7 +232,7 @@ class RestrictedDict(MutableMapping):
         del self.data[key]
 
     def __setitem__(self, key, value):
-        """Stores key,value in internal dict only if key is valid
+        """Store key,value in internal dict only if key is valid.
 
         Parameters
         ----------
@@ -375,9 +375,9 @@ def htc_write_attribs(stream, attrs):
     Parameters
     ----------
     stream : `TextIOBase`
-        Output text stream (typically an open file)
+        Output text stream (typically an open file).
     attrs : `dict`
-        HTCondor job attributes (dictionary of attribute key, value)
+        HTCondor job attributes (dictionary of attribute key, value).
     """
     for key, value in attrs.items():
         # Make sure strings are syntactically correct for HTCondor.
@@ -390,14 +390,14 @@ def htc_write_attribs(stream, attrs):
 
 
 def htc_write_condor_file(filename, job_name, job, job_attrs):
-    """Main function to write an HTCondor submit file.
+    """Write an HTCondor submit file.
 
     Parameters
     ----------
     filename : `str`
-        Filename for the HTCondor submit file
+        Filename for the HTCondor submit file.
     job_name : `str`
-        Job name to use in submit file
+        Job name to use in submit file.
     job : `RestrictedDict`
         Submit script information.
     job_attrs : `dict`
@@ -1403,13 +1403,13 @@ def read_dag_info(wms_path):
 
 
 def write_dag_info(filename, dag_info):
-    """Writes custom job information about DAGMan job.
+    """Write custom job information about DAGMan job.
 
     Parameters
     ----------
     filename : `str`
         Name of the file where the information will be stored.
-    dag_info : `dict` [`str` `dict` [`str` Any]]
+    dag_info : `dict` [`str` `dict` [`str`, Any]]
         Information about the DAGMan job.
     """
     schedd_name = next(iter(dag_info))

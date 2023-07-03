@@ -30,12 +30,16 @@ except ImportError:
 
 
 class SimpleTestCase(unittest.TestCase):
+    """Simplest possible import test."""
+
     def test_version(self):
         self.assertIsNotNone(version)
 
 
 @unittest.skipIf(htcondor is None, "Warning: Missing HTCondor API. Skipping")
 class TestLsstHtc(unittest.TestCase):
+    """Test basic usage."""
+
     def testHtcEscapeInt(self):
         self.assertEqual(lssthtc.htc_escape(100), 100)
 
