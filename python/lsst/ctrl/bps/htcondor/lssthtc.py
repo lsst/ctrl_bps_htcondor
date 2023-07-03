@@ -206,7 +206,7 @@ class RestrictedDict(MutableMapping):
 
         Returns
         -------
-        value : `Any`
+        value : `~collections.abc.Any`
             Value associated with given key.
 
         Raises
@@ -238,7 +238,7 @@ class RestrictedDict(MutableMapping):
         ----------
         key : `str`
             Identifier to associate with given value.
-        value : `Any`
+        value : `~collections.abc.Any`
             Value to store.
 
         Raises
@@ -353,12 +353,12 @@ def htc_escape(value):
 
     Parameters
     ----------
-    value : `Any`
+    value : `~collections.abc.Any`
         Value that needs to have characters escaped if string.
 
     Returns
     -------
-    new_value : `Any`
+    new_value : `~collections.abc.Any`
         Given value with characters escaped appropriate for HTCondor if string.
     """
     if isinstance(value, str):
@@ -374,7 +374,7 @@ def htc_write_attribs(stream, attrs):
 
     Parameters
     ----------
-    stream : `TextIOBase`
+    stream : `~io.TextIOBase`
         Output text stream (typically an open file).
     attrs : `dict`
         HTCondor job attributes (dictionary of attribute key, value).
@@ -581,7 +581,7 @@ def _htc_write_job_commands(stream, name, jobs):
 
     Parameters
     ----------
-    stream : `TextIOBase`
+    stream : `~io.TextIOBase`
         Writeable text stream (typically an opened file).
     name : `str`
         Job name.
@@ -717,7 +717,7 @@ class HTCJob:
 
         Parameters
         ----------
-        fh : `TextIOBase`
+        fh : `~io.TextIOBase`
             Output stream
         """
         printer = pprint.PrettyPrinter(indent=4, stream=fh)
@@ -773,9 +773,9 @@ class HTCDag(networkx.DiGraph):
         ----------
         job : `HTCJob`
             HTCJob to add to the HTCDag
-        parent_names : `Iterable` [`str`], optional
+        parent_names : `~collections.abc.Iterable` [`str`], optional
             Names of parent jobs
-        child_names : `Iterable` [`str`], optional
+        child_names : `~collections.abc.Iterable` [`str`], optional
             Names of child jobs
         """
         assert isinstance(job, HTCJob)
@@ -873,7 +873,7 @@ class HTCDag(networkx.DiGraph):
 
         Parameters
         ----------
-        fh : `IO` or `str`
+        fh : `io.IO` or `str`
             Where to dump DAG info as text.
         """
         for key, value in self.graph:
@@ -1291,7 +1291,7 @@ def read_dag_log(wms_path):
     -------
     wms_workflow_id : `str`
         HTCondor job id (i.e., <ClusterId>.<ProcId>) of the DAGMan job.
-    dag_info : `dict` [`str`, `Any`]
+    dag_info : `dict` [`str`, `~collections.abc.Any`]
         HTCondor job information read from the log file mapped to HTCondor
         job id.
 
