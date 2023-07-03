@@ -1659,7 +1659,7 @@ def _wms_id_to_cluster(wms_id):
     elif id_type == WmsIdType.PATH:
         try:
             job_info = read_dag_info(wms_id)
-        except (FileNotFoundError, PermissionError, IOError):
+        except (FileNotFoundError, PermissionError, OSError):
             pass
         else:
             schedd_name = next(iter(job_info))

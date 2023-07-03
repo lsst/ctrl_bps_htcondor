@@ -1396,7 +1396,7 @@ def read_dag_info(wms_path):
     try:
         with open(filename) as fh:
             dag_info = json.load(fh)
-    except (IOError, PermissionError) as exc:
+    except (OSError, PermissionError) as exc:
         _LOG.debug("Retrieving DAGMan job information failed: %s", exc)
         dag_info = {}
     return dag_info
@@ -1423,7 +1423,7 @@ def write_dag_info(filename, dag_info):
                 }
             }
             json.dump(info, fh)
-    except (KeyError, IOError, PermissionError) as exc:
+    except (KeyError, OSError, PermissionError) as exc:
         _LOG.debug("Persisting DAGMan job information failed: %s", exc)
 
 
@@ -1506,6 +1506,6 @@ def htc_check_dagman_output(wms_path):
                     last_submit_failed = m.group(1)
         if last_submit_failed:
             message = f"Warn: Job submission issues (last: {last_submit_failed})"
-    except (IOError, PermissionError):
+    except (OSError, PermissionError):
         message = f"Warn: Could not read dagman output file from {wms_path}."
     return message
