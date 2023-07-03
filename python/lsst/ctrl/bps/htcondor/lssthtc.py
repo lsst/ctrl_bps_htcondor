@@ -559,7 +559,7 @@ def htc_create_submit_from_file(submit_file):
         An object representing a job submit description.
     """
     descriptors = {}
-    with open(submit_file, "r") as fh:
+    with open(submit_file) as fh:
         for line in fh:
             line = line.strip()
             if not line.startswith("#") and not line == "queue":
@@ -1091,7 +1091,7 @@ def summary_from_dag(dir_name):
     counts = defaultdict(int)
     job_name_to_pipetask = {}
     try:
-        with open(dag, "r") as fh:
+        with open(dag) as fh:
             for line in fh:
                 if line.startswith("JOB"):
                     m = re.match(r"JOB ([^\s]+) jobs/([^/]+)/", line)
@@ -1171,7 +1171,7 @@ def read_dag_status(wms_path):
         try:
             node_stat_file = next(Path(wms_path).glob("*.node_status"))
             _LOG.debug("Reading Node Status File %s", node_stat_file)
-            with open(node_stat_file, "r") as infh:
+            with open(node_stat_file) as infh:
                 dag_ad = classad.parseNext(infh)  # pylint: disable=E1101
         except StopIteration:
             pass
@@ -1180,7 +1180,7 @@ def read_dag_status(wms_path):
             # Pegasus check here
             try:
                 metrics_file = next(Path(wms_path).glob("*.dag.metrics"))
-                with open(metrics_file, "r") as infh:
+                with open(metrics_file) as infh:
                     metrics = json.load(infh)
                 dag_ad["NodesTotal"] = metrics.get("jobs", 0)
                 dag_ad["NodesFailed"] = metrics.get("jobs_failed", 0)
@@ -1189,7 +1189,7 @@ def read_dag_status(wms_path):
             except StopIteration:
                 try:
                     metrics_file = next(Path(wms_path).glob("*.metrics"))
-                    with open(metrics_file, "r") as infh:
+                    with open(metrics_file) as infh:
                         metrics = json.load(infh)
                     dag_ad["NodesTotal"] = metrics["wf_metrics"]["total_jobs"]
                     dag_ad["pegasus_version"] = metrics.get("version", "")
@@ -1236,7 +1236,7 @@ def read_node_status(wms_path):
     jobs = {}
     fake_id = -1.0  # For nodes that do not yet have a job id, give fake one
     try:
-        with open(node_status, "r") as fh:
+        with open(node_status) as fh:
             ads = classad.parseAds(fh)
 
             for jclassad in ads:
@@ -1498,7 +1498,7 @@ def htc_check_dagman_output(wms_path):
 
     message = ""
     try:
-        with open(filename, "r") as fh:
+        with open(filename) as fh:
             last_submit_failed = ""
             for line in fh:
                 m = re.match(r"(\d\d/\d\d/\d\d \d\d:\d\d:\d\d) Job submit try \d+/\d+ failed", line)
