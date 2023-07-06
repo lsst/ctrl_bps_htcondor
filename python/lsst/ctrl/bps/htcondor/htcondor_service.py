@@ -1308,7 +1308,7 @@ def _add_run_info(wms_path, job):
     else:
         _LOG.debug("_add_run_info: subfile = %s", subfile)
         try:
-            with open(subfile, "r", encoding="utf-8") as fh:
+            with open(subfile, encoding="utf-8") as fh:
                 for line in fh:
                     if line.startswith("+bps_"):
                         m = re.match(r"\+(bps_[^\s]+)\s*=\s*(.+)$", line)
@@ -1659,7 +1659,7 @@ def _wms_id_to_cluster(wms_id):
     elif id_type == WmsIdType.PATH:
         try:
             job_info = read_dag_info(wms_id)
-        except (FileNotFoundError, PermissionError, IOError):
+        except (FileNotFoundError, PermissionError, OSError):
             pass
         else:
             schedd_name = next(iter(job_info))

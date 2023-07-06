@@ -197,7 +197,7 @@ class RestrictedDict(MutableMapping):
         self.update(init_data)
 
     def __getitem__(self, key):
-        """Returns value for given key if exists.
+        """Return value for given key if exists.
 
         Parameters
         ----------
@@ -206,7 +206,7 @@ class RestrictedDict(MutableMapping):
 
         Returns
         -------
-        value : `Any`
+        value : `~collections.abc.Any`
             Value associated with given key.
 
         Raises
@@ -217,7 +217,7 @@ class RestrictedDict(MutableMapping):
         return self.data[key]
 
     def __delitem__(self, key):
-        """Deletes value for given key if exists.
+        """Delete value for given key if exists.
 
         Parameters
         ----------
@@ -232,13 +232,13 @@ class RestrictedDict(MutableMapping):
         del self.data[key]
 
     def __setitem__(self, key, value):
-        """Stores key,value in internal dict only if key is valid
+        """Store key,value in internal dict only if key is valid.
 
         Parameters
         ----------
         key : `str`
             Identifier to associate with given value.
-        value : `Any`
+        value : `~collections.abc.Any`
             Value to store.
 
         Raises
@@ -353,12 +353,12 @@ def htc_escape(value):
 
     Parameters
     ----------
-    value : `Any`
+    value : `~collections.abc.Any`
         Value that needs to have characters escaped if string.
 
     Returns
     -------
-    new_value : `Any`
+    new_value : `~collections.abc.Any`
         Given value with characters escaped appropriate for HTCondor if string.
     """
     if isinstance(value, str):
@@ -374,10 +374,10 @@ def htc_write_attribs(stream, attrs):
 
     Parameters
     ----------
-    stream : `TextIOBase`
-        Output text stream (typically an open file)
+    stream : `~io.TextIOBase`
+        Output text stream (typically an open file).
     attrs : `dict`
-        HTCondor job attributes (dictionary of attribute key, value)
+        HTCondor job attributes (dictionary of attribute key, value).
     """
     for key, value in attrs.items():
         # Make sure strings are syntactically correct for HTCondor.
@@ -390,14 +390,14 @@ def htc_write_attribs(stream, attrs):
 
 
 def htc_write_condor_file(filename, job_name, job, job_attrs):
-    """Main function to write an HTCondor submit file.
+    """Write an HTCondor submit file.
 
     Parameters
     ----------
     filename : `str`
-        Filename for the HTCondor submit file
+        Filename for the HTCondor submit file.
     job_name : `str`
-        Job name to use in submit file
+        Job name to use in submit file.
     job : `RestrictedDict`
         Submit script information.
     job_attrs : `dict`
@@ -559,7 +559,7 @@ def htc_create_submit_from_file(submit_file):
         An object representing a job submit description.
     """
     descriptors = {}
-    with open(submit_file, "r") as fh:
+    with open(submit_file) as fh:
         for line in fh:
             line = line.strip()
             if not line.startswith("#") and not line == "queue":
@@ -581,7 +581,7 @@ def _htc_write_job_commands(stream, name, jobs):
 
     Parameters
     ----------
-    stream : `TextIOBase`
+    stream : `~io.TextIOBase`
         Writeable text stream (typically an opened file).
     name : `str`
         Job name.
@@ -717,7 +717,7 @@ class HTCJob:
 
         Parameters
         ----------
-        fh : `TextIOBase`
+        fh : `~io.TextIOBase`
             Output stream
         """
         printer = pprint.PrettyPrinter(indent=4, stream=fh)
@@ -773,9 +773,9 @@ class HTCDag(networkx.DiGraph):
         ----------
         job : `HTCJob`
             HTCJob to add to the HTCDag
-        parent_names : `Iterable` [`str`], optional
+        parent_names : `~collections.abc.Iterable` [`str`], optional
             Names of parent jobs
-        child_names : `Iterable` [`str`], optional
+        child_names : `~collections.abc.Iterable` [`str`], optional
             Names of child jobs
         """
         assert isinstance(job, HTCJob)
@@ -873,7 +873,7 @@ class HTCDag(networkx.DiGraph):
 
         Parameters
         ----------
-        fh : `IO` or `str`
+        fh : `io.IO` or `str`
             Where to dump DAG info as text.
         """
         for key, value in self.graph:
@@ -1091,7 +1091,7 @@ def summary_from_dag(dir_name):
     counts = defaultdict(int)
     job_name_to_pipetask = {}
     try:
-        with open(dag, "r") as fh:
+        with open(dag) as fh:
             for line in fh:
                 if line.startswith("JOB"):
                     m = re.match(r"JOB ([^\s]+) jobs/([^/]+)/", line)
@@ -1171,7 +1171,7 @@ def read_dag_status(wms_path):
         try:
             node_stat_file = next(Path(wms_path).glob("*.node_status"))
             _LOG.debug("Reading Node Status File %s", node_stat_file)
-            with open(node_stat_file, "r") as infh:
+            with open(node_stat_file) as infh:
                 dag_ad = classad.parseNext(infh)  # pylint: disable=E1101
         except StopIteration:
             pass
@@ -1180,7 +1180,7 @@ def read_dag_status(wms_path):
             # Pegasus check here
             try:
                 metrics_file = next(Path(wms_path).glob("*.dag.metrics"))
-                with open(metrics_file, "r") as infh:
+                with open(metrics_file) as infh:
                     metrics = json.load(infh)
                 dag_ad["NodesTotal"] = metrics.get("jobs", 0)
                 dag_ad["NodesFailed"] = metrics.get("jobs_failed", 0)
@@ -1189,7 +1189,7 @@ def read_dag_status(wms_path):
             except StopIteration:
                 try:
                     metrics_file = next(Path(wms_path).glob("*.metrics"))
-                    with open(metrics_file, "r") as infh:
+                    with open(metrics_file) as infh:
                         metrics = json.load(infh)
                     dag_ad["NodesTotal"] = metrics["wf_metrics"]["total_jobs"]
                     dag_ad["pegasus_version"] = metrics.get("version", "")
@@ -1236,7 +1236,7 @@ def read_node_status(wms_path):
     jobs = {}
     fake_id = -1.0  # For nodes that do not yet have a job id, give fake one
     try:
-        with open(node_status, "r") as fh:
+        with open(node_status) as fh:
             ads = classad.parseAds(fh)
 
             for jclassad in ads:
@@ -1291,7 +1291,7 @@ def read_dag_log(wms_path):
     -------
     wms_workflow_id : `str`
         HTCondor job id (i.e., <ClusterId>.<ProcId>) of the DAGMan job.
-    dag_info : `dict` [`str`, `Any`]
+    dag_info : `dict` [`str`, `~collections.abc.Any`]
         HTCondor job information read from the log file mapped to HTCondor
         job id.
 
@@ -1396,20 +1396,20 @@ def read_dag_info(wms_path):
     try:
         with open(filename) as fh:
             dag_info = json.load(fh)
-    except (IOError, PermissionError) as exc:
+    except (OSError, PermissionError) as exc:
         _LOG.debug("Retrieving DAGMan job information failed: %s", exc)
         dag_info = {}
     return dag_info
 
 
 def write_dag_info(filename, dag_info):
-    """Writes custom job information about DAGMan job.
+    """Write custom job information about DAGMan job.
 
     Parameters
     ----------
     filename : `str`
         Name of the file where the information will be stored.
-    dag_info : `dict` [`str` `dict` [`str` Any]]
+    dag_info : `dict` [`str` `dict` [`str`, Any]]
         Information about the DAGMan job.
     """
     schedd_name = next(iter(dag_info))
@@ -1423,7 +1423,7 @@ def write_dag_info(filename, dag_info):
                 }
             }
             json.dump(info, fh)
-    except (KeyError, IOError, PermissionError) as exc:
+    except (KeyError, OSError, PermissionError) as exc:
         _LOG.debug("Persisting DAGMan job information failed: %s", exc)
 
 
@@ -1498,7 +1498,7 @@ def htc_check_dagman_output(wms_path):
 
     message = ""
     try:
-        with open(filename, "r") as fh:
+        with open(filename) as fh:
             last_submit_failed = ""
             for line in fh:
                 m = re.match(r"(\d\d/\d\d/\d\d \d\d:\d\d:\d\d) Job submit try \d+/\d+ failed", line)
@@ -1506,6 +1506,6 @@ def htc_check_dagman_output(wms_path):
                     last_submit_failed = m.group(1)
         if last_submit_failed:
             message = f"Warn: Job submission issues (last: {last_submit_failed})"
-    except (IOError, PermissionError):
+    except (OSError, PermissionError):
         message = f"Warn: Could not read dagman output file from {wms_path}."
     return message
