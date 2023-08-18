@@ -1026,7 +1026,7 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
         # This is to cover the situation in which the user provided the old job
         # id of a restarted run.
         try:
-            path_dag_id, path_dag_ad = read_dag_log(dag_ad["Iwd"])
+            path_dag_id, _ = read_dag_log(dag_ad["Iwd"])
         except FileNotFoundError as exc:
             # At the moment missing DAGMan log is pretty much a fatal error.
             # So empty the DAG info to finish early (see the if statement
@@ -1513,6 +1513,7 @@ def _get_state_counts_from_dag_job(job):
             WmsStates.HELD: job.get("JobProcsHeld", 0),
             WmsStates.SUCCEEDED: job.get("DAG_NodesDone", 0),
             WmsStates.FAILED: job.get("DAG_NodesFailed", 0),
+            WmsStates.PRUNED: job.get("DAG_NodesFutile", 0),
             WmsStates.MISFIT: job.get("DAG_NodesPre", 0) + job.get("DAG_NodesPost", 0),
         }
         total_jobs = job.get("DAG_NodesTotal")
@@ -1524,6 +1525,7 @@ def _get_state_counts_from_dag_job(job):
             WmsStates.HELD: job.get("JobProcsHeld", 0),
             WmsStates.SUCCEEDED: job.get("NodesDone", 0),
             WmsStates.FAILED: job.get("NodesFailed", 0),
+            WmsStates.PRUNED: job.get("NodesFutile", 0),
             WmsStates.MISFIT: job.get("NodesPre", 0) + job.get("NodesPost", 0),
         }
         try:
@@ -1620,32 +1622,29 @@ def _htc_node_status_to_wms_state(job):
         The equivalent WmsState to given node's status.
     """
     wms_state = WmsStates.MISFIT
-
-    status = job["NodeStatus"]
-    if status == NodeStatus.NOT_READY:
-        wms_state = WmsStates.UNREADY
-    elif status == NodeStatus.READY:
-        wms_state = WmsStates.READY
-    elif status == NodeStatus.PRERUN:
-        wms_state = WmsStates.MISFIT
-    elif status == NodeStatus.SUBMITTED:
-        if job["JobProcsHeld"]:
-            wms_state = WmsStates.HELD
-        elif job["StatusDetails"] == "not_idle":
-            wms_state = WmsStates.RUNNING
-        elif job["JobProcsQueued"]:
-            wms_state = WmsStates.PENDING
-    elif status == NodeStatus.POSTRUN:
-        wms_state = WmsStates.MISFIT
-    elif status == NodeStatus.DONE:
-        wms_state = WmsStates.SUCCEEDED
-    elif status == NodeStatus.ERROR:
-        # Use job exist instead of post script exit
-        if "DAGMAN error 0" in job["StatusDetails"]:
+    match job["NodeStatus"]:
+        case NodeStatus.NOT_READY:
+            wms_state = WmsStates.UNREADY
+        case NodeStatus.READY:
+            wms_state = WmsStates.READY
+        case NodeStatus.PRERUN:
+            wms_state = WmsStates.MISFIT
+        case NodeStatus.SUBMITTED:
+            if job["JobProcsHeld"]:
+                wms_state = WmsStates.HELD
+            elif job["StatusDetails"] == "not_idle":
+                wms_state = WmsStates.RUNNING
+            elif job["JobProcsQueued"]:
+                wms_state = WmsStates.PENDING
+        case NodeStatus.POSTRUN:
+            wms_state = WmsStates.MISFIT
+        case NodeStatus.DONE:
             wms_state = WmsStates.SUCCEEDED
-        else:
-            wms_state = WmsStates.FAILED
-
+        case NodeStatus.ERROR:
+            # Use job exit status instead of post script exit status.
+            wms_state = WmsStates.SUCCEEDED if "DAGMAN error 0" in job["StatusDetails"] else WmsStates.FAILED
+        case NodeStatus.FUTILE:
+            wms_state = WmsStates.PRUNED
     return wms_state
 
 
