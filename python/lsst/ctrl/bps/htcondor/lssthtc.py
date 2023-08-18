@@ -149,6 +149,9 @@ class NodeStatus(IntEnum):
     # ULOG_JOB_ABORTED for deleted job).
     ERROR = 6
 
+    # (STATUS_FUTILE): The node will never run because ancestor node failed.
+    FUTILE = 7
+
 
 HTC_QUOTE_KEYS = {"environment"}
 HTC_VALID_JOB_KEYS = {
