@@ -1652,12 +1652,7 @@ def _wms_id_to_cluster(wms_id):
         constraint = f'GlobalJobId == "{wms_id}"'
         schedd_ads = {ad["Name"]: ad for ad in coll.locateAll(htcondor.DaemonTypes.Schedd)}
         schedds = [htcondor.Schedd(ad) for ad in schedd_ads.values()]
-        queries = [schedd.xquery(constraint=constraint, projection=["ClusterId"]) for schedd in schedds]
-        results = {
-            query.tag(): dict(ads[0])
-            for query in htcondor.poll(queries)
-            if (ads := query.nextAdsNonBlocking())
-        }
+        results = dict(condor_q(constraint=constraint, schedds=schedds, projection=["ClusterId"]))
         if results:
             schedd_name = next(iter(results))
             schedd_ad = schedd_ads[schedd_name]
