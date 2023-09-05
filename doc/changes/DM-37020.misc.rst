@@ -1,1 +1,1 @@
-Replace ``requirements`` with ``constraint`` in selected HTCondor API calls to eliminate deprecation warnings when using ``bps report``.
+Handle changes between different version of HTCondor Python API gracefully so deprecation warnings don't pop up when using ``bps report``.
