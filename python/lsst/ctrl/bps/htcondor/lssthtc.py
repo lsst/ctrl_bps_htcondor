@@ -444,7 +444,8 @@ if HTC_VER < Version("8.9.8"):
         The old arguments: 'requirements' and 'attr_list' of
         'Schedd.history()', 'Schedd.query()', and 'Schedd.xquery()' were
         deprecated in favor of 'constraint' and 'projection', respectively,
-        starting from version 8.9.8.
+        starting from version 8.9.8.  The function will convert "new" keyword
+        arguments to "old" ones.
 
         Parameters
         ----------
@@ -457,6 +458,13 @@ if HTC_VER < Version("8.9.8"):
         kwargs : `dict` [`str`, Any]
              Keywords arguments that are guaranteed to work with the Python
              HTCondor API.
+
+        Notes
+        -----
+        Function doesn't validate provided keyword arguments beyond converting
+        selected arguments to their version specific form. For example,
+        it won't remove keywords that are not supported by the methods
+        mentioned earlier.
         """
         translation_table = {
             "constraint": "requirements",
@@ -1022,7 +1030,7 @@ class HTCDag(networkx.DiGraph):
 
 
 def condor_q(constraint=None, schedds=None, **kwargs):
-    """Get information about running jobs from HTCondor.
+    """Get information about the jobs in the HTCondor job queue(s).
 
     Parameters
     ----------
@@ -1046,7 +1054,7 @@ def condor_q(constraint=None, schedds=None, **kwargs):
 
 
 def condor_history(constraint=None, schedds=None, **kwargs):
-    """Get information about completed jobs from HTCondor history.
+    """Get information about the jobs from HTCondor history records.
 
     Parameters
     ----------
