@@ -431,6 +431,11 @@ def htc_write_condor_file(filename, job_name, job, job_attrs):
         print("queue", file=fh)
 
 
+# To avoid doing the version check during every function call select
+# appropriate conversion function at the import time.
+#
+# Make sure that *each* version specific variant of the conversion function(s)
+# has the same signature after applying any changes!
 if HTC_VER < Version("8.9.8"):
 
     def htc_tune_schedd_args(**kwargs):
