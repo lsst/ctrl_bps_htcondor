@@ -85,7 +85,7 @@ from pathlib import Path
 import classad
 import htcondor
 import networkx
-from packaging.version import Version, parse
+from packaging import version
 
 _LOG = logging.getLogger(__name__)
 
@@ -182,7 +182,7 @@ HTC_VALID_JOB_KEYS = {
     "accounting_group_user",
 }
 HTC_VALID_JOB_DAG_KEYS = {"vars", "pre", "post", "retry", "retry_unless_exit", "abort_dag_on", "abort_exit"}
-HTC_VER = parse(htcondor.__version__)
+HTC_VERSION = version.parse(htcondor.__version__)
 
 
 class RestrictedDict(MutableMapping):
@@ -436,7 +436,7 @@ def htc_write_condor_file(filename, job_name, job, job_attrs):
 #
 # Make sure that *each* version specific variant of the conversion function(s)
 # has the same signature after applying any changes!
-if HTC_VER < Version("8.9.8"):
+if HTC_VERSION < version.parse("8.9.8"):
 
     def htc_tune_schedd_args(**kwargs):
         """Ensure that arguments for Schedd are version appropriate.
@@ -557,18 +557,8 @@ def htc_version():
     -------
     version : `str`
         HTCondor version as easily comparable string.
-
-    Raises
-    ------
-    RuntimeError
-        Raised if fail to parse htcondor API string.
     """
-    # Example string returned by htcondor.version:
-    #    $CondorVersion: 8.8.6 Nov 13 2019 BuildID: 489199 PackageID: 8.8.6-1 $
-    version_info = re.match(r"\$CondorVersion: (\d+).(\d+).(\d+)", htcondor.version())
-    if version_info is None:
-        raise RuntimeError("Problems parsing condor version")
-    return f"{int(version_info.group(1))}.{int(version_info.group(2))}.{int(version_info.group(3))}"
+    return str(HTC_VERSION)
 
 
 def htc_submit_dag(sub):
