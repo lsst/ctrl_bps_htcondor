@@ -48,6 +48,8 @@ __all__ = [
     "htc_escape",
     "htc_write_attribs",
     "htc_write_condor_file",
+    "htc_query_history",
+    "htc_query_present",
     "htc_version",
     "htc_submit_dag",
     "condor_history",
@@ -83,6 +85,7 @@ from pathlib import Path
 import classad
 import htcondor
 import networkx
+from packaging import version
 
 _LOG = logging.getLogger(__name__)
 
@@ -179,6 +182,7 @@ HTC_VALID_JOB_KEYS = {
     "accounting_group_user",
 }
 HTC_VALID_JOB_DAG_KEYS = {"vars", "pre", "post", "retry", "retry_unless_exit", "abort_dag_on", "abort_exit"}
+HTC_VERSION = version.parse(htcondor.__version__)
 
 
 class RestrictedDict(MutableMapping):
@@ -427,6 +431,125 @@ def htc_write_condor_file(filename, job_name, job, job_attrs):
         print("queue", file=fh)
 
 
+# To avoid doing the version check during every function call select
+# appropriate conversion function at the import time.
+#
+# Make sure that *each* version specific variant of the conversion function(s)
+# has the same signature after applying any changes!
+if HTC_VERSION < version.parse("8.9.8"):
+
+    def htc_tune_schedd_args(**kwargs):
+        """Ensure that arguments for Schedd are version appropriate.
+
+        The old arguments: 'requirements' and 'attr_list' of
+        'Schedd.history()', 'Schedd.query()', and 'Schedd.xquery()' were
+        deprecated in favor of 'constraint' and 'projection', respectively,
+        starting from version 8.9.8.  The function will convert "new" keyword
+        arguments to "old" ones.
+
+        Parameters
+        ----------
+        **kwargs
+            Any keyword arguments that Schedd.history(), Schedd.query(), and
+            Schedd.xquery() accepts.
+
+        Returns
+        -------
+        kwargs : `dict` [`str`, Any]
+             Keywords arguments that are guaranteed to work with the Python
+             HTCondor API.
+
+        Notes
+        -----
+        Function doesn't validate provided keyword arguments beyond converting
+        selected arguments to their version specific form. For example,
+        it won't remove keywords that are not supported by the methods
+        mentioned earlier.
+        """
+        translation_table = {
+            "constraint": "requirements",
+            "projection": "attr_list",
+        }
+        for new, old in translation_table.items():
+            try:
+                kwargs[old] = kwargs.pop(new)
+            except KeyError:
+                pass
+        return kwargs
+
+else:
+
+    def htc_tune_schedd_args(**kwargs):
+        """Ensure that arguments for Schedd are version appropriate.
+
+        This is the fallback function if no version specific alteration are
+        necessary. Effectively, a no-op.
+
+        Parameters
+        ----------
+        **kwargs
+            Any keyword arguments that Schedd.history(), Schedd.query(), and
+            Schedd.xquery() accepts.
+
+        Returns
+        -------
+        kwargs : `dict` [`str`, Any]
+             Keywords arguments that were passed to the function.
+        """
+        return kwargs
+
+
+def htc_query_history(schedds, **kwargs):
+    """Fetch history records from the condor_schedd daemon.
+
+    Parameters
+    ----------
+    schedds : `htcondor.Schedd`
+        HTCondor schedulers which to query for job information.
+    **kwargs
+        Any keyword arguments that Schedd.history() accepts.
+
+    Yields
+    ------
+    schedd_name : `str`
+        Name of the HTCondor scheduler managing the job queue.
+    job_ad : `dict` [`str`, Any`]
+        HTCondor classad describing a job.
+    """
+    # If not set, provide defaults for positional arguments.
+    kwargs.setdefault("constraint", None)
+    kwargs.setdefault("projection", [])
+    kwargs = htc_tune_schedd_args(**kwargs)
+    for schedd_name, schedd in schedds.items():
+        for job_ad in schedd.history(**kwargs):
+            yield schedd_name, job_ad
+
+
+def htc_query_present(schedds, **kwargs):
+    """Query the condor_schedd daemon for job ads.
+
+    Parameters
+    ----------
+    schedds : `htcondor.Schedd`
+        HTCondor schedulers which to query for job information.
+    **kwargs
+        Any keyword arguments that Schedd.xquery() accepts.
+
+    Yields
+    ------
+    schedd_name : `str`
+        Name of the HTCondor scheduler managing the job queue.
+    job_ad : `dict` [`str`, Any`]
+        HTCondor classad describing a job.
+    """
+    kwargs = htc_tune_schedd_args(**kwargs)
+    queries = [schedd.xquery(**kwargs) for schedd in schedds.values()]
+    for query in htcondor.poll(queries):
+        schedd_name = query.tag()
+        for job_ad in query.nextAdsNonBlocking():
+            yield schedd_name, job_ad
+
+
 def htc_version():
     """Return the version given by the HTCondor API.
 
@@ -434,18 +557,8 @@ def htc_version():
     -------
     version : `str`
         HTCondor version as easily comparable string.
-
-    Raises
-    ------
-    RuntimeError
-        Raised if fail to parse htcondor API string.
     """
-    # Example string returned by htcondor.version:
-    #    $CondorVersion: 8.8.6 Nov 13 2019 BuildID: 489199 PackageID: 8.8.6-1 $
-    version_info = re.match(r"\$CondorVersion: (\d+).(\d+).(\d+)", htcondor.version())
-    if version_info is None:
-        raise RuntimeError("Problems parsing condor version")
-    return f"{int(version_info.group(1))}.{int(version_info.group(2))}.{int(version_info.group(3))}"
+    return str(HTC_VERSION)
 
 
 def htc_submit_dag(sub):
@@ -906,8 +1019,8 @@ class HTCDag(networkx.DiGraph):
         networkx.drawing.nx_pydot.write_dot(self, filename)
 
 
-def condor_q(constraint=None, schedds=None):
-    """Query HTCondor for current jobs.
+def condor_q(constraint=None, schedds=None, **kwargs):
+    """Get information about the jobs in the HTCondor job queue(s).
 
     Parameters
     ----------
@@ -916,6 +1029,9 @@ def condor_q(constraint=None, schedds=None):
     schedds : `dict` [`str`, `htcondor.Schedd`], optional
         HTCondor schedulers which to query for job information. If None
         (default), the query will be run against local scheduler only.
+    **kwargs:
+        Additional keyword arguments that need to be passed to the internal
+        query method.
 
     Returns
     -------
@@ -924,31 +1040,11 @@ def condor_q(constraint=None, schedds=None):
         Scheduler, local HTCondor job ids are mapped to their respective
         classads.
     """
-    if not schedds:
-        coll = htcondor.Collector()
-        schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
-        schedds = {schedd_ad["Name"]: htcondor.Schedd(schedd_ad)}
-
-    queries = [schedd.xquery(requirements=constraint) for schedd in schedds.values()]
-
-    job_info = {}
-    for query in htcondor.poll(queries):
-        schedd_name = query.tag()
-        job_info.setdefault(schedd_name, {})
-        for job_ad in query.nextAdsNonBlocking():
-            del job_ad["Environment"]
-            del job_ad["Env"]
-            id_ = f"{int(job_ad['ClusterId'])}.{int(job_ad['ProcId'])}"
-            job_info[schedd_name][id_] = dict(job_ad)
-    _LOG.debug("condor_q returned %d jobs", sum(len(val) for val in job_info.values()))
-
-    # When returning the results filter out entries for schedulers with no jobs
-    # matching the search criteria.
-    return {key: val for key, val in job_info.items() if val}
+    return condor_query(constraint, schedds, htc_query_present, **kwargs)
 
 
-def condor_history(constraint=None, schedds=None):
-    """Get information about completed jobs from HTCondor history.
+def condor_history(constraint=None, schedds=None, **kwargs):
+    """Get information about the jobs from HTCondor history records.
 
     Parameters
     ----------
@@ -958,6 +1054,40 @@ def condor_history(constraint=None, schedds=None):
         HTCondor schedulers which to query for job information. If None
         (default), the query will be run against the history file of
         the local scheduler only.
+    **kwargs:
+        Additional keyword arguments that need to be passed to the internal
+        query method.
+
+    Returns
+    -------
+    job_info : `dict` [`str`, `dict` [`str`, `dict` [`str` Any]]]
+        Information about jobs satisfying the search criteria where for each
+        Scheduler, local HTCondor job ids are mapped to their respective
+        classads.
+    """
+    return condor_query(constraint, schedds, htc_query_history, **kwargs)
+
+
+def condor_query(constraint=None, schedds=None, query_func=htc_query_present, **kwargs):
+    """Get information about HTCondor jobs.
+
+    Parameters
+    ----------
+    constraint : `str`, optional
+        Constraints to be passed to job query.
+    schedds : `dict` [`str`, `htcondor.Schedd`], optional
+        HTCondor schedulers which to query for job information. If None
+        (default), the query will be run against the history file of
+        the local scheduler only.
+    query_func : callable
+        An query function which takes following arguments:
+
+        - ``schedds``: Schedulers to query (`list` [`htcondor.Schedd`]).
+        - ``**kwargs``: Keyword arguments that will be passed to the query
+          function.
+    **kwargs:
+        Additional keyword arguments that need to be passed to the query
+        method.
 
     Returns
     -------
@@ -971,15 +1101,13 @@ def condor_history(constraint=None, schedds=None):
         schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
         schedds = {schedd_ad["Name"]: htcondor.Schedd(schedd_ad)}
 
-    job_info = {}
-    for schedd_name, schedd in schedds.items():
-        job_info[schedd_name] = {}
-        for job_ad in schedd.history(requirements=constraint, projection=[]):
-            del job_ad["Environment"]
-            del job_ad["Env"]
-            id_ = f"{int(job_ad['ClusterId'])}.{int(job_ad['ProcId'])}"
-            job_info[schedd_name][id_] = dict(job_ad)
-    _LOG.debug("condor_history returned %d jobs", sum(len(val) for val in job_info.values()))
+    job_info = defaultdict(dict)
+    for schedd_name, job_ad in query_func(schedds, constraint=constraint, **kwargs):
+        del job_ad["Environment"]
+        del job_ad["Env"]
+        id_ = f"{int(job_ad['ClusterId'])}.{int(job_ad['ProcId'])}"
+        job_info[schedd_name][id_] = dict(job_ad)
+    _LOG.debug("query returned %d jobs", sum(len(val) for val in job_info.values()))
 
     # When returning the results filter out entries for schedulers with no jobs
     # matching the search criteria.

@@ -1,0 +1,1 @@
+Handle changes between different version of HTCondor Python API gracefully so deprecation warnings don't pop up when using ``bps report``.

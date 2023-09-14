@@ -25,10 +25,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-try:
-    from .htcondor_service import *
-    from .lssthtc import *
-except ImportError:
-    htcondor = None
-
+from .htcondor_service import *
+from .lssthtc import *
 from .version import *
