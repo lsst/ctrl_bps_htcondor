@@ -1515,6 +1515,7 @@ def read_dag_nodes_log(wms_path):
             info[id_] = {}
         info[id_].update(event)
         info[id_][f"{event.type.name.lower()}_time"] = event["EventTime"]
+    job_event_log.close()
 
     # Add more condor_q-like info to info parsed from log file.
     for job in info.values():
