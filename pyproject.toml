@@ -23,9 +23,9 @@ classifiers = [
 keywords = ["lsst"]
 dependencies = [
     "htcondor >= 8.8",
-    "lsst-ctrl-bps",
-    "lsst-daf-butler",
-    "lsst-utils"
+    "lsst-ctrl-bps >=26.0,<26.100",
+    "lsst-daf-butler >=26.0,<26.100",
+    "lsst-utils >=26.0,<26.100"
 ]
 dynamic = ["version"]
 
