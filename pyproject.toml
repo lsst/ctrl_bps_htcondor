@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lsst-ctrl-bps-htcondor"
+requires-python = ">=3.10.0"
 description = "HTCondor plugin for lsst-ctrl-bps."
 license = {text = "GPLv3+ License"}
 readme = "README.rst"
@@ -16,14 +17,15 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Topic :: Scientific/Engineering :: Astronomy",
 ]
 keywords = ["lsst"]
 dependencies = [
     "htcondor >= 8.8",
-    "lsst-ctrl-bps",
-    "lsst-daf-butler",
-    "lsst-utils"
+    "lsst-ctrl-bps >=26.0,<26.100",
+    "lsst-daf-butler >=26.0,<26.100",
+    "lsst-utils >=26.0,<26.100"
 ]
 dynamic = ["version"]
 
