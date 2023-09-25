@@ -1,3 +1,11 @@
+lsst-ctrl-bps-htcondor v26.0.0 (2023-09-25)
+===========================================
+
+No significant changes.
+This release includes minor code cleanups and reformatting.
+It has been verified to work with Python 3.11.
+
+
 lsst-ctrl-bps-htcondor v25.0.0 (2023-03-02)
 ===========================================
 
