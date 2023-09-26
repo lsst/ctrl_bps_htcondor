@@ -522,7 +522,7 @@ def htc_query_history(schedds, **kwargs):
     kwargs = htc_tune_schedd_args(**kwargs)
     for schedd_name, schedd in schedds.items():
         for job_ad in schedd.history(**kwargs):
-            yield schedd_name, job_ad
+            yield schedd_name, dict(job_ad)
 
 
 def htc_query_present(schedds, **kwargs):
@@ -547,7 +547,7 @@ def htc_query_present(schedds, **kwargs):
     for query in htcondor.poll(queries):
         schedd_name = query.tag()
         for job_ad in query.nextAdsNonBlocking():
-            yield schedd_name, job_ad
+            yield schedd_name, dict(job_ad)
 
 
 def htc_version():
@@ -1101,13 +1101,30 @@ def condor_query(constraint=None, schedds=None, query_func=htc_query_present, **
         schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
         schedds = {schedd_ad["Name"]: htcondor.Schedd(schedd_ad)}
 
+    # Make sure that 'ClusterId' and 'ProcId' attributes are always included
+    # in the job classad. They are needed to construct the job id.
+    added_attrs = set()
+    if "projection" in kwargs and kwargs["projection"]:
+        requested_attrs = set(kwargs["projection"])
+        required_attrs = {"ClusterId", "ProcId"}
+        added_attrs = required_attrs - requested_attrs
+        for attr in added_attrs:
+            kwargs["projection"].append(attr)
+
+    unwanted_attrs = {"Env", "Environment"} | added_attrs
     job_info = defaultdict(dict)
     for schedd_name, job_ad in query_func(schedds, constraint=constraint, **kwargs):
-        del job_ad["Environment"]
-        del job_ad["Env"]
-        id_ = f"{int(job_ad['ClusterId'])}.{int(job_ad['ProcId'])}"
-        job_info[schedd_name][id_] = dict(job_ad)
+        id_ = f"{job_ad['ClusterId']}.{job_ad['ProcId']}"
+        for attr in set(job_ad) & unwanted_attrs:
+            del job_ad[attr]
+        job_info[schedd_name][id_] = job_ad
     _LOG.debug("query returned %d jobs", sum(len(val) for val in job_info.values()))
+
+    # Restore the list of the requested attributes to its original value
+    # if needed.
+    if added_attrs:
+        for attr in added_attrs:
+            kwargs["projection"].remove(attr)
 
     # When returning the results filter out entries for schedulers with no jobs
     # matching the search criteria.
