@@ -513,8 +513,10 @@ def htc_query_history(schedds, **kwargs):
     ------
     schedd_name : `str`
         Name of the HTCondor scheduler managing the job queue.
-    job_ad : `dict` [`str`, Any`]
-        HTCondor classad describing a job.
+    job_ad : `dict` [`str`, Any]
+        A dictionary representing HTCondor ClassAd describing a job. It maps
+        job attributes names to values of the ClassAd expressions they
+        represent.
     """
     # If not set, provide defaults for positional arguments.
     kwargs.setdefault("constraint", None)
@@ -539,8 +541,10 @@ def htc_query_present(schedds, **kwargs):
     ------
     schedd_name : `str`
         Name of the HTCondor scheduler managing the job queue.
-    job_ad : `dict` [`str`, Any`]
-        HTCondor classad describing a job.
+    job_ad : `dict` [`str`, Any]
+        A dictionary representing HTCondor ClassAd describing a job. It maps
+        job attributes names to values of the ClassAd expressions they
+        represent.
     """
     kwargs = htc_tune_schedd_args(**kwargs)
     queries = [schedd.xquery(**kwargs) for schedd in schedds.values()]
