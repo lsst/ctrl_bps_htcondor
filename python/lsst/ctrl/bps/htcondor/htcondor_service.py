@@ -1651,20 +1651,21 @@ def _wms_id_to_cluster(wms_id):
     elif id_type == WmsIdType.GLOBAL:
         constraint = f'GlobalJobId == "{wms_id}"'
         schedd_ads = {ad["Name"]: ad for ad in coll.locateAll(htcondor.DaemonTypes.Schedd)}
-        schedds = [htcondor.Schedd(ad) for ad in schedd_ads.values()]
-        results = dict(condor_q(constraint=constraint, schedds=schedds, projection=["ClusterId"]))
-        if results:
-            schedd_name = next(iter(results))
+        schedds = {name: htcondor.Schedd(ad) for name, ad in schedd_ads.items()}
+        job_info = condor_q(constraint=constraint, schedds=schedds)
+        if job_info:
+            schedd_name, job_rec = job_info.popitem()
+            job_id, _ = job_rec.popitem()
             schedd_ad = schedd_ads[schedd_name]
-            cluster_id = results[schedd_name]["ClusterId"]
+            cluster_id = int(float(job_id))
     elif id_type == WmsIdType.PATH:
         try:
             job_info = read_dag_info(wms_id)
         except (FileNotFoundError, PermissionError, OSError):
             pass
         else:
-            schedd_name = next(iter(job_info))
-            job_id = next(iter(job_info[schedd_name]))
+            schedd_name, job_rec = job_info.popitem()
+            job_id, _ = job_rec.popitem()
             schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd, schedd_name)
             cluster_id = int(float(job_id))
     else:
