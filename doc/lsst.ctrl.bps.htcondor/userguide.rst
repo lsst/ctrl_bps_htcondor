@@ -149,6 +149,30 @@ See `bps restart`_.
 .. Describe any plugin specific aspects of restarting failed jobs below
    if any.
 
+A valid run id is one of the following:
+
+* job id, e.g., ``1234.0`` (using just the cluster id, ``1234``, will also
+  work),
+* global job id (e.g.,
+  ``sdfrome002.sdf.slac.stanford.edu#165725.0#1699393748``),
+* run's submit directory (e.g.,
+  ``/sdf/home/m/mxk/lsst/bps/submit/u/mxk/pipelines_check/20230713T135346Z``).
+
+.. note::
+
+   If you don't remember any of the run's id you may try running
+
+   .. code::
+
+      bps report --username <username> --hist <n>
+
+   where ``<username>`` and ``<n>`` are respectively your user account and the
+   number of past days you would like to include in your search.  Keep in mind
+   though that availability of the historical records depends on the HTCondor
+   configuration and the load of the computational resource in use.
+   Consequently, you may still get no results and using the submit directory
+   remains your only option.
+
 When execution of a workflow is managed by `HTCondor`_, the BPS is able to
 instruct it to automatically retry jobs which failed due to exceeding their
 memory allocation with increased memory requirements (see the documentation of
