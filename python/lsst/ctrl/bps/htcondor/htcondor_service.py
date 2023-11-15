@@ -58,6 +58,7 @@ from .lssthtc import (
     HTCJob,
     JobStatus,
     NodeStatus,
+    condor_history,
     condor_q,
     condor_search,
     condor_status,
@@ -196,9 +197,20 @@ class HTCondorService(BaseWmsService):
             A message describing any issues encountered during the restart.
             If there were no issues, an empty string is returned.
         """
-        wms_path = Path(wms_workflow_id)
-        if not wms_path.is_dir():
-            return None, None, f"Directory '{wms_path}' not found"
+        wms_path, id_type = _wms_id_to_dir(wms_workflow_id)
+        if wms_path is None:
+            return (
+                None,
+                None,
+                (
+                    f"workflow with run id '{wms_workflow_id}' not found. "
+                    f"Hint: use run's submit directory as the id instead"
+                ),
+            )
+
+        if id_type in {WmsIdType.GLOBAL, WmsIdType.LOCAL}:
+            if not wms_path.is_dir():
+                return None, None, f"submit directory '{wms_path}' for run id '{wms_workflow_id}' not found."
 
         _LOG.info("Restarting workflow from directory '%s'", wms_path)
         rescue_dags = list(wms_path.glob("*.dag.rescue*"))
@@ -206,7 +218,7 @@ class HTCondorService(BaseWmsService):
             return None, None, f"HTCondor rescue DAG(s) not found in '{wms_path}'"
 
         _LOG.info("Verifying that the workflow is not already in the job queue")
-        schedd_dag_info = condor_q(constraint=f'regexp("dagman$", Cmd) && Iwd == "{wms_workflow_id}"')
+        schedd_dag_info = condor_q(constraint=f'regexp("dagman$", Cmd) && Iwd == "{wms_path}"')
         if schedd_dag_info:
             _, dag_info = schedd_dag_info.popitem()
             _, dag_ad = dag_info.popitem()
@@ -1612,7 +1624,7 @@ def _wms_id_type(wms_id):
         int(float(wms_id))
     except ValueError:
         wms_path = Path(wms_id)
-        if wms_path.exists():
+        if wms_path.is_dir():
             id_type = WmsIdType.PATH
         else:
             id_type = WmsIdType.GLOBAL
@@ -1671,6 +1683,58 @@ def _wms_id_to_cluster(wms_id):
     else:
         pass
     return schedd_ad, cluster_id, id_type
+
+
+def _wms_id_to_dir(wms_id):
+    """Convert WMS id to a submit directory candidate.
+
+    The function does not check if the directory exists or if it is a valid
+    BPS submit directory.
+
+    Parameters
+    ----------
+    wms_id : `int` or `float` or `str`
+        HTCondor job id or path.
+
+    Returns
+    -------
+    wms_path : `pathlib.Path` or None
+        Submit directory candidate for the run with the given job id. If no
+        directory can be associated with the provided WMS id, it will be set
+        to None.
+    id_type : `lsst.ctrl.bps.wms.htcondor.IdType`
+        The type of the provided id.
+
+    Raises
+    ------
+    TypeError
+        Raised if provided WMS id has invalid type.
+    """
+    coll = htcondor.Collector()
+    schedd_ads = []
+
+    constraint = None
+    wms_path = None
+    id_type = _wms_id_type(wms_id)
+    match id_type:
+        case WmsIdType.LOCAL:
+            constraint = f"ClusterId == {int(float(wms_id))}"
+            schedd_ads.append(coll.locate(htcondor.DaemonTypes.Schedd))
+        case WmsIdType.GLOBAL:
+            constraint = f'GlobalJobId == "{wms_id}"'
+            schedd_ads.extend(coll.locateAll(htcondor.DaemonTypes.Schedd))
+        case WmsIdType.PATH:
+            wms_path = Path(wms_id)
+        case WmsIdType.UNKNOWN:
+            raise TypeError(f"Invalid job id type: {wms_id}")
+    if constraint is not None:
+        schedds = {ad["name"]: htcondor.Schedd(ad) for ad in schedd_ads}
+        job_info = condor_history(constraint=constraint, schedds=schedds, projection=["Iwd"])
+        if job_info:
+            _, job_rec = job_info.popitem()
+            _, job_ad = job_rec.popitem()
+            wms_path = Path(job_ad["Iwd"])
+    return wms_path, id_type
 
 
 def _create_periodic_release_expr(memory, multiplier, limit):
