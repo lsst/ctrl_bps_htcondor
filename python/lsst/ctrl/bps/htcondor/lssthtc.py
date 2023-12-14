@@ -752,7 +752,7 @@ class HTCJob:
     Parameters
     ----------
     name : `str`
-        Name of the job
+        Name of the job.
     label : `str`
         Label that can used for grouping or lookup.
     initcmds : `RestrictedDict`
@@ -790,7 +790,7 @@ class HTCJob:
         Parameters
         ----------
         new_commands : `dict`
-            DAG file commands to be added to Job
+            DAG file commands to be added to Job.
         """
         self.dagcmds.update(new_commands)
 
@@ -800,7 +800,7 @@ class HTCJob:
         Parameters
         ----------
         new_attrs : `dict`
-            Attributes to be added to Job
+            Attributes to be added to Job.
         """
         if self.attrs is None:
             self.attrs = {}
@@ -830,7 +830,7 @@ class HTCJob:
         Parameters
         ----------
         stream : `IO` or `str`
-            Output Stream
+            Output Stream.
         """
         print(f"JOB {self.name} {self.subfile}", file=stream)
         _htc_write_job_commands(stream, self.name, self.dagcmds)
@@ -841,7 +841,7 @@ class HTCJob:
         Parameters
         ----------
         fh : `~io.TextIOBase`
-            Output stream
+            Output stream.
         """
         printer = pprint.PrettyPrinter(indent=4, stream=fh)
         printer.pprint(self.name)
@@ -884,7 +884,7 @@ class HTCDag(networkx.DiGraph):
         Parameters
         ----------
         attribs : `dict`
-            DAG attributes
+            DAG attributes.
         """
         if attribs is not None:
             self.graph["attr"].update(attribs)
@@ -895,11 +895,11 @@ class HTCDag(networkx.DiGraph):
         Parameters
         ----------
         job : `HTCJob`
-            HTCJob to add to the HTCDag
+            HTCJob to add to the HTCDag.
         parent_names : `~collections.abc.Iterable` [`str`], optional
-            Names of parent jobs
+            Names of parent jobs.
         child_names : `~collections.abc.Iterable` [`str`], optional
-            Names of child jobs
+            Names of child jobs.
         """
         assert isinstance(job, HTCJob)
 
@@ -945,7 +945,7 @@ class HTCDag(networkx.DiGraph):
         Parameters
         ----------
         job_name : `str`
-            Name of job in DAG to delete
+            Name of job in DAG to delete.
         """
         # Reconnect edges around node to delete
         parents = self.predecessors(job_name)
@@ -1016,7 +1016,7 @@ class HTCDag(networkx.DiGraph):
         Parameters
         ----------
         filename : `str`
-            dot filename
+            Name of the dot file.
         """
         pos = networkx.nx_agraph.graphviz_layout(self)
         networkx.draw(self, pos=pos)
@@ -1033,7 +1033,7 @@ def condor_q(constraint=None, schedds=None, **kwargs):
     schedds : `dict` [`str`, `htcondor.Schedd`], optional
         HTCondor schedulers which to query for job information. If None
         (default), the query will be run against local scheduler only.
-    **kwargs:
+    **kwargs : `~typing.Any`
         Additional keyword arguments that need to be passed to the internal
         query method.
 
@@ -1058,7 +1058,7 @@ def condor_history(constraint=None, schedds=None, **kwargs):
         HTCondor schedulers which to query for job information. If None
         (default), the query will be run against the history file of
         the local scheduler only.
-    **kwargs:
+    **kwargs : `~typing.Any`
         Additional keyword arguments that need to be passed to the internal
         query method.
 
@@ -1089,7 +1089,7 @@ def condor_query(constraint=None, schedds=None, query_func=htc_query_present, **
         - ``schedds``: Schedulers to query (`list` [`htcondor.Schedd`]).
         - ``**kwargs``: Keyword arguments that will be passed to the query
           function.
-    **kwargs:
+    **kwargs : `~typing.Any`
         Additional keyword arguments that need to be passed to the query
         method.
 
@@ -1236,9 +1236,9 @@ def summary_from_dag(dir_name):
     -------
     summary : `str`
         Semi-colon separated list of job labels and counts.
-        (Same format as saved in dag classad.)
+        (Same format as saved in dag classad).
     job_name_to_pipetask : `dict` [`str`, `str`]
-        Mapping of job names to job labels
+        Mapping of job names to job labels.
     """
     dag = next(Path(dir_name).glob("*.dag"))
 
@@ -1306,7 +1306,7 @@ def pegasus_name_to_label(name):
 
 
 def read_dag_status(wms_path):
-    """Read the node status file for DAG summary information
+    """Read the node status file for DAG summary information.
 
     Parameters
     ----------

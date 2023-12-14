@@ -1071,7 +1071,7 @@ def _get_info_from_schedd(wms_workflow_id, hist, schedds):
     ----------
     wms_workflow_id : `str`
         Limit to specific run based on id.
-    hist :
+    hist : `int`
         Limit history search to this many days.
     schedds : `dict` [ `str`, `htcondor.Schedd` ], optional
         HTCondor schedulers which to query for job information. If None
