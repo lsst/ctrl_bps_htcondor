@@ -647,9 +647,9 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
     cached_vals : `dict` [`str`, `Any`]
         Config values common to jobs with same label.
     generic_workflow : `lsst.ctrl.bps.GenericWorkflow`
-       Generic workflow that contains job to being converted.
+        Generic workflow that contains job to being converted.
     gwjob : `lsst.ctrl.bps.GenericWorkflowJob`
-       Generic workflow job to be converted.
+        Generic workflow job to be converted.
 
     Returns
     -------
@@ -1071,7 +1071,7 @@ def _get_info_from_schedd(wms_workflow_id, hist, schedds):
     ----------
     wms_workflow_id : `str`
         Limit to specific run based on id.
-    hist :
+    hist : `int`
         Limit history search to this many days.
     schedds : `dict` [ `str`, `htcondor.Schedd` ], optional
         HTCondor schedulers which to query for job information. If None
