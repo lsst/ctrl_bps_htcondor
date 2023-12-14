@@ -647,9 +647,9 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
     cached_vals : `dict` [`str`, `Any`]
         Config values common to jobs with same label.
     generic_workflow : `lsst.ctrl.bps.GenericWorkflow`
-       Generic workflow that contains job to being converted.
+        Generic workflow that contains job to being converted.
     gwjob : `lsst.ctrl.bps.GenericWorkflowJob`
-       Generic workflow job to be converted.
+        Generic workflow job to be converted.
 
     Returns
     -------

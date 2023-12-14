@@ -456,8 +456,8 @@ if HTC_VERSION < version.parse("8.9.8"):
         Returns
         -------
         kwargs : `dict` [`str`, Any]
-             Keywords arguments that are guaranteed to work with the Python
-             HTCondor API.
+            Keywords arguments that are guaranteed to work with the Python
+            HTCondor API.
 
         Notes
         -----
@@ -494,7 +494,7 @@ else:
         Returns
         -------
         kwargs : `dict` [`str`, Any]
-             Keywords arguments that were passed to the function.
+            Keywords arguments that were passed to the function.
         """
         return kwargs
 
@@ -874,7 +874,7 @@ class HTCDag(networkx.DiGraph):
         Returns
         -------
         info : `str`
-           String containing basic DAG info.
+            String containing basic DAG info.
         """
         return f"{self.graph['name']} {len(self)}"
 
