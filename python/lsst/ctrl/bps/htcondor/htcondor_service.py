@@ -365,7 +365,15 @@ class HTCondorService(BaseWmsService):
         _LOG.debug("job_ids = %s", job_ids)
         return job_ids
 
-    def report(self, wms_workflow_id=None, user=None, hist=0, pass_thru=None, is_global=False):
+    def report(
+        self,
+        wms_workflow_id=None,
+        user=None,
+        hist=0,
+        pass_thru=None,
+        is_global=False,
+        return_exit_codes=False,
+    ):
         """Return run information based upon given constraints.
 
         Parameters
@@ -382,6 +390,13 @@ class HTCondorService(BaseWmsService):
             If set, all job queues (and their histories) will be queried for
             job information. Defaults to False which means that only the local
             job queue will be queried.
+        return_exit_codes : `bool`, optional
+            If set, return exit codes related to jobs with a
+            non-success status. Defaults to False, which means that only
+            the summary state is returned.
+
+            Only applicable in the context of a WMS with associated
+            handlers to return exit codes from jobs.
 
         Returns
         -------
