@@ -602,7 +602,6 @@ def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefi
         "universe": "vanilla",
         "should_transfer_files": "YES",
         "when_to_transfer_output": "ON_EXIT_OR_EVICT",
-        "transfer_output_files": '""',  # Set to empty string to disable
         "transfer_executable": "False",
         "getenv": "True",
         # Exceeding memory sometimes triggering SIGBUS or SIGSEGV error. Tell
@@ -622,6 +621,9 @@ def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefi
 
     htc_job_cmds.update(
         _handle_job_inputs(generic_workflow, gwjob.name, site_values["bpsUseShared"], out_prefix)
+    )
+    htc_job_cmds.update(
+        _handle_job_outputs(generic_workflow, gwjob.name, site_values["bpsUseShared"], out_prefix)
     )
 
     # Add the job cmds dict to the job object.
@@ -850,11 +852,8 @@ def _replace_file_vars(use_shared, arguments, workflow, gwjob):
             # responsible for transferring file.
             uri = gwfile.src_uri
         elif use_shared:
-            if gwfile.job_shared:
-                # Have shared filesystems and jobs can share file.
-                uri = gwfile.src_uri
-            else:
-                uri = os.path.basename(gwfile.src_uri)
+            # Have shared filesystems so can write directly
+            uri = gwfile.src_uri
         else:  # Using push transfer
             uri = os.path.basename(gwfile.src_uri)
         arguments = arguments.replace(f"<FILE:{gwfile.name}>", uri)
@@ -945,6 +944,46 @@ def _handle_job_inputs(generic_workflow: GenericWorkflow, job_name: str, use_sha
     if inputs:
         htc_commands["transfer_input_files"] = ",".join(inputs)
         _LOG.debug("transfer_input_files=%s", htc_commands["transfer_input_files"])
+    return htc_commands
+
+
+def _handle_job_outputs(generic_workflow: GenericWorkflow, job_name: str, use_shared: bool, out_prefix: str):
+    """Add job output files from generic workflow to job.
+
+    Parameters
+    ----------
+    generic_workflow : `lsst.ctrl.bps.GenericWorkflow`
+        The generic workflow (e.g., has executable name and arguments).
+    job_name : `str`
+        Unique name for the job.
+    use_shared : `bool`
+        Whether job has access to files via shared filesystem.
+    out_prefix : `str`
+        The root directory into which all WMS-specific files are written.
+
+    Returns
+    -------
+    htc_commands : `dict` [`str`, `str`]
+        HTCondor commands for the job submission script.
+    """
+    htc_commands = {}
+    outputs = []
+    output_remaps = []
+    for gwf_file in generic_workflow.get_job_outputs(job_name, data=True, transfer_only=True):
+        _LOG.debug("src_uri=%s", gwf_file.src_uri)
+
+        if not use_shared:  # Copy file using push to job
+            uri = Path(gwf_file.src_uri)
+            output_remaps.append(f"{uri.name}={str(uri.relative_to(out_prefix))}")
+            outputs.append(uri.name)
+
+    if outputs:
+        htc_commands["transfer_output_files"] = ",".join(outputs)
+        _LOG.debug("transfer_output_files=%s", htc_commands["transfer_output_files"])
+        htc_commands["transfer_output_remaps"] = ";".join(output_remaps)
+        _LOG.debug("transfer_output_remaps=%s", htc_commands["transfer_output_remaps"])
+    else:
+        htc_commands["transfer_output_files"] = '""'  # Set to empty string to disable
     return htc_commands
 
 
