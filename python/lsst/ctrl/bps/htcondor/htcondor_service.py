@@ -556,9 +556,9 @@ class HTCondorWorkflow(BaseWmsWorkflow):
                 out_prefix,
             )
             if "post" not in final_htjob.dagcmds:
-                final_htjob.dagcmds[
-                    "post"
-                ] = f"{os.path.dirname(__file__)}/final_post.sh {final.name} $DAG_STATUS $RETURN"
+                final_htjob.dagcmds["post"] = (
+                    f"{os.path.dirname(__file__)}/final_post.sh {final.name} $DAG_STATUS $RETURN"
+                )
             htc_workflow.dag.add_final_job(final_htjob)
         elif final and isinstance(final, GenericWorkflow):
             raise NotImplementedError("HTCondor plugin does not support a workflow as the final job")
