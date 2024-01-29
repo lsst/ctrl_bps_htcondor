@@ -1207,6 +1207,7 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
     """
     _LOG.debug("_create_detailed_report: id = %s, job = %s", wms_workflow_id, jobs[wms_workflow_id])
     dag_job = jobs[wms_workflow_id]
+    task_jobs = {job_id: job_ad for job_id, job_ad in jobs.items() if job_id != wms_workflow_id}
     report = WmsRunReport(
         wms_id=f"{dag_job['ClusterId']}.{dag_job['ProcId']}",
         global_wms_id=dag_job.get("GlobalJobId", "MISS"),
@@ -1222,20 +1223,20 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
         jobs=[],
         total_number_jobs=dag_job["total_jobs"],
         job_state_counts=dag_job["state_counts"],
+        exit_code_summary=_get_exit_code_summary(task_jobs),
     )
 
-    for job_id, job_info in jobs.items():
+    for job_id, job_info in task_jobs.items():
         try:
-            if job_info["ClusterId"] != int(float(wms_workflow_id)):
-                job_report = WmsJobReport(
-                    wms_id=job_id,
-                    name=job_info.get("DAGNodeName", job_id),
-                    label=job_info.get("bps_job_label", pegasus_name_to_label(job_info["DAGNodeName"])),
-                    state=_htc_status_to_wms_state(job_info),
-                )
-                if job_report.label == "init":
-                    job_report.label = "pipetaskInit"
-                report.jobs.append(job_report)
+            job_report = WmsJobReport(
+                wms_id=job_id,
+                name=job_info.get("DAGNodeName", job_id),
+                label=job_info.get("bps_job_label", pegasus_name_to_label(job_info["DAGNodeName"])),
+                state=_htc_status_to_wms_state(job_info),
+            )
+            if job_report.label == "init":
+                job_report.label = "pipetaskInit"
+            report.jobs.append(job_report)
         except KeyError as ex:
             _LOG.error("Job missing key '%s': %s", str(ex), job_info)
             raise
@@ -1404,6 +1405,36 @@ def _get_run_summary(job):
     if "pegasus_version" in job and "pegasus" not in summary:
         summary += ";pegasus:0"
 
+    return summary
+
+
+def _get_exit_code_summary(jobs):
+    """Get the exit code summary for a run.
+
+    Parameters
+    ----------
+    jobs : `dict` [`str`, `dict` [`str`, Any]]
+        Mapping HTCondor job id to job information.
+
+    Returns
+    -------
+    summary : `dict` [`str`, `list` [`int`]]
+        Jobs' exit codes per job label.
+    """
+    summary = {}
+    for job_id, job_ad in jobs.items():
+        job_label = job_ad["bps_job_label"]
+        summary.setdefault(job_label, [])
+        try:
+            if job_ad["JobStatus"] in {JobStatus.COMPLETED, JobStatus.HELD}:
+                try:
+                    exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
+                except KeyError:
+                    _LOG.debug("Cannot determine exit code for job '%s'", job_id)
+                else:
+                    summary[job_label].append(exit_code)
+        except KeyError:
+            _LOG.debug("Attribute 'JobStatus' not found in classad for job '%s'", job_id)
     return summary
 
 
