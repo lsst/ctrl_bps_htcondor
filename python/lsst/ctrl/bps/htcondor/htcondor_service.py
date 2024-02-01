@@ -365,7 +365,15 @@ class HTCondorService(BaseWmsService):
         _LOG.debug("job_ids = %s", job_ids)
         return job_ids
 
-    def report(self, wms_workflow_id=None, user=None, hist=0, pass_thru=None, is_global=False):
+    def report(
+        self,
+        wms_workflow_id=None,
+        user=None,
+        hist=0,
+        pass_thru=None,
+        is_global=False,
+        return_exit_codes=False,
+    ):
         """Return run information based upon given constraints.
 
         Parameters
@@ -382,6 +390,13 @@ class HTCondorService(BaseWmsService):
             If set, all job queues (and their histories) will be queried for
             job information. Defaults to False which means that only the local
             job queue will be queried.
+        return_exit_codes : `bool`, optional
+            If set, return exit codes related to jobs with a
+            non-success status. Defaults to False, which means that only
+            the summary state is returned.
+
+            Only applicable in the context of a WMS with associated
+            handlers to return exit codes from jobs.
 
         Returns
         -------
@@ -541,9 +556,9 @@ class HTCondorWorkflow(BaseWmsWorkflow):
                 out_prefix,
             )
             if "post" not in final_htjob.dagcmds:
-                final_htjob.dagcmds[
-                    "post"
-                ] = f"{os.path.dirname(__file__)}/final_post.sh {final.name} $DAG_STATUS $RETURN"
+                final_htjob.dagcmds["post"] = (
+                    f"{os.path.dirname(__file__)}/final_post.sh {final.name} $DAG_STATUS $RETURN"
+                )
             htc_workflow.dag.add_final_job(final_htjob)
         elif final and isinstance(final, GenericWorkflow):
             raise NotImplementedError("HTCondor plugin does not support a workflow as the final job")
@@ -1191,7 +1206,7 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
         id and the value is a collection of report information for that run.
     """
     _LOG.debug("_create_detailed_report: id = %s, job = %s", wms_workflow_id, jobs[wms_workflow_id])
-    dag_job = jobs[wms_workflow_id]
+    dag_job = jobs.pop(wms_workflow_id)
     report = WmsRunReport(
         wms_id=f"{dag_job['ClusterId']}.{dag_job['ProcId']}",
         global_wms_id=dag_job.get("GlobalJobId", "MISS"),
@@ -1207,23 +1222,27 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
         jobs=[],
         total_number_jobs=dag_job["total_jobs"],
         job_state_counts=dag_job["state_counts"],
+        exit_code_summary=_get_exit_code_summary(jobs),
     )
 
     for job_id, job_info in jobs.items():
         try:
-            if job_info["ClusterId"] != int(float(wms_workflow_id)):
-                job_report = WmsJobReport(
-                    wms_id=job_id,
-                    name=job_info.get("DAGNodeName", job_id),
-                    label=job_info.get("bps_job_label", pegasus_name_to_label(job_info["DAGNodeName"])),
-                    state=_htc_status_to_wms_state(job_info),
-                )
-                if job_report.label == "init":
-                    job_report.label = "pipetaskInit"
-                report.jobs.append(job_report)
+            job_report = WmsJobReport(
+                wms_id=job_id,
+                name=job_info.get("DAGNodeName", job_id),
+                label=job_info.get("bps_job_label", pegasus_name_to_label(job_info["DAGNodeName"])),
+                state=_htc_status_to_wms_state(job_info),
+            )
+            if job_report.label == "init":
+                job_report.label = "pipetaskInit"
+            report.jobs.append(job_report)
         except KeyError as ex:
             _LOG.error("Job missing key '%s': %s", str(ex), job_info)
             raise
+
+    # Add the removed entry to restore the original content of the dictionary.
+    # The ordering of keys will be change permanently though.
+    jobs.update({wms_workflow_id: dag_job})
 
     run_reports = {report.wms_id: report}
     _LOG.debug("_create_detailed_report: run_reports = %s", run_reports)
@@ -1389,6 +1408,48 @@ def _get_run_summary(job):
     if "pegasus_version" in job and "pegasus" not in summary:
         summary += ";pegasus:0"
 
+    return summary
+
+
+def _get_exit_code_summary(jobs):
+    """Get the exit code summary for a run.
+
+    Parameters
+    ----------
+    jobs : `dict` [`str`, `dict` [`str`, Any]]
+        Mapping HTCondor job id to job information.
+
+    Returns
+    -------
+    summary : `dict` [`str`, `list` [`int`]]
+        Jobs' exit codes per job label.
+    """
+    summary = {}
+    for job_id, job_ad in jobs.items():
+        job_label = job_ad["bps_job_label"]
+        summary.setdefault(job_label, [])
+        try:
+            exit_code = 0
+            job_status = job_ad["JobStatus"]
+            match job_status:
+                case JobStatus.COMPLETED:
+                    exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
+                case JobStatus.HELD:
+                    exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["HoldReasonCode"]
+                case (
+                    JobStatus.IDLE
+                    | JobStatus.RUNNING
+                    | JobStatus.REMOVED
+                    | JobStatus.TRANSFERRING_OUTPUT
+                    | JobStatus.SUSPENDED
+                ):
+                    pass
+                case _:
+                    _LOG.debug("Unknown 'JobStatus' value ('%d') in classad for job '%d'", job_status, job_id)
+            if exit_code != 0:
+                summary[job_label].append(exit_code)
+        except KeyError as ex:
+            _LOG.debug("Attribute '%s' not found in the classad for job '%s'", ex, job_id)
     return summary
 
 
