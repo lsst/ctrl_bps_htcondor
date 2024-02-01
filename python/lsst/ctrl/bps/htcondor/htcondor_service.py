@@ -1206,8 +1206,7 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
         id and the value is a collection of report information for that run.
     """
     _LOG.debug("_create_detailed_report: id = %s, job = %s", wms_workflow_id, jobs[wms_workflow_id])
-    dag_job = jobs[wms_workflow_id]
-    task_jobs = {job_id: job_ad for job_id, job_ad in jobs.items() if job_id != wms_workflow_id}
+    dag_job = jobs.pop(wms_workflow_id)
     report = WmsRunReport(
         wms_id=f"{dag_job['ClusterId']}.{dag_job['ProcId']}",
         global_wms_id=dag_job.get("GlobalJobId", "MISS"),
@@ -1223,10 +1222,10 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
         jobs=[],
         total_number_jobs=dag_job["total_jobs"],
         job_state_counts=dag_job["state_counts"],
-        exit_code_summary=_get_exit_code_summary(task_jobs),
+        exit_code_summary=_get_exit_code_summary(jobs),
     )
 
-    for job_id, job_info in task_jobs.items():
+    for job_id, job_info in jobs.items():
         try:
             job_report = WmsJobReport(
                 wms_id=job_id,
@@ -1240,6 +1239,10 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
         except KeyError as ex:
             _LOG.error("Job missing key '%s': %s", str(ex), job_info)
             raise
+
+    # Add the removed entry to restore the original content of the dictionary.
+    # The ordering of keys will be change permanently though.
+    jobs.update({wms_workflow_id: dag_job})
 
     run_reports = {report.wms_id: report}
     _LOG.debug("_create_detailed_report: run_reports = %s", run_reports)
