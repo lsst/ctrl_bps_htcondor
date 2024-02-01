@@ -1429,15 +1429,27 @@ def _get_exit_code_summary(jobs):
         job_label = job_ad["bps_job_label"]
         summary.setdefault(job_label, [])
         try:
-            if job_ad["JobStatus"] in {JobStatus.COMPLETED, JobStatus.HELD}:
-                try:
+            exit_code = 0
+            job_status = job_ad["JobStatus"]
+            match job_status:
+                case JobStatus.COMPLETED:
                     exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
-                except KeyError:
-                    _LOG.debug("Cannot determine exit code for job '%s'", job_id)
-                else:
-                    summary[job_label].append(exit_code)
-        except KeyError:
-            _LOG.debug("Attribute 'JobStatus' not found in classad for job '%s'", job_id)
+                case JobStatus.HELD:
+                    exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["HoldReasonCode"]
+                case (
+                    JobStatus.IDLE
+                    | JobStatus.RUNNING
+                    | JobStatus.REMOVED
+                    | JobStatus.TRANSFERRING_OUTPUT
+                    | JobStatus.SUSPENDED
+                ):
+                    pass
+                case _:
+                    _LOG.debug("Unknown 'JobStatus' value ('%d') in classad for job '%d'", job_status, job_id)
+            if exit_code != 0:
+                summary[job_label].append(exit_code)
+        except KeyError as ex:
+            _LOG.debug("Attribute '%s' not found in the classad for job '%s'", ex, job_id)
     return summary
 
 
