@@ -547,10 +547,8 @@ def htc_query_present(schedds, **kwargs):
         represent.
     """
     kwargs = htc_tune_schedd_args(**kwargs)
-    queries = [schedd.xquery(**kwargs) for schedd in schedds.values()]
-    for query in htcondor.poll(queries):
-        schedd_name = query.tag()
-        for job_ad in query.nextAdsNonBlocking():
+    for schedd_name, schedd in schedds.items():
+        for job_ad in schedd.query(**kwargs):
             yield schedd_name, dict(job_ad)
 
 
@@ -584,19 +582,16 @@ def htc_submit_dag(sub):
     schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
     schedd = htcondor.Schedd(schedd_ad)
 
-    jobs_ads = []
-    with schedd.transaction() as txn:
-        sub.queue(txn, ad_results=jobs_ads)
+    # If Schedd.submit() fails, the method will raise an exception. Usually,
+    # that implies issues with the HTCondor pool which BPS can't address.
+    # Hence, no effort is made to handle the exception.
+    submit_result = schedd.submit(sub)
 
-    # Submit.queue() above will raise RuntimeError if submission fails, so
-    # 'jobs_ads' should contain the ad at this point.
-    dag_ad = jobs_ads[0]
-
-    # Sadly, the ClassAd from Submit.queue() (see above) does not have
+    # Sadly, the ClassAd from Schedd.submit() (see above) does not have
     # 'GlobalJobId' so we need to run a regular query to get it anyway.
     schedd_name = schedd_ad["Name"]
     schedd_dag_info = condor_q(
-        constraint=f"ClusterId == {dag_ad['ClusterId']}", schedds={schedd_name: schedd}
+        constraint=f"ClusterId == {submit_result.cluster()}", schedds={schedd_name: schedd}
     )
     return schedd_dag_info
 
