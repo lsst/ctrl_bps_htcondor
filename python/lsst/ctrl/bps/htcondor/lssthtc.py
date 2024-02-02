@@ -547,10 +547,8 @@ def htc_query_present(schedds, **kwargs):
         represent.
     """
     kwargs = htc_tune_schedd_args(**kwargs)
-    queries = [schedd.xquery(**kwargs) for schedd in schedds.values()]
-    for query in htcondor.poll(queries):
-        schedd_name = query.tag()
-        for job_ad in query.nextAdsNonBlocking():
+    for schedd_name, schedd in schedds.items():
+        for job_ad in schedd.query(**kwargs):
             yield schedd_name, dict(job_ad)
 
 
