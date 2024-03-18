@@ -868,6 +868,7 @@ class HTCDag(networkx.DiGraph):
         self.graph["run_id"] = None
         self.graph["submit_path"] = None
         self.graph["final_job"] = None
+        self.graph["service_job"] = None
 
     def __str__(self):
         """Represent basic DAG info as string.
@@ -940,6 +941,19 @@ class HTCDag(networkx.DiGraph):
 
         self.graph["final_job"] = job
 
+    def add_service_job(self, job):
+        """Add an HTCJob for the SERVICE job in HTCDag.
+
+        Parameters
+        ----------
+        job : `HTCJob`
+            HTCJob to add to the HTCDag as a FINAL job.
+        """
+        # Add dag level attributes to each job
+        job.add_job_attrs(self.graph["attr"])
+
+        self.graph["service_job"] = job
+
     def del_job(self, job_name):
         """Delete the job from the DAG.
 
@@ -983,14 +997,19 @@ class HTCDag(networkx.DiGraph):
             for key, value in self.graph["attr"].items():
                 print(f'SET_JOB_ATTR {key}= "{htc_escape(value)}"', file=fh)
 
-            if self.graph["final_job"]:
-                job = self.graph["final_job"]
-                job.write_submit_file(submit_path, job_subdir)
-                print(f"FINAL {job.name} {job.subfile}", file=fh)
-                if "pre" in job.dagcmds:
-                    print(f"SCRIPT PRE {job.name} {job.dagcmds['pre']}", file=fh)
-                if "post" in job.dagcmds:
-                    print(f"SCRIPT POST {job.name} {job.dagcmds['post']}", file=fh)
+            # Add special nodes if any.
+            special_jobs = {
+                "FINAL": self.graph["final_job"],
+                "SERVICE": self.graph["service_job"],
+            }
+            for cmd, job in special_jobs.items():
+                if job is not None:
+                    job.write_submit_file(submit_path, job_subdir)
+                    print(f"{cmd} {job.name} {job.subfile}", file=fh)
+                    if "pre" in job.dagcmds:
+                        print(f"SCRIPT PRE {job.name} {job.dagcmds['pre']}", file=fh)
+                    if "post" in job.dagcmds:
+                        print(f"SCRIPT POST {job.name} {job.dagcmds['post']}", file=fh)
 
     def dump(self, fh):
         """Dump DAG info to output stream.
