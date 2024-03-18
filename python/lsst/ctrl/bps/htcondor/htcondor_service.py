@@ -80,6 +80,7 @@ from .lssthtc import (
     summary_from_dag,
     write_dag_info,
 )
+from .provisioner import Provisioner
 
 
 class WmsIdType(IntEnum):
@@ -146,6 +147,17 @@ class HTCondorService(BaseWmsService):
                 out_prefix,
                 f"{self.__class__.__module__}.{self.__class__.__name__}",
             )
+
+            _, enable_provisioning = config.search("provisionResources")
+            if enable_provisioning:
+                search_opts = {
+                    "expandVars": True,
+                    "searchobj": self.config["provisioningJob"],
+                }
+                provisioner = Provisioner(config, search_opts=search_opts)
+                provisioner.configure("condor-info.py", prefix=Path.home() / ".lsst")
+                provisioner.prepare("provisioning_job.bash", prefix=out_prefix)
+                provisioner.provision(workflow.dag)
 
         with time_this(
             log=_LOG, level=logging.INFO, prefix=None, msg="Completed writing out HTCondor workflow"
