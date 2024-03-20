@@ -1363,7 +1363,12 @@ def read_node_status(wms_path):
     Returns
     -------
     jobs : `dict` [`str`, Any]
-        DAG summary information.
+        DAG summary information compiled from the node status file combined
+        with the information found in the node event log.
+
+        Currently, if the same job attribute is found in both files, its value
+        from the event log take precedence over the value from the node status
+        file.
     """
     # Get jobid info from other places to fill in gaps in info from node_status
     _, job_name_to_pipetask = summary_from_dag(wms_path)
@@ -1411,7 +1416,7 @@ def read_node_status(wms_path):
 
                     # Make job info as if came from condor_q
                     if jclassad["Node"] in job_name_to_id:
-                        job_id = job_name_to_id[jclassad["Node"]]
+                        job_id = str(job_name_to_id[jclassad["Node"]])
                     else:
                         job_id = str(fake_id)
                         fake_id -= 1
@@ -1422,7 +1427,11 @@ def read_node_status(wms_path):
                     job["DAGNodeName"] = jclassad["Node"]
                     job["bps_job_label"] = label
 
-                    jobs[str(job_id)] = job
+                    jobs[job_id] = job
+                    try:
+                        jobs[job_id] |= loginfo[job_id]
+                    except KeyError:
+                        pass
     except (OSError, PermissionError):
         pass
 
@@ -1596,18 +1605,15 @@ def _tweak_log_info(filename, job):
         job["Owner"] = filename.owner()
         if job["MyType"] == "ExecuteEvent":
             job["JobStatus"] = JobStatus.RUNNING
-        elif job["MyType"] == "JobTerminatedEvent" or job["MyType"] == "PostScriptTerminatedEvent":
+        elif job["MyType"] in {"JobTerminatedEvent", "PostScriptTerminatedEvent"}:
             job["JobStatus"] = JobStatus.COMPLETED
             try:
-                if not job["TerminatedNormally"]:
-                    if "ReturnValue" in job:
-                        job["ExitCode"] = job["ReturnValue"]
-                        job["ExitBySignal"] = False
-                    elif "TerminatedBySignal" in job:
-                        job["ExitBySignal"] = True
-                        job["ExitSignal"] = job["TerminatedBySignal"]
-                    else:
-                        _LOG.warning("Could not determine exit status for completed job: %s", job)
+                if job["TerminatedNormally"]:
+                    job["ExitBySignal"] = False
+                    job["ExitCode"] = job["ReturnValue"]
+                else:
+                    job["ExitBySignal"] = True
+                    job["ExitSignal"] = job["TerminatedBySignal"]
             except KeyError as ex:
                 _LOG.error("Could not determine exit status for job (missing %s): %s", str(ex), job)
         elif job["MyType"] == "SubmitEvent":
