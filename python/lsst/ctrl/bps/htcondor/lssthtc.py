@@ -1603,25 +1603,47 @@ def _tweak_log_info(filename, job):
         job["ProcId"] = job["Proc"]
         job["Iwd"] = str(filename.parent)
         job["Owner"] = filename.owner()
-        if job["MyType"] == "ExecuteEvent":
-            job["JobStatus"] = JobStatus.RUNNING
-        elif job["MyType"] in {"JobTerminatedEvent", "PostScriptTerminatedEvent"}:
-            job["JobStatus"] = JobStatus.COMPLETED
+
+        match job["MyType"]:
+            case "ExecuteEvent":
+                job["JobStatus"] = JobStatus.RUNNING
+            case "JobTerminatedEvent" | "PostScriptTerminatedEvent":
+                job["JobStatus"] = JobStatus.COMPLETED
+            case "SubmitEvent":
+                job["JobStatus"] = JobStatus.IDLE
+            case "JobAbortedEvent":
+                job["JobStatus"] = JobStatus.REMOVED
+            case "JobHeldEvent":
+                job["JobStatus"] = JobStatus.HELD
+            case _:
+                _LOG.debug("Unknown log event type: %s", job["MyType"])
+
+        if "JobStatus" in job and job["JobStatus"] in {JobStatus.COMPLETED, JobStatus.HELD}:
             try:
-                if job["TerminatedNormally"]:
-                    job["ExitBySignal"] = False
-                    job["ExitCode"] = job["ReturnValue"]
+                toe = job["ToE"]
+            except KeyError:
+                _LOG.debug(
+                    "Ticket of execution (ToE) not available for job '%s.%s', "
+                    "attempting to determine the exit status base on other attributes",
+                    job["ClusterId"],
+                    job["ProcId"],
+                )
+                try:
+                    if job["TerminatedNormally"]:
+                        job["ExitBySignal"] = False
+                        job["ExitCode"] = job["ReturnValue"]
+                    else:
+                        job["ExitBySignal"] = True
+                        job["ExitSignal"] = job["TerminatedBySignal"]
+                except KeyError as ex:
+                    _LOG.error("Could not determine exit status for job (missing %s): %s", str(ex), job)
+            else:
+                job["ExitBySignal"] = toe["ExitBySignal"]
+                if job["ExitBySignal"]:
+                    job["ExitSignal"] = toe["ExitSignal"]
                 else:
-                    job["ExitBySignal"] = True
-                    job["ExitSignal"] = job["TerminatedBySignal"]
-            except KeyError as ex:
-                _LOG.error("Could not determine exit status for job (missing %s): %s", str(ex), job)
-        elif job["MyType"] == "SubmitEvent":
-            job["JobStatus"] = JobStatus.IDLE
-        elif job["MyType"] == "JobAbortedEvent":
-            job["JobStatus"] = JobStatus.REMOVED
-        else:
-            _LOG.debug("Unknown log event type: %s", job["MyType"])
+                    job["ExitCode"] = toe["ExitCode"]
+
     except KeyError:
         _LOG.error("Missing key in job: %s", job)
         raise
