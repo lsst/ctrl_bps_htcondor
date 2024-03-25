@@ -1600,7 +1600,6 @@ def _htc_job_status_to_wms_state(job):
             or job.get("ExitCode", 0)
             or job.get("ExitSignal", 0)
             or job.get("DAG_Status", 0)
-            or job.get("ReturnValue", 0)
         ):
             wms_state = WmsStates.FAILED
         else:
