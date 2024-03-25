@@ -24,13 +24,17 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+import logging
 import unittest
 
 import htcondor
 from lsst.ctrl.bps.htcondor.htcondor_service import _get_exit_code_summary
 
+logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 
-class TestGetExitCodeSummary(unittest.TestCase):
+
+class GetExitCodeSummaryTestCase(unittest.TestCase):
     """Unit tests for function responsible for creating exit code summary."""
 
     def setUp(self):
@@ -62,6 +66,7 @@ class TestGetExitCodeSummary(unittest.TestCase):
             "6.0": {
                 "ExitBySignal": True,
                 "ExitSignal": 11,
+                "HoldReasonCode": 42,
                 "JobStatus": htcondor.JobStatus.HELD,
                 "bps_job_label": "baz",
             },
@@ -84,7 +89,34 @@ class TestGetExitCodeSummary(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test(self):
+    def testMainScenario(self):
         actual = _get_exit_code_summary(self.jobs)
         expected = {"foo": [], "bar": [1], "baz": [11, 42], "qux": []}
         self.assertEqual(actual, expected)
+
+    def testUnknownStatus(self):
+        jobs = {
+            "1.0": {
+                "JobStatus": -1,
+                "bps_job_label": "foo",
+            }
+        }
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            _get_exit_code_summary(jobs)
+        self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
+        self.assertIn("Unknown", cm.output[0])
+        self.assertIn("JobStatus", cm.output[0])
+
+    def testUnknownKey(self):
+        jobs = {
+            "1.0": {
+                "JobStatus": htcondor.JobStatus.COMPLETED,
+                "UnknownKey": None,
+                "bps_job_label": "foo",
+            }
+        }
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            _get_exit_code_summary(jobs)
+        self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
+        self.assertIn("Attribute", cm.output[0])
+        self.assertIn("not found", cm.output[0])
