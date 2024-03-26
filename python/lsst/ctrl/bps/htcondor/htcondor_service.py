@@ -1435,7 +1435,12 @@ def _get_exit_code_summary(jobs):
                 case JobStatus.COMPLETED:
                     exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
                 case JobStatus.HELD:
-                    exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["HoldReasonCode"]
+                    # Every held job should have 'HoldReasonCode' set. Use it
+                    # if other attributes are not available.
+                    try:
+                        exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
+                    except KeyError:
+                        exit_code = job_ad["HoldReasonCode"]
                 case (
                     JobStatus.IDLE
                     | JobStatus.RUNNING
@@ -1445,7 +1450,7 @@ def _get_exit_code_summary(jobs):
                 ):
                     pass
                 case _:
-                    _LOG.debug("Unknown 'JobStatus' value ('%d') in classad for job '%d'", job_status, job_id)
+                    _LOG.debug("Unknown 'JobStatus' value ('%d') in classad for job '%s'", job_status, job_id)
             if exit_code != 0:
                 summary[job_label].append(exit_code)
         except KeyError as ex:
@@ -1595,7 +1600,6 @@ def _htc_job_status_to_wms_state(job):
             or job.get("ExitCode", 0)
             or job.get("ExitSignal", 0)
             or job.get("DAG_Status", 0)
-            or job.get("ReturnValue", 0)
         ):
             wms_state = WmsStates.FAILED
         else:

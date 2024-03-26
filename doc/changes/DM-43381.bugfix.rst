@@ -1,0 +1,1 @@
+Fixed bug preventing ``bps report`` from showing error codes/counts correctly when called with the submit directory as the run id.
