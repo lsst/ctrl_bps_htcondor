@@ -26,10 +26,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
+import pathlib
+import tempfile
 import unittest
 
 import htcondor
 from lsst.ctrl.bps.htcondor.htcondor_service import _get_exit_code_summary
+from lsst.ctrl.bps.htcondor.lssthtc import _tweak_log_info
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 
@@ -120,3 +123,135 @@ class GetExitCodeSummaryTestCase(unittest.TestCase):
         self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
         self.assertIn("Attribute", cm.output[0])
         self.assertIn("not found", cm.output[0])
+
+
+class TweakJobInfoTestCase(unittest.TestCase):
+    """Unit tests for function responsible for massaging job information."""
+
+    def setUp(self):
+        self.log_file = tempfile.NamedTemporaryFile(prefix="test_", suffix=".log")
+        self.log_name = pathlib.Path(self.log_file.name)
+        self.job = {
+            "Cluster": 1,
+            "Proc": 0,
+            "Iwd": str(self.log_name.parent),
+            "Owner": self.log_name.owner(),
+            "MyType": None,
+        }
+
+    def tearDown(self):
+        self.log_file.close()
+
+    def testDirectAssignments(self):
+        _tweak_log_info(self.log_name, self.job)
+        self.assertEqual(self.job["ClusterId"], self.job["Cluster"])
+        self.assertEqual(self.job["ProcId"], self.job["Proc"])
+        self.assertEqual(self.job["Iwd"], str(self.log_name.parent))
+        self.assertEqual(self.job["Owner"], self.log_name.owner())
+
+    def testJobStatusAssignmentJobAbortedEvent(self):
+        job = self.job | {"MyType": "JobAbortedEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.REMOVED)
+
+    def testJobStatusAssignmentExecuteEvent(self):
+        job = self.job | {"MyType": "ExecuteEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.RUNNING)
+
+    def testJobStatusAssignmentSubmitEvent(self):
+        job = self.job | {"MyType": "SubmitEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.IDLE)
+
+    def testJobStatusAssignmentJobHeldEvent(self):
+        job = self.job | {"MyType": "JobHeldEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.HELD)
+
+    def testJobStatusAssignmentJobTerminatedEvent(self):
+        job = self.job | {"MyType": "JobTerminatedEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+
+    def testJobStatusAssignmentPostScriptTerminatedEvent(self):
+        job = self.job | {"MyType": "PostScriptTerminatedEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+
+    def testJobStatusNormalTerminationWithToE(self):
+        job = self.job | {
+            "MyType": "JobTerminatedEvent",
+            "ToE": {"ExitBySignal": False, "ExitCode": 1},
+        }
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+        self.assertTrue("ExitCode" in job)
+        self.assertEqual(job["ExitCode"], 1)
+
+    def testJobStatusNormalTerminationWithoutToE(self):
+        job = self.job | {"MyType": "JobTerminatedEvent", "TerminatedNormally": True, "ReturnValue": 1}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+        self.assertTrue("ExitCode" in job)
+        self.assertEqual(job["ExitCode"], 1)
+
+    def testJobStatusAbnormalTerminationWithToE(self):
+        job = self.job | {
+            "MyType": "JobTerminatedEvent",
+            "ToE": {"ExitBySignal": True, "ExitSignal": 11},
+        }
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+        self.assertTrue("ExitSignal" in job)
+        self.assertEqual(job["ExitSignal"], 11)
+
+    def testJobStatusAbnormalTerminationWithoutToE(self):
+        job = self.job | {
+            "MyType": "JobTerminatedEvent",
+            "TerminatedNormally": False,
+            "TerminatedBySignal": 11,
+        }
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+        self.assertTrue("ExitSignal" in job)
+        self.assertEqual(job["ExitSignal"], 11)
+
+    def testLoggingUnknownLogEvent(self):
+        job = self.job | {"MyType": "Foo"}
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            _tweak_log_info(self.log_name, job)
+        self.assertIn("Unknown log event", cm.output[1])
+
+    def testLoggingMissingToE(self):
+        job = self.job | {"MyType": "JobTerminatedEvent", "TerminatedNormally": True, "ReturnValue": 0}
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            _tweak_log_info(self.log_name, job)
+        self.assertIn("lsst.ctrl.bps.htcondor", cm.records[1].name)
+        self.assertIn("Ticket of execution", cm.output[1])
+        self.assertIn("not available", cm.output[1])
+
+    def testLoggingMissingExitStatus(self):
+        job = self.job | {"MyType": "JobTerminatedEvent"}
+        with self.assertLogs(logger=logger, level="ERROR") as cm:
+            _tweak_log_info(self.log_name, job)
+        self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
+        self.assertIn("Could not determine", cm.output[0])
+        self.assertIn("exit status", cm.output[0])
+
+    def testMissingKey(self):
+        job = self.job
+        del job["Cluster"]
+        with self.assertRaises(KeyError) as cm:
+            _tweak_log_info(self.log_name, job)
+        self.assertEqual(str(cm.exception), "'Cluster'")
