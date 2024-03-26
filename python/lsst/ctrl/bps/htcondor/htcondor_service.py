@@ -1436,11 +1436,12 @@ def _get_exit_code_summary(jobs):
                 case JobStatus.COMPLETED:
                     exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
                 case JobStatus.HELD:
-                    exit_code = job_ad["HoldReasonCode"]
+                    # Every held job should have 'HoldReasonCode' set. Use it
+                    # if other attributes are not available.
                     try:
                         exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
                     except KeyError:
-                        pass
+                        exit_code = job_ad["HoldReasonCode"]
                 case (
                     JobStatus.IDLE
                     | JobStatus.RUNNING
