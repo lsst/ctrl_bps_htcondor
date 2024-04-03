@@ -87,6 +87,8 @@ import htcondor
 import networkx
 from packaging import version
 
+from .handlers import HTC_JOBAD_HANDLERS
+
 _LOG = logging.getLogger(__name__)
 
 MISSING_ID = -99999
@@ -1598,6 +1600,7 @@ def _tweak_log_info(filename, job):
         the log.
     """
     _LOG.debug("_tweak_log_info: %s %s", filename, job)
+
     try:
         job["ClusterId"] = job["Cluster"]
         job["ProcId"] = job["Proc"]
@@ -1617,35 +1620,19 @@ def _tweak_log_info(filename, job):
                 job["JobStatus"] = JobStatus.HELD
             case _:
                 _LOG.debug("Unknown log event type: %s", job["MyType"])
+                job["JobStatus"] = JobStatus.UNEXPANDED
 
-        if "JobStatus" in job and job["JobStatus"] in {JobStatus.COMPLETED, JobStatus.HELD}:
-            try:
-                toe = job["ToE"]
-            except KeyError:
-                _LOG.debug(
-                    "Ticket of execution (ToE) not available for job '%s.%s', "
-                    "attempting to determine the exit status base on other attributes",
-                    job["ClusterId"],
-                    job["ProcId"],
-                )
-                try:
-                    if job["TerminatedNormally"]:
-                        job["ExitBySignal"] = False
-                        job["ExitCode"] = job["ReturnValue"]
-                    else:
-                        job["ExitBySignal"] = True
-                        job["ExitSignal"] = job["TerminatedBySignal"]
-                except KeyError as ex:
-                    _LOG.error("Could not determine exit status for job (missing %s): %s", str(ex), job)
+        if job["JobStatus"] in {JobStatus.COMPLETED, JobStatus.HELD}:
+            new_job = HTC_JOBAD_HANDLERS.handle(job)
+            if new_job is not None:
+                job = new_job
             else:
-                job["ExitBySignal"] = toe["ExitBySignal"]
-                if job["ExitBySignal"]:
-                    job["ExitSignal"] = toe["ExitSignal"]
-                else:
-                    job["ExitCode"] = toe["ExitCode"]
+                _LOG.error(
+                    "Could not determine exist status for job '%s.%s'", job["ClusterId"], job["ProcId"]
+                )
 
-    except KeyError:
-        _LOG.error("Missing key in job: %s", job)
+    except KeyError as e:
+        _LOG.error("Missing key %s in job: %s", str(e), job)
         raise
 
 
