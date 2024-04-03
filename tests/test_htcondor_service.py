@@ -25,6 +25,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+"""Unit tests for the HTCondor WMS service class and related functions."""
+
 import logging
 import pathlib
 import tempfile
@@ -38,7 +40,7 @@ logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 
 
 class GetExitCodeSummaryTestCase(unittest.TestCase):
-    """Unit tests for function responsible for creating exit code summary."""
+    """Test the function responsible for creating exit code summary."""
 
     def setUp(self):
         self.jobs = {
@@ -69,13 +71,12 @@ class GetExitCodeSummaryTestCase(unittest.TestCase):
             "6.0": {
                 "ExitBySignal": True,
                 "ExitSignal": 11,
-                "HoldReasonCode": 42,
                 "JobStatus": htcondor.JobStatus.HELD,
                 "bps_job_label": "baz",
             },
             "7.0": {
                 "ExitBySignal": False,
-                "HoldReasonCode": 42,
+                "ExitCode": 42,
                 "JobStatus": htcondor.JobStatus.HELD,
                 "bps_job_label": "baz",
             },
@@ -126,7 +127,7 @@ class GetExitCodeSummaryTestCase(unittest.TestCase):
 
 
 class TweakJobInfoTestCase(unittest.TestCase):
-    """Unit tests for function responsible for massaging job information."""
+    """Test the function responsible for massaging job information."""
 
     def setUp(self):
         self.log_file = tempfile.NamedTemporaryFile(prefix="test_", suffix=".log")
@@ -137,6 +138,7 @@ class TweakJobInfoTestCase(unittest.TestCase):
             "Iwd": str(self.log_name.parent),
             "Owner": self.log_name.owner(),
             "MyType": None,
+            "TerminatedNormally": True,
         }
 
     def tearDown(self):
@@ -185,69 +187,30 @@ class TweakJobInfoTestCase(unittest.TestCase):
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
 
-    def testJobStatusNormalTerminationWithToE(self):
+    def testAddingExitStatusSuccess(self):
         job = self.job | {
             "MyType": "JobTerminatedEvent",
             "ToE": {"ExitBySignal": False, "ExitCode": 1},
         }
         _tweak_log_info(self.log_name, job)
-        self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
-        self.assertTrue("ExitCode" in job)
+        self.assertIn("ExitBySignal", job)
+        self.assertIs(job["ExitBySignal"], False)
+        self.assertIn("ExitCode", job)
         self.assertEqual(job["ExitCode"], 1)
 
-    def testJobStatusNormalTerminationWithoutToE(self):
-        job = self.job | {"MyType": "JobTerminatedEvent", "TerminatedNormally": True, "ReturnValue": 1}
-        _tweak_log_info(self.log_name, job)
-        self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
-        self.assertTrue("ExitCode" in job)
-        self.assertEqual(job["ExitCode"], 1)
-
-    def testJobStatusAbnormalTerminationWithToE(self):
+    def testAddingExitStatusFailure(self):
         job = self.job | {
-            "MyType": "JobTerminatedEvent",
-            "ToE": {"ExitBySignal": True, "ExitSignal": 11},
+            "MyType": "JobHeldEvent",
         }
-        _tweak_log_info(self.log_name, job)
-        self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
-        self.assertTrue("ExitSignal" in job)
-        self.assertEqual(job["ExitSignal"], 11)
-
-    def testJobStatusAbnormalTerminationWithoutToE(self):
-        job = self.job | {
-            "MyType": "JobTerminatedEvent",
-            "TerminatedNormally": False,
-            "TerminatedBySignal": 11,
-        }
-        _tweak_log_info(self.log_name, job)
-        self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
-        self.assertTrue("ExitSignal" in job)
-        self.assertEqual(job["ExitSignal"], 11)
+        with self.assertLogs(logger=logger, level="ERROR") as cm:
+            _tweak_log_info(self.log_name, job)
+        self.assertIn("Could not determine exist status", cm.output[0])
 
     def testLoggingUnknownLogEvent(self):
         job = self.job | {"MyType": "Foo"}
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             _tweak_log_info(self.log_name, job)
         self.assertIn("Unknown log event", cm.output[1])
-
-    def testLoggingMissingToE(self):
-        job = self.job | {"MyType": "JobTerminatedEvent", "TerminatedNormally": True, "ReturnValue": 0}
-        with self.assertLogs(logger=logger, level="DEBUG") as cm:
-            _tweak_log_info(self.log_name, job)
-        self.assertIn("lsst.ctrl.bps.htcondor", cm.records[1].name)
-        self.assertIn("Ticket of execution", cm.output[1])
-        self.assertIn("not available", cm.output[1])
-
-    def testLoggingMissingExitStatus(self):
-        job = self.job | {"MyType": "JobTerminatedEvent"}
-        with self.assertLogs(logger=logger, level="ERROR") as cm:
-            _tweak_log_info(self.log_name, job)
-        self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
-        self.assertIn("Could not determine", cm.output[0])
-        self.assertIn("exit status", cm.output[0])
 
     def testMissingKey(self):
         job = self.job
