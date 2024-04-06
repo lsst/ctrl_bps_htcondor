@@ -143,7 +143,7 @@ class HTCondorService(BaseWmsService):
             workflow.write(out_prefix)
         return workflow
 
-    def submit(self, workflow):
+    def submit(self, workflow, **kwargs):
         """Submit a single HTCondor workflow.
 
         Parameters
@@ -151,6 +151,7 @@ class HTCondorService(BaseWmsService):
         workflow : `lsst.ctrl.bps.BaseWorkflow`
             A single HTCondor workflow to submit.  run_id is updated after
             successful submission to WMS.
+        **kwargs : `~typing.Any`
         """
         dag = workflow.dag
 
