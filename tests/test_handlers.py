@@ -204,18 +204,16 @@ class JobHeldOtherTestCase(unittest.TestCase):
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             result = self.handler.handle(ad)
         self.assertIsNone(result)
-        self.assertIn("held", cm.output[0])
-        self.assertIn("not supported", cm.output[0])
-        self.assertIn("code 3", cm.output[0])
+        self.assertIn("invalid hold reason code", cm.output[0])
+        self.assertIn("HoldReasonCode = 3", cm.output[0])
 
     def testHeldByUser(self):
         ad = self.ad | {"HoldReasonCode": 1}
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             result = self.handler.handle(ad)
         self.assertIsNone(result)
-        self.assertIn("held", cm.output[0])
-        self.assertIn("not supported", cm.output[0])
-        self.assertIn("code 1", cm.output[0])
+        self.assertIn("invalid hold reason code", cm.output[0])
+        self.assertIn("HoldReasonCode = 1", cm.output[0])
 
     def testNotHandlingJobNotHeld(self):
         ad = self.ad | {"MyType": "foo"}
@@ -251,8 +249,8 @@ class JobHeldBySignalHandlerTestCase(unittest.TestCase):
         self.assertIsNone(result)
         self.assertIn("signal not found", cm.output[0])
 
-    def testNotHandlingUnknownHoldReasonCode(self):
-        ad = self.ad | {"HoldReasonCode": 0}
+    def testNotHandlingInvalidHoldReasonCode(self):
+        ad = self.ad | {"HoldReasonCode": 1, "HoldReason": "via condor_hold (by user foo)"}
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             result = self.handler.handle(ad)
         self.assertIsNone(result)
@@ -285,8 +283,8 @@ class JobHeldByUserHandlerTestCase(unittest.TestCase):
         self.assertIn("ExitCode", result)
         self.assertEqual(result["ExitCode"], 0)
 
-    def testNotHandlingUnknownHoldReaconCode(self):
-        ad = self.ad | {"HoldReasonCode": 0}
+    def testNotHandlingInvalidHoldReaconCode(self):
+        ad = self.ad | {"HoldReasonCode": 3, "HoldReason": "Job raised a signal 9."}
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             result = self.handler.handle(ad)
         self.assertIsNone(result)

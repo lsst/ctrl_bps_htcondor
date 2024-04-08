@@ -154,6 +154,14 @@ class JobCompletedWithExecTicketHandler(Handler):
     """
 
     def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
+        if not ad["MyType"].endswith("TerminatedEvent"):
+            _LOG.debug(
+                "Handler '%s': refusing to process the ad for the job '%s.%s': job not completed",
+                self.__class__.__name__,
+                ad["ClusterId"],
+                ad["ProcId"],
+            )
+            return None
         if "ToE" in ad:
             toe = ad["ToE"]
             ad["ExitBySignal"] = toe["ExitBySignal"]
@@ -163,7 +171,8 @@ class JobCompletedWithExecTicketHandler(Handler):
                 ad["ExitCode"] = toe["ExitCode"]
         else:
             _LOG.debug(
-                "Job '%s.%s' marked as completed, but not processing: ticket of execution missing",
+                "%s: refusing to process the ad for the job '%s.%s': ticket of execution missing",
+                self.__class__.__name__,
                 ad["ClusterId"],
                 ad["ProcId"],
             )
@@ -182,6 +191,14 @@ class JobCompletedWithoutExecTicketHandler(Handler):
     """
 
     def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
+        if not ad["MyType"].endswith("TerminatedEvent"):
+            _LOG.debug(
+                "Handler '%s': refusing to process the ad for the job '%s.%s': job not completed",
+                self.__class__.__name__,
+                ad["ClusterId"],
+                ad["ProcId"],
+            )
+            return None
         if "ToE" not in ad:
             ad["ExitBySignal"] = not ad["TerminatedNormally"]
             if ad["ExitBySignal"]:
@@ -190,7 +207,8 @@ class JobCompletedWithoutExecTicketHandler(Handler):
                 ad["ExitCode"] = ad["ReturnValue"]
         else:
             _LOG.debug(
-                "Job '%s.%s' marked as completed, but not processing: ticket of execution found",
+                "%s: refusing to process the ad for the job '%s.%s': ticket of execution found",
+                self.__class__.__name__,
                 ad["ClusterId"],
                 ad["ProcId"],
             )
@@ -202,12 +220,22 @@ class JobHeldByOtherHandler(Handler):
     """Handler of ClassAds for jobs put on hold."""
 
     def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
+        if not ad["MyType"].endswith("HeldEvent"):
+            _LOG.debug(
+                "Handler '%s': refusing to process the ad for the job '%s.%s': job not held",
+                self.__class__.__name__,
+                ad["ClusterId"],
+                ad["ProcId"],
+            )
+            return None
         if ad["HoldReasonCode"] not in {1, 3}:
             ad["ExitBySignal"] = False
             ad["ExitCode"] = ad["HoldReasonCode"]
         else:
             _LOG.debug(
-                "Job '%s.%s' marked as held, but hold reason code %s not supported",
+                "Handler '%s': refusing to process the ad for the job '%s.%s': "
+                "invalid hold reason code: HoldReasonCode = %s",
+                self.__class__.__name__,
                 ad["ClusterId"],
                 ad["ProcId"],
                 ad["HoldReasonCode"],
@@ -220,6 +248,14 @@ class JobHeldBySignalHandler(Handler):
     """Handler of ClassAds for jobs put on hold by signals."""
 
     def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
+        if not ad["MyType"].endswith("HeldEvent"):
+            _LOG.debug(
+                "Handler '%s': refusing to process the ad for the job '%s.%s': job not held",
+                self.__class__.__name__,
+                ad["ClusterId"],
+                ad["ProcId"],
+            )
+            return None
         if ad["HoldReasonCode"] == 3:
             match = re.search(r"signal (\d+)", ad["HoldReason"])
             if match is not None:
@@ -227,7 +263,9 @@ class JobHeldBySignalHandler(Handler):
                 ad["ExitSignal"] = match.group(1)
             else:
                 _LOG.debug(
-                    "Job '%s.%s' marked as held, but signal not found in 'HoldReason': %s",
+                    "Handler '%s': refusing to process the ad for the job '%s.%s': "
+                    "signal not found: HoldReason = %s",
+                    self.__class__.__name__,
                     ad["ClusterId"],
                     ad["ProcId"],
                     ad["HoldReason"],
@@ -235,10 +273,13 @@ class JobHeldBySignalHandler(Handler):
                 return None
         else:
             _LOG.debug(
-                "Job '%s.%s' marked as held hold, but not by a signal: HoldReasonCode = %s",
+                "Handler '%s': refusing to process the ad for the job '%s.%s': "
+                "job not held by a signal: HoldReasonCode = %s, HoldReason = %s",
+                self.__class__.__name__,
                 ad["ClusterId"],
                 ad["ProcId"],
                 ad["HoldReasonCode"],
+                ad["HoldReason"],
             )
             return None
         return ad
@@ -248,15 +289,26 @@ class JobHeldByUserHandler(Handler):
     """Handler of ClassAds for jobs put on hold by the user."""
 
     def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
+        if not ad["MyType"].endswith("HeldEvent"):
+            _LOG.debug(
+                "Handler '%s': refusing to process the ad for the job '%s.%s': job not held",
+                self.__class__.__name__,
+                ad["ClusterId"],
+                ad["ProcId"],
+            )
+            return None
         if ad["HoldReasonCode"] == 1:
             ad["ExitBySignal"] = False
             ad["ExitCode"] = 0
         else:
             _LOG.debug(
-                "Job '%s.%s' marked as held, but not by the user: HoldReasonCode = %s",
+                "Handler '%s': refusing to process the ad for the job '%s.%s': "
+                "job not held by the user: HoldReasonCode = %s, HoldReason = %s",
+                self.__class__.__name__,
                 ad["ClusterId"],
                 ad["ProcId"],
                 ad["HoldReasonCode"],
+                ad["HoldReason"],
             )
             return None
         return ad
