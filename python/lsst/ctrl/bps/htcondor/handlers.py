@@ -53,17 +53,25 @@ class Handler(abc.ABC):
 
     @abc.abstractmethod
     def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
-        """Handle a job ClassAd.
+        """Handle a ClassAd.
 
         Parameters
         ----------
         ad : `dict[`str`, Any]`
-            The dictionary representing job ClassAd that need to be processed.
+            The dictionary representing ClassAd that need to be processed.
 
         Returns
         -------
         ad : `dict[`str`, Any]` | None
-            The dictionary representing job's ClassAd after processing.
+            The dictionary representing ClassAd after processing and ``None``
+            if the handler was not able to process the ad.
+
+        Notes
+        -----
+        To optimize the memory usage, the implementation of this method may
+        modify the ClassAd in place. In such a case, the ClassAd returned by
+        the method will be the same object that was passed to it as
+        the argument, but including any modifications that were made.
         """
 
 
@@ -102,35 +110,33 @@ class Chain(Sequence):
             Raised if the passed object in not a ``Handler``.
         """
         if not isinstance(handler, Handler):
-            raise TypeError(f"unsupported operand type {type(handler)}")
+            raise TypeError(f"append() argument must be a 'Handler', not a '{type(handler)}'")
         self._handlers.append(handler)
 
     def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
-        """Handle a job ClassAd.
+        """Handle a ClassAd.
 
         Parameters
         ----------
         ad : `dict[`str`, Any]`
-            The dictionary representing a job ClassAd that need to be handled.
+            The dictionary representing a ClassAd that need to be handled.
 
         Returns
         -------
         ad : `dict[`str`, Any]`
-            A modified job ClassAd if any handler in the chain was able to
+            A modified ClassAd if any handler in the chain was able to
             process the ad, None otherwise.
         """
         new_ad = None
         for handler in self:
             try:
                 new_ad = handler.handle(ad)
-            except KeyError as e:
-                _LOG.debug(
-                    "Handler %s failed to process the ad for job '%s.%s': required attribute %s missing. "
+            except Exception as e:
+                _LOG.warning(
+                    "Handler '%s' raised an exception while processing the ad: %s. "
                     "Proceeding to the next handler (if any).",
                     type(handler).__name__,
-                    ad["ClusterId"],
-                    ad["ProcId"],
-                    str(e),
+                    repr(e),
                 )
             else:
                 if new_ad is not None:
