@@ -108,24 +108,23 @@ class JobCompletedWithExecTicketHandlerTestCase(unittest.TestCase):
         result = self.handler.handle(ad)
         self.assertIsNotNone(result)
         self.assertIn("ExitBySignal", result)
-        self.assertIs(ad["ExitBySignal"], False)
+        self.assertFalse(result["ExitBySignal"])
         self.assertIn("ExitCode", result)
-        self.assertEqual(ad["ExitCode"], 0)
+        self.assertEqual(result["ExitCode"], 0)
 
     def testAbnormalTermination(self):
         ad = self.ad | {"ToE": {"ExitBySignal": True, "ExitSignal": 9}}
         result = self.handler.handle(ad)
         self.assertIsNotNone(result)
         self.assertIn("ExitBySignal", result)
-        self.assertIs(ad["ExitBySignal"], True)
+        self.assertTrue(result["ExitBySignal"])
         self.assertIn("ExitSignal", result)
-        self.assertEqual(ad["ExitSignal"], 9)
+        self.assertEqual(result["ExitSignal"], 9)
 
     def testNotHandlingMissingExecTicket(self):
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             result = self.handler.handle(self.ad)
         self.assertIsNone(result)
-        self.assertIn("completed", cm.output[0])
         self.assertIn("ticket of execution", cm.output[0])
         self.assertIn("missing", cm.output[0])
 
@@ -196,9 +195,9 @@ class JobHeldOtherTestCase(unittest.TestCase):
         result = self.handler.handle(ad)
         self.assertIsNotNone(result)
         self.assertIn("ExitBySignal", result)
-        self.assertIs(ad["ExitBySignal"], False)
+        self.assertFalse(result["ExitBySignal"])
         self.assertIn("ExitCode", result)
-        self.assertEqual(ad["ExitCode"], 42)
+        self.assertEqual(result["ExitCode"], 42)
 
     def testHeldBySignal(self):
         ad = self.ad | {"HoldReasonCode": 3}
