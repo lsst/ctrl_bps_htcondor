@@ -34,8 +34,8 @@ from typing import Any
 from lsst.ctrl.bps.htcondor.handlers import (
     Chain,
     Handler,
-    JobCompletedWithoutToeHandler,
-    JobCompletedWithToeHandler,
+    JobCompletedWithExecTicketHandler,
+    JobCompletedWithoutExecTicketHandler,
     JobHeldByOtherHandler,
     JobHeldBySignalHandler,
     JobHeldByUserHandler,
@@ -93,12 +93,12 @@ class ChainTestCase(unittest.TestCase):
             chain.append(handler)
 
 
-class JobCompletedWithToeHandlerTestCase(unittest.TestCase):
+class JobCompletedWithExecTicketHandlerTestCase(unittest.TestCase):
     """Test the handler for a completed job with the ticket of execution."""
 
     def setUp(self):
-        self.ad = {"ClusterId": 1, "ProcId": 0}
-        self.handler = JobCompletedWithToeHandler()
+        self.ad = {"ClusterId": 1, "ProcId": 0, "MyType": "JobTerminatedEvent"}
+        self.handler = JobCompletedWithExecTicketHandler()
 
     def tearDown(self):
         pass
@@ -121,7 +121,7 @@ class JobCompletedWithToeHandlerTestCase(unittest.TestCase):
         self.assertIn("ExitSignal", result)
         self.assertEqual(ad["ExitSignal"], 9)
 
-    def testNotHandling(self):
+    def testNotHandlingMissingExecTicket(self):
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             result = self.handler.handle(self.ad)
         self.assertIsNone(result)
@@ -129,13 +129,20 @@ class JobCompletedWithToeHandlerTestCase(unittest.TestCase):
         self.assertIn("ticket of execution", cm.output[0])
         self.assertIn("missing", cm.output[0])
 
+    def testNotHandlingJobNotCompleted(self):
+        ad = self.ad | {"MyType": "foo"}
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(ad)
+        self.assertIsNone(result)
+        self.assertIn("job not completed", cm.output[0])
 
-class JobCompletedWithoutToeHandlerTestCase(unittest.TestCase):
+
+class JobCompletedWithoutExecTicketHandlerTestCase(unittest.TestCase):
     """Test the handler for a completed job w/o the ticket of execution."""
 
     def setUp(self):
-        self.ad = {"ClusterId": 1, "ProcId": 0}
-        self.handler = JobCompletedWithoutToeHandler()
+        self.ad = {"ClusterId": 1, "ProcId": 0, "MyType": "JobTerminatedEvent"}
+        self.handler = JobCompletedWithoutExecTicketHandler()
 
     def tearDown(self):
         pass
@@ -145,34 +152,40 @@ class JobCompletedWithoutToeHandlerTestCase(unittest.TestCase):
         result = self.handler.handle(ad)
         self.assertIsNotNone(result)
         self.assertIn("ExitBySignal", result)
-        self.assertIs(ad["ExitBySignal"], False)
+        self.assertFalse(result["ExitBySignal"])
         self.assertIn("ExitCode", result)
-        self.assertEqual(ad["ExitCode"], 0)
+        self.assertEqual(result["ExitCode"], 0)
 
     def testAbnormalTermination(self):
         ad = self.ad | {"TerminatedNormally": False, "TerminatedBySignal": 9}
         result = self.handler.handle(ad)
         self.assertIsNotNone(result)
         self.assertIn("ExitBySignal", result)
-        self.assertIs(ad["ExitBySignal"], True)
+        self.assertTrue(result["ExitBySignal"])
         self.assertIn("ExitSignal", result)
-        self.assertEqual(ad["ExitSignal"], 9)
+        self.assertEqual(result["ExitSignal"], 9)
 
-    def testNotHandling(self):
+    def testNotHandlingExecTicketExists(self):
         ad = self.ad | {"ToE": {"ExitBySignal": False, "ExitCode": 0}}
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             result = self.handler.handle(ad)
         self.assertIsNone(result)
-        self.assertIn("completed", cm.output[0])
         self.assertIn("ticket of execution", cm.output[0])
         self.assertIn("found", cm.output[0])
+
+    def testNotHandlingJobNotCompleted(self):
+        ad = self.ad | {"MyType": "foo"}
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(ad)
+        self.assertIsNone(result)
+        self.assertIn("job not completed", cm.output[0])
 
 
 class JobHeldOtherTestCase(unittest.TestCase):
     """Test the handler for a held job."""
 
     def setUp(self):
-        self.ad = {"ClusterId": 1, "ProcId": 0}
+        self.ad = {"ClusterId": 1, "ProcId": 0, "MyType": "JobHeldEvent"}
         self.handler = JobHeldByOtherHandler()
 
     def tearDown(self):
@@ -205,12 +218,19 @@ class JobHeldOtherTestCase(unittest.TestCase):
         self.assertIn("not supported", cm.output[0])
         self.assertIn("code 1", cm.output[0])
 
+    def testNotHandlingJobNotHeld(self):
+        ad = self.ad | {"MyType": "foo"}
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(ad)
+        self.assertIsNone(result)
+        self.assertIn("job not held", cm.output[0])
+
 
 class JobHeldBySignalHandlerTestCase(unittest.TestCase):
     """Test the handler for a job held by a signal."""
 
     def setUp(self):
-        self.ad = {"ClusterId": 1, "ProcId": 0}
+        self.ad = {"ClusterId": 1, "ProcId": 0, "MyType": "JobHeldEvent"}
         self.handler = JobHeldBySignalHandler()
 
     def tearDown(self):
@@ -221,32 +241,37 @@ class JobHeldBySignalHandlerTestCase(unittest.TestCase):
         result = self.handler.handle(ad)
         self.assertIsNotNone(ad)
         self.assertIn("ExitBySignal", result)
-        self.assertIs(ad["ExitBySignal"], True)
+        self.assertTrue(result["ExitBySignal"])
         self.assertIn("ExitSignal", result)
-        self.assertEqual(int(ad["ExitSignal"]), 9)
+        self.assertEqual(int(result["ExitSignal"]), 9)
 
     def testSignalNotAvailable(self):
         ad = self.ad | {"HoldReasonCode": 3, "HoldReason": "foo"}
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             result = self.handler.handle(ad)
         self.assertIsNone(result)
-        self.assertIn("held", cm.output[0])
         self.assertIn("signal not found", cm.output[0])
 
-    def testNotHandling(self):
+    def testNotHandlingUnknownHoldReasonCode(self):
         ad = self.ad | {"HoldReasonCode": 0}
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             result = self.handler.handle(ad)
         self.assertIsNone(result)
-        self.assertIn("held", cm.output[0])
-        self.assertIn("not by a signal", cm.output[0])
+        self.assertIn("not held by a signal", cm.output[0])
+
+    def testNotHandlingJobNotHeld(self):
+        ad = self.ad | {"MyType": "foo"}
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(ad)
+        self.assertIsNone(result)
+        self.assertIn("job not held", cm.output[0])
 
 
 class JobHeldByUserHandlerTestCase(unittest.TestCase):
     """Test the handler for a job held by the user."""
 
     def setUp(self):
-        self.ad = {"ClusterId": 1, "ProcId": 0}
+        self.ad = {"ClusterId": 1, "ProcId": 0, "MyType": "JobHeldEvent"}
         self.handler = JobHeldByUserHandler()
 
     def tearDown(self):
@@ -257,14 +282,20 @@ class JobHeldByUserHandlerTestCase(unittest.TestCase):
         result = self.handler.handle(ad)
         self.assertIsNotNone(result)
         self.assertIn("ExitBySignal", result)
-        self.assertIs(ad["ExitBySignal"], False)
+        self.assertFalse(result["ExitBySignal"])
         self.assertIn("ExitCode", result)
-        self.assertEqual(ad["ExitCode"], 0)
+        self.assertEqual(result["ExitCode"], 0)
 
-    def testNotHandling(self):
+    def testNotHandlingUnknownHoldReaconCode(self):
         ad = self.ad | {"HoldReasonCode": 0}
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             result = self.handler.handle(ad)
         self.assertIsNone(result)
-        self.assertIn("held", cm.output[0])
-        self.assertIn("not by the user", cm.output[0])
+        self.assertIn("not held by the user", cm.output[0])
+
+    def testNotHandlingJobNotHeld(self):
+        ad = self.ad | {"MyType": "foo"}
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(ad)
+        self.assertIsNone(result)
+        self.assertIn("job not held", cm.output[0])

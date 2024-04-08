@@ -31,8 +31,8 @@ __all__ = [
     "HTC_JOB_AD_HANDLERS",
     "Chain",
     "Handler",
-    "JobCompletedWithToeHandler",
-    "JobCompletedWithoutToeHandler",
+    "JobCompletedWithExecTicketHandler",
+    "JobCompletedWithoutExecTicketHandler",
     "JobHeldByOtherHandler",
     "JobHeldBySignalHandler",
     "JobHeldByUserHandler",
@@ -138,8 +138,14 @@ class Chain(Sequence):
         return new_ad
 
 
-class JobCompletedWithToeHandler(Handler):
-    """Handler of ClassAds for completed jobs with the ticket of execution."""
+class JobCompletedWithExecTicketHandler(Handler):
+    """Handler of ClassAds for completed jobs with the ticket of execution.
+
+    Usually, the entry in the event log for a completed job contains the ticket
+    of execution -- a record describing how and when the job was terminated.
+    If it exists, this handler will use it to add the attributes describing
+    job's exit status.
+    """
 
     def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
         if "ToE" in ad:
@@ -159,8 +165,15 @@ class JobCompletedWithToeHandler(Handler):
         return ad
 
 
-class JobCompletedWithoutToeHandler(Handler):
-    """Handler of ClassAds for completed jobs w/o the ticket of execution."""
+class JobCompletedWithoutExecTicketHandler(Handler):
+    """Handler of ClassAds for completed jobs w/o the ticket of execution.
+
+    The entry in the event log for some completed jobs (e.g. jobs that run
+    ``condor_dagman``) do *not* contain the ticket of execution -- a record
+    describing how and when the job was terminated.  This handler will try
+    to use other existing attributes to add the ones describing job's exit
+    status.
+    """
 
     def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
         if "ToE" not in ad:
@@ -247,7 +260,7 @@ _handlers = [
     JobHeldByUserHandler(),
     JobHeldBySignalHandler(),
     JobHeldByOtherHandler(),
-    JobCompletedWithToeHandler(),
-    JobCompletedWithoutToeHandler(),
+    JobCompletedWithExecTicketHandler(),
+    JobCompletedWithoutExecTicketHandler(),
 ]
 HTC_JOB_AD_HANDLERS = Chain(handlers=_handlers)
