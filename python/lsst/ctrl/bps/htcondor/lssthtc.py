@@ -87,7 +87,7 @@ import htcondor
 import networkx
 from packaging import version
 
-from .handlers import HTC_JOBAD_HANDLERS
+from .handlers import HTC_JOB_AD_HANDLERS
 
 _LOG = logging.getLogger(__name__)
 
@@ -1623,7 +1623,7 @@ def _tweak_log_info(filename, job):
                 job["JobStatus"] = JobStatus.UNEXPANDED
 
         if job["JobStatus"] in {JobStatus.COMPLETED, JobStatus.HELD}:
-            new_job = HTC_JOBAD_HANDLERS.handle(job)
+            new_job = HTC_JOB_AD_HANDLERS.handle(job)
             if new_job is not None:
                 job = new_job
             else:

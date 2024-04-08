@@ -28,6 +28,7 @@
 """Definitions of handlers of HTCondor job ClassAds."""
 
 __all__ = [
+    "HTC_JOB_AD_HANDLERS",
     "Chain",
     "Handler",
     "JobCompletedWithToeHandler",
@@ -249,4 +250,4 @@ _handlers = [
     JobCompletedWithToeHandler(),
     JobCompletedWithoutToeHandler(),
 ]
-HTC_JOBAD_HANDLERS = Chain(handlers=_handlers)
+HTC_JOB_AD_HANDLERS = Chain(handlers=_handlers)
