@@ -1369,7 +1369,7 @@ def read_node_status(wms_path):
         with the information found in the node event log.
 
         Currently, if the same job attribute is found in both files, its value
-        from the event log take precedence over the value from the node status
+        from the event log takes precedence over the value from the node status
         file.
     """
     # Get jobid info from other places to fill in gaps in info from node_status
@@ -1627,9 +1627,7 @@ def _tweak_log_info(filename, job):
             if new_job is not None:
                 job = new_job
             else:
-                _LOG.error(
-                    "Could not determine exist status for job '%s.%s'", job["ClusterId"], job["ProcId"]
-                )
+                _LOG.error("Could not determine exit status for job '%s.%s'", job["ClusterId"], job["ProcId"])
 
     except KeyError as e:
         _LOG.error("Missing key %s in job: %s", str(e), job)

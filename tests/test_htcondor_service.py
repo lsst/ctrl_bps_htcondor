@@ -204,7 +204,7 @@ class TweakJobInfoTestCase(unittest.TestCase):
         }
         with self.assertLogs(logger=logger, level="ERROR") as cm:
             _tweak_log_info(self.log_name, job)
-        self.assertIn("Could not determine exist status", cm.output[0])
+        self.assertIn("Could not determine exit status", cm.output[0])
 
     def testLoggingUnknownLogEvent(self):
         job = self.job | {"MyType": "Foo"}
