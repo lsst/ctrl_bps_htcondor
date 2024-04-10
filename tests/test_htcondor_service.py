@@ -33,7 +33,12 @@ import tempfile
 import unittest
 
 import htcondor
-from lsst.ctrl.bps.htcondor.htcondor_service import _get_exit_code_summary
+from lsst.ctrl.bps import WmsStates
+from lsst.ctrl.bps.htcondor.htcondor_service import (
+    NodeStatus,
+    _get_exit_code_summary,
+    _htc_node_status_to_wms_state,
+)
 from lsst.ctrl.bps.htcondor.lssthtc import _tweak_log_info
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
@@ -124,6 +129,86 @@ class GetExitCodeSummaryTestCase(unittest.TestCase):
         self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
         self.assertIn("Attribute", cm.output[0])
         self.assertIn("not found", cm.output[0])
+
+
+class HtcNodeStatusToWmsStateTestCase(unittest.TestCase):
+    """Test assigning WMS state base on HTCondor node status."""
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def testNotReady(self):
+        job = {"NodeStatus": NodeStatus.NOT_READY}
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.UNREADY)
+
+    def testReady(self):
+        job = {"NodeStatus": NodeStatus.READY}
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.READY)
+
+    def testPrerun(self):
+        job = {"NodeStatus": NodeStatus.PRERUN}
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.MISFIT)
+
+    def testSubmittedHeld(self):
+        job = {
+            "NodeStatus": NodeStatus.SUBMITTED,
+            "JobProcsHeld": 1,
+            "StatusDetails": "",
+            "JobProcsQueued": 0,
+        }
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.HELD)
+
+    def testSubmittedRunning(self):
+        job = {
+            "NodeStatus": NodeStatus.SUBMITTED,
+            "JobProcsHeld": 0,
+            "StatusDetails": "not_idle",
+            "JobProcsQueued": 0,
+        }
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.RUNNING)
+
+    def testSubmittedPending(self):
+        job = {
+            "NodeStatus": NodeStatus.SUBMITTED,
+            "JobProcsHeld": 0,
+            "StatusDetails": "",
+            "JobProcsQueued": 1,
+        }
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.PENDING)
+
+    def testPostrun(self):
+        job = {"NodeStatus": NodeStatus.POSTRUN}
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.MISFIT)
+
+    def testDone(self):
+        job = {"NodeStatus": NodeStatus.DONE}
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.SUCCEEDED)
+
+    def testErrorDagmanSuccess(self):
+        job = {"NodeStatus": NodeStatus.ERROR, "StatusDetails": "DAGMAN error 0"}
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.SUCCEEDED)
+
+    def testErrorDagmanFailure(self):
+        job = {"NodeStatus": NodeStatus.ERROR, "StatusDetails": "DAGMAN error 1"}
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.FAILED)
+
+    def testFutile(self):
+        job = {"NodeStatus": NodeStatus.FUTILE}
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.PRUNED)
 
 
 class TweakJobInfoTestCase(unittest.TestCase):
