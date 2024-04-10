@@ -24,14 +24,23 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+"""Unit tests for the HTCondor WMS service class and related functions."""
+
+import logging
+import pathlib
+import tempfile
 import unittest
 
 import htcondor
 from lsst.ctrl.bps.htcondor.htcondor_service import _get_exit_code_summary
+from lsst.ctrl.bps.htcondor.lssthtc import _tweak_log_info
+
+logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 
 
-class TestGetExitCodeSummary(unittest.TestCase):
-    """Unit tests for function responsible for creating exit code summary."""
+class GetExitCodeSummaryTestCase(unittest.TestCase):
+    """Test the function responsible for creating exit code summary."""
 
     def setUp(self):
         self.jobs = {
@@ -67,7 +76,7 @@ class TestGetExitCodeSummary(unittest.TestCase):
             },
             "7.0": {
                 "ExitBySignal": False,
-                "HoldReasonCode": 42,
+                "ExitCode": 42,
                 "JobStatus": htcondor.JobStatus.HELD,
                 "bps_job_label": "baz",
             },
@@ -84,7 +93,128 @@ class TestGetExitCodeSummary(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test(self):
+    def testMainScenario(self):
         actual = _get_exit_code_summary(self.jobs)
         expected = {"foo": [], "bar": [1], "baz": [11, 42], "qux": []}
         self.assertEqual(actual, expected)
+
+    def testUnknownStatus(self):
+        jobs = {
+            "1.0": {
+                "JobStatus": -1,
+                "bps_job_label": "foo",
+            }
+        }
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            _get_exit_code_summary(jobs)
+        self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
+        self.assertIn("Unknown", cm.output[0])
+        self.assertIn("JobStatus", cm.output[0])
+
+    def testUnknownKey(self):
+        jobs = {
+            "1.0": {
+                "JobStatus": htcondor.JobStatus.COMPLETED,
+                "UnknownKey": None,
+                "bps_job_label": "foo",
+            }
+        }
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            _get_exit_code_summary(jobs)
+        self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
+        self.assertIn("Attribute", cm.output[0])
+        self.assertIn("not found", cm.output[0])
+
+
+class TweakJobInfoTestCase(unittest.TestCase):
+    """Test the function responsible for massaging job information."""
+
+    def setUp(self):
+        self.log_file = tempfile.NamedTemporaryFile(prefix="test_", suffix=".log")
+        self.log_name = pathlib.Path(self.log_file.name)
+        self.job = {
+            "Cluster": 1,
+            "Proc": 0,
+            "Iwd": str(self.log_name.parent),
+            "Owner": self.log_name.owner(),
+            "MyType": None,
+            "TerminatedNormally": True,
+        }
+
+    def tearDown(self):
+        self.log_file.close()
+
+    def testDirectAssignments(self):
+        _tweak_log_info(self.log_name, self.job)
+        self.assertEqual(self.job["ClusterId"], self.job["Cluster"])
+        self.assertEqual(self.job["ProcId"], self.job["Proc"])
+        self.assertEqual(self.job["Iwd"], str(self.log_name.parent))
+        self.assertEqual(self.job["Owner"], self.log_name.owner())
+
+    def testJobStatusAssignmentJobAbortedEvent(self):
+        job = self.job | {"MyType": "JobAbortedEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.REMOVED)
+
+    def testJobStatusAssignmentExecuteEvent(self):
+        job = self.job | {"MyType": "ExecuteEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.RUNNING)
+
+    def testJobStatusAssignmentSubmitEvent(self):
+        job = self.job | {"MyType": "SubmitEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.IDLE)
+
+    def testJobStatusAssignmentJobHeldEvent(self):
+        job = self.job | {"MyType": "JobHeldEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.HELD)
+
+    def testJobStatusAssignmentJobTerminatedEvent(self):
+        job = self.job | {"MyType": "JobTerminatedEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+
+    def testJobStatusAssignmentPostScriptTerminatedEvent(self):
+        job = self.job | {"MyType": "PostScriptTerminatedEvent"}
+        _tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+
+    def testAddingExitStatusSuccess(self):
+        job = self.job | {
+            "MyType": "JobTerminatedEvent",
+            "ToE": {"ExitBySignal": False, "ExitCode": 1},
+        }
+        _tweak_log_info(self.log_name, job)
+        self.assertIn("ExitBySignal", job)
+        self.assertIs(job["ExitBySignal"], False)
+        self.assertIn("ExitCode", job)
+        self.assertEqual(job["ExitCode"], 1)
+
+    def testAddingExitStatusFailure(self):
+        job = self.job | {
+            "MyType": "JobHeldEvent",
+        }
+        with self.assertLogs(logger=logger, level="ERROR") as cm:
+            _tweak_log_info(self.log_name, job)
+        self.assertIn("Could not determine exit status", cm.output[0])
+
+    def testLoggingUnknownLogEvent(self):
+        job = self.job | {"MyType": "Foo"}
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            _tweak_log_info(self.log_name, job)
+        self.assertIn("Unknown log event", cm.output[1])
+
+    def testMissingKey(self):
+        job = self.job
+        del job["Cluster"]
+        with self.assertRaises(KeyError) as cm:
+            _tweak_log_info(self.log_name, job)
+        self.assertEqual(str(cm.exception), "'Cluster'")
