@@ -1,0 +1,1 @@
+Make the plugin properly handle new node status FUTILE that represents a node that will never run due to the failure of a node that the FUTILE node depends on either directly or indirectly through a chain of PARENT/CHILD relationships.
