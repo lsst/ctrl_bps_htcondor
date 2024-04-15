@@ -149,8 +149,7 @@ class Provisioner:
         job_cmds = {
             "universe": "local",
             "executable": f"{self.script_name}",
-            "should_transfer_files": "YES",
-            "when_to_transfer_output": "ON_EXIT_OR_EVICT",
+            "should_transfer_files": "NO",
             "getenv": "True",
             "output": f"{job.subfile}.$(Cluster).out",
             "error": f"{job.subfile}.$(Cluster).err",
