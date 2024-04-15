@@ -155,5 +155,9 @@ class Provisioner:
             "error": f"{job.subfile}.$(Cluster).err",
             "log": f"{job.subfile}.$(Cluster).log",
         }
+        job.add_job_attrs({"bps_job_name": job.name, "bps_job_label": job.label, "bps_job_quanta": ""})
         job.add_job_cmds(job_cmds)
         dag.add_service_job(job)
+
+        bps_job_summary = dag.graph["attrs"]["bps_job_summary"] + ";provisioningJob:1"
+        dag.add_attribs({"bps_job_summary": bps_job_summary})
