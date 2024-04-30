@@ -38,6 +38,7 @@ from lsst.ctrl.bps.htcondor.htcondor_service import (
     NodeStatus,
     _get_exit_code_summary,
     _htc_node_status_to_wms_state,
+    _htc_status_to_wms_state,
 )
 from lsst.ctrl.bps.htcondor.lssthtc import _tweak_log_info
 
@@ -303,3 +304,34 @@ class TweakJobInfoTestCase(unittest.TestCase):
         with self.assertRaises(KeyError) as cm:
             _tweak_log_info(self.log_name, job)
         self.assertEqual(str(cm.exception), "'Cluster'")
+
+
+class HtcStatusToWmsStateTestCase(unittest.TestCase):
+    """Test assigning WMS state base on HTCondor status."""
+
+    def testJobStatus(self):
+        job = {
+            "ClusterId": 1,
+            "JobStatus": htcondor.JobStatus.IDLE,
+            "bps_job_label": "foo",
+        }
+        result = _htc_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.PENDING)
+
+    def testNodeStatus(self):
+        # Hold/Release test case
+        job = {
+            "ClusterId": 1,
+            "JobStatus": 0,
+            "NodeStatus": NodeStatus.SUBMITTED,
+            "JobProcsHeld": 0,
+            "StatusDetails": "",
+            "JobProcsQueued": 1,
+        }
+        result = _htc_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.PENDING)
+
+    def testNeitherStatus(self):
+        job = {"ClusterId": 1}
+        result = _htc_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.MISFIT)

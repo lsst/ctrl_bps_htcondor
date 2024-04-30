@@ -1560,7 +1560,8 @@ def _htc_status_to_wms_state(job):
     wms_state = WmsStates.MISFIT
     if "JobStatus" in job:
         wms_state = _htc_job_status_to_wms_state(job)
-    elif "NodeStatus" in job:
+
+    if wms_state == WmsStates.MISFIT and "NodeStatus" in job:
         wms_state = _htc_node_status_to_wms_state(job)
     return wms_state
 
