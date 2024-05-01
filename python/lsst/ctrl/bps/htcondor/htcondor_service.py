@@ -49,9 +49,11 @@ from lsst.ctrl.bps import (
     WmsStates,
 )
 from lsst.ctrl.bps.bps_utils import chdir, create_count_summary
+from lsst.daf.butler import Config
 from lsst.utils.timer import time_this
 from packaging import version
 
+from .htcondor_config import HTC_DEFAULTS, HTC_DEFAULTS_PATH
 from .lssthtc import (
     MISSING_ID,
     HTCDag,
@@ -109,6 +111,14 @@ _LOG = logging.getLogger(__name__)
 
 class HTCondorService(BaseWmsService):
     """HTCondor version of WMS service."""
+
+    @property
+    def defaults(self):
+        return Config(HTC_DEFAULTS)
+
+    @property
+    def defaults_path(self):
+        return HTC_DEFAULTS_PATH
 
     def prepare(self, config, generic_workflow, out_prefix=None):
         """Convert generic workflow to an HTCondor DAG ready for submission.

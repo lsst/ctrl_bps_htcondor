@@ -1,0 +1,6 @@
+# Set a global default memory limit (in MiB) for the automatic memory scaling
+# mechanism. The value, 480 GiB, picked based on the cluster specifications
+# available at
+#
+#     https://s3df.slac.stanford.edu/public/doc/#/batch-compute
+memoryLimit: 491520
