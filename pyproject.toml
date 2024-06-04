@@ -110,9 +110,13 @@ convention = "numpy"
 add-ignore = ["D107", "D105", "D102", "D100", "D200", "D205", "D400", "D104"]
 
 [tool.ruff]
+target-version = "py311"
+line-length = 110
 exclude = [
     "__init__.py",
 ]
+
+[tool.ruff.lint]
 ignore = [
     "N802",
     "N803",
@@ -130,7 +134,6 @@ ignore = [
     "D205",
     "D400",
 ]
-line-length = 110
 select = [
     "E",  # pycodestyle
     "F",  # pyflakes
@@ -140,15 +143,14 @@ select = [
     "UP",  # pyupgrade
     "C4",
 ]
-target-version = "py311"
 extend-select = [
     "RUF100", # Warn about unused noqa
 ]
 
-[tool.ruff.pycodestyle]
+[tool.ruff.lint.pycodestyle]
 max-doc-length = 79
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
 [tool.numpydoc_validation]
