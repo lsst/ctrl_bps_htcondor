@@ -1,3 +1,30 @@
+lsst-ctrl-bps-htcondor v27.0.0 (2024-06-04)
+===========================================
+
+New Features
+------------
+
+- Updated the open-source license to allow for the code to be distributed with either GPLv3 or BSD 3-clause license. (`DM-37231 <https://rubinobs.atlassian.net/browse/DM-37231>`_)
+- Made the plugin properly handle new node status ``FUTILE`` that represents a node that will never run due to the failure of a node that the ``FUTILE`` node depends on either directly or indirectly through a chain of ``PARENT`` / ``CHILD`` relationships. (`DM-38627 <https://rubinobs.atlassian.net/browse/DM-38627>`_)
+- Made ``bps restart`` accept other types of run IDs beside the submit directory. (`DM-41561 <https://rubinobs.atlassian.net/browse/DM-41561>`_)
+- Added plugin support for reporting error exit codes with ``bps report``. (`DM-42127 <https://rubinobs.atlassian.net/browse/DM-42127>`_)
+
+
+Bug Fixes
+---------
+
+- Fixed bug preventing ``bps cancel`` from working. (`DM-40906 <https://rubinobs.atlassian.net/browse/DM-40906>`_)
+- Fixed bug preventing ``bps report`` from showing error codes/counts correctly when called with the submit directory as the run id. (`DM-43381 <https://rubinobs.atlassian.net/browse/DM-43381>`_)
+- Fixed ``compute_site`` keyword error in submit introduced by `DM-38138  <https://rubinobs.atlassian.net/browse/DM-38138>`_. (`DM-43721 <https://rubinobs.atlassian.net/browse/DM-43721>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Handle changes between different version of HTCondor Python API gracefully so deprecation warnings don't pop up when using ``bps report``. (`DM-37020 <https://rubinobs.atlassian.net/browse/DM-37020>`_)
+- Replaced function/methods that are being deprecated by the HTCondor team with their preferred equivalents to remove deprecation warnings during executions of BPS commands. (`DM-42759 <https://rubinobs.atlassian.net/browse/DM-42759>`_)
+
+
 lsst-ctrl-bps-htcondor v26.0.0 (2023-09-25)
 ===========================================
 
