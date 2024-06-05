@@ -1,1 +1,0 @@
-Replaced function/methods that are being deprecated by the HTCondor team with their preferred equivalents to remove deprecation warnings during executions of BPS commands.
