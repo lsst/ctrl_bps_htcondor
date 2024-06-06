@@ -1,1 +1,0 @@
-Added plugin support for reporting error exit codes with ``bps report``.
