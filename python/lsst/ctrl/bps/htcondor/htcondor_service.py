@@ -710,7 +710,14 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
         jobcmds["max_retries"] = f"{gwjob.number_of_retries}"
 
     if gwjob.retry_unless_exit:
-        jobcmds["retry_until"] = f"{gwjob.retry_unless_exit}"
+        if isinstance(gwjob.retry_unless_exit, int):
+            jobcmds["retry_until"] = f"{gwjob.retry_unless_exit}"
+        elif isinstance(gwjob.retry_unless_exit, list):
+            jobcmds["retry_until"] = (
+                f'member(ExitCode, {{{",".join([str(x) for x in gwjob.retry_unless_exit])}}})'
+            )
+        else:
+            raise ValueError("retryUnlessExit must be an integer or a list of integers.")
 
     if gwjob.request_disk:
         jobcmds["request_disk"] = f"{gwjob.request_disk}MB"
