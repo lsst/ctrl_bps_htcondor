@@ -25,14 +25,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Plugin's default configuration (as dict)."""
+"""URI to plugin's default configuration."""
 
-__all__ = ["HTC_DEFAULTS", "HTC_DEFAULTS_URI"]
+__all__ = ["HTC_DEFAULTS_URI"]
 
-from lsst.daf.butler import Config
 from lsst.resources import ResourcePath
 
 HTC_DEFAULTS_URI = ResourcePath("resource://lsst.ctrl.bps.htcondor/etc/htcondor_defaults.yaml")
-
-# Using lsst.daf.butler.Config to resolve possible includes.
-HTC_DEFAULTS = Config(HTC_DEFAULTS_URI).toDict()
