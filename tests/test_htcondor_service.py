@@ -34,7 +34,7 @@ import unittest
 
 import htcondor
 from lsst.ctrl.bps import BpsConfig, WmsStates
-from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_PATH
+from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
 from lsst.ctrl.bps.htcondor.htcondor_service import (
     HTCondorService,
     NodeStatus,
@@ -61,8 +61,8 @@ class HTCondorServiceTestCase(unittest.TestCase):
         self.assertEqual(self.service.defaults["memoryLimit"], 491520)
 
     def testDefaultsPath(self):
-        self.assertEqual(self.service.defaults_path, HTC_DEFAULTS_PATH)
-        self.assertTrue(pathlib.Path(self.service.defaults_path).is_file())
+        self.assertEqual(self.service.defaults_uri, HTC_DEFAULTS_URI)
+        self.assertFalse(self.service.defaults_uri.isdir())
 
 
 class GetExitCodeSummaryTestCase(unittest.TestCase):

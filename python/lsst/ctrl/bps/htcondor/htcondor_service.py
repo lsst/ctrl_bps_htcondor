@@ -53,7 +53,7 @@ from lsst.daf.butler import Config
 from lsst.utils.timer import time_this
 from packaging import version
 
-from .htcondor_config import HTC_DEFAULTS, HTC_DEFAULTS_PATH
+from .htcondor_config import HTC_DEFAULTS_URI
 from .lssthtc import (
     MISSING_ID,
     HTCDag,
@@ -114,11 +114,11 @@ class HTCondorService(BaseWmsService):
 
     @property
     def defaults(self):
-        return Config(HTC_DEFAULTS)
+        return Config(HTC_DEFAULTS_URI)
 
     @property
-    def defaults_path(self):
-        return HTC_DEFAULTS_PATH
+    def defaults_uri(self):
+        return HTC_DEFAULTS_URI
 
     def prepare(self, config, generic_workflow, out_prefix=None):
         """Convert generic workflow to an HTCondor DAG ready for submission.

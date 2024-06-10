@@ -27,15 +27,12 @@
 
 """Plugin's default configuration (as dict)."""
 
-__all__ = ["HTC_DEFAULTS", "HTC_DEFAULTS_PATH", "HTC_DEFAULTS_URI"]
+__all__ = ["HTC_DEFAULTS", "HTC_DEFAULTS_URI"]
 
 from lsst.daf.butler import Config
 from lsst.resources import ResourcePath
 
 HTC_DEFAULTS_URI = ResourcePath("resource://lsst.ctrl.bps.htcondor/etc/htcondor_defaults.yaml")
-
-with HTC_DEFAULTS_URI.as_local() as local:
-    HTC_DEFAULTS_PATH = local.ospath
 
 # Using lsst.daf.butler.Config to resolve possible includes.
 HTC_DEFAULTS = Config(HTC_DEFAULTS_URI).toDict()
