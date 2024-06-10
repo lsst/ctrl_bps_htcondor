@@ -25,7 +25,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .htcondor_config import *
-from .htcondor_service import *
-from .lssthtc import *
-from .version import *
+"""URI to plugin's default configuration."""
+
+__all__ = ["HTC_DEFAULTS_URI"]
+
+from lsst.resources import ResourcePath
+
+HTC_DEFAULTS_URI = ResourcePath("resource://lsst.ctrl.bps.htcondor/etc/htcondor_defaults.yaml")

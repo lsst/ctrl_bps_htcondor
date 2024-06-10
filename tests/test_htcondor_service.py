@@ -33,8 +33,10 @@ import tempfile
 import unittest
 
 import htcondor
-from lsst.ctrl.bps import WmsStates
+from lsst.ctrl.bps import BpsConfig, WmsStates
+from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
 from lsst.ctrl.bps.htcondor.htcondor_service import (
+    HTCondorService,
     NodeStatus,
     _get_exit_code_summary,
     _htc_node_status_to_wms_state,
@@ -43,6 +45,24 @@ from lsst.ctrl.bps.htcondor.htcondor_service import (
 from lsst.ctrl.bps.htcondor.lssthtc import _tweak_log_info
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
+
+
+class HTCondorServiceTestCase(unittest.TestCase):
+    """Test selected methods of the HTCondor WMS service class."""
+
+    def setUp(self):
+        config = BpsConfig({}, wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService")
+        self.service = HTCondorService(config)
+
+    def tearDown(self):
+        pass
+
+    def testDefaults(self):
+        self.assertEqual(self.service.defaults["memoryLimit"], 491520)
+
+    def testDefaultsPath(self):
+        self.assertEqual(self.service.defaults_uri, HTC_DEFAULTS_URI)
+        self.assertFalse(self.service.defaults_uri.isdir())
 
 
 class GetExitCodeSummaryTestCase(unittest.TestCase):
