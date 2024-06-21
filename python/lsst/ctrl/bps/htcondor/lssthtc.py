@@ -181,6 +181,7 @@ HTC_VALID_JOB_KEYS = {
     "on_exit_hold_reason",
     "on_exit_hold_subcode",
     "max_retries",
+    "retry_until",
     "periodic_release",
     "periodic_remove",
     "accounting_group",

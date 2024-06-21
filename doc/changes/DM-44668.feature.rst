@@ -1,0 +1,1 @@
+Update plugin to use retryUnlessExit values so WMS won't rerun some failures that will just fail every time.
