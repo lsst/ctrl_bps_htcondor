@@ -37,6 +37,7 @@ from lsst.ctrl.bps import BpsConfig, GenericWorkflowExec, GenericWorkflowJob, Wm
 from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
 from lsst.ctrl.bps.htcondor.htcondor_service import (
     HTCondorService,
+    JobStatus,
     NodeStatus,
     _get_exit_code_summary,
     _htc_node_status_to_wms_state,
@@ -356,6 +357,29 @@ class HtcStatusToWmsStateTestCase(unittest.TestCase):
         job = {"ClusterId": 1}
         result = _htc_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.MISFIT)
+
+    def testRetrySuccess(self):
+        job = {
+            "NodeStatus": 5,
+            "Node": "8e62c569-ae2e-44e8-be36-d1aee333a129_isr_903342_10",
+            "RetryCount": 0,
+            "ClusterId": 851,
+            "ProcId": 0,
+            "MyType": "JobTerminatedEvent",
+            "EventTypeNumber": 5,
+            "HoldReasonCode": 3,
+            "HoldReason": "Job raised a signal 9. Handling signal as if job has gone over memory limit.",
+            "HoldReasonSubCode": 34,
+            "ToE": {
+                "ExitBySignal": False,
+                "ExitCode": 0,
+            },
+            "JobStatus": JobStatus.COMPLETED,
+            "ExitBySignal": False,
+            "ExitCode": 0,
+        }
+        result = _htc_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.SUCCEEDED)
 
 
 class TranslateJobCmdsTestCase(unittest.TestCase):

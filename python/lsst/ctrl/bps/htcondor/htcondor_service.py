@@ -1611,9 +1611,8 @@ def _htc_job_status_to_wms_state(job):
         wms_state = WmsStates.DELETED
     elif job_status == JobStatus.COMPLETED:
         if (
-            job.get("ExitBySignal", False)
+            (job.get("ExitBySignal", False) and job.get("ExitSignal", 0))
             or job.get("ExitCode", 0)
-            or job.get("ExitSignal", 0)
             or job.get("DAG_Status", 0)
         ):
             wms_state = WmsStates.FAILED
