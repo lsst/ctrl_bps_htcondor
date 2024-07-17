@@ -1,0 +1,1 @@
+Fixed report listing auto-memory retry as failed when actually successful.

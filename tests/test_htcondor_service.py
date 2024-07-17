@@ -33,14 +33,16 @@ import tempfile
 import unittest
 
 import htcondor
-from lsst.ctrl.bps import BpsConfig, WmsStates
+from lsst.ctrl.bps import BpsConfig, GenericWorkflowExec, GenericWorkflowJob, WmsStates
 from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
 from lsst.ctrl.bps.htcondor.htcondor_service import (
     HTCondorService,
+    JobStatus,
     NodeStatus,
     _get_exit_code_summary,
     _htc_node_status_to_wms_state,
     _htc_status_to_wms_state,
+    _translate_job_cmds,
 )
 from lsst.ctrl.bps.htcondor.lssthtc import _tweak_log_info
 
@@ -355,3 +357,59 @@ class HtcStatusToWmsStateTestCase(unittest.TestCase):
         job = {"ClusterId": 1}
         result = _htc_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.MISFIT)
+
+    def testRetrySuccess(self):
+        job = {
+            "NodeStatus": 5,
+            "Node": "8e62c569-ae2e-44e8-be36-d1aee333a129_isr_903342_10",
+            "RetryCount": 0,
+            "ClusterId": 851,
+            "ProcId": 0,
+            "MyType": "JobTerminatedEvent",
+            "EventTypeNumber": 5,
+            "HoldReasonCode": 3,
+            "HoldReason": "Job raised a signal 9. Handling signal as if job has gone over memory limit.",
+            "HoldReasonSubCode": 34,
+            "ToE": {
+                "ExitBySignal": False,
+                "ExitCode": 0,
+            },
+            "JobStatus": JobStatus.COMPLETED,
+            "ExitBySignal": False,
+            "ExitCode": 0,
+        }
+        result = _htc_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.SUCCEEDED)
+
+
+class TranslateJobCmdsTestCase(unittest.TestCase):
+    """Test _translate_job_cmds method."""
+
+    def setUp(self):
+        self.gw_exec = GenericWorkflowExec("test_exec", "/dummy/dir/pipetask")
+        self.cached_vals = {"profile": {}}
+
+    def testRetryUnlessNone(self):
+        gwjob = GenericWorkflowJob("retryUnless", executable=self.gw_exec)
+        gwjob.retry_unless_exit = None
+        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        self.assertNotIn("retry_until", htc_commands)
+
+    def testRetryUnlessInt(self):
+        gwjob = GenericWorkflowJob("retryUnlessInt", executable=self.gw_exec)
+        gwjob.retry_unless_exit = 3
+        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        self.assertEqual(int(htc_commands["retry_until"]), gwjob.retry_unless_exit)
+
+    def testRetryUnlessList(self):
+        gwjob = GenericWorkflowJob("retryUnlessList", executable=self.gw_exec)
+        gwjob.retry_unless_exit = [1, 2]
+        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        self.assertEqual(htc_commands["retry_until"], "member(ExitCode, {1,2})")
+
+    def testRetryUnlessBad(self):
+        gwjob = GenericWorkflowJob("retryUnlessBad", executable=self.gw_exec)
+        gwjob.retry_unless_exit = "1,2,3"
+        with self.assertRaises(ValueError) as cm:
+            _ = _translate_job_cmds(self.cached_vals, None, gwjob)
+        self.assertIn("retryUnlessExit", str(cm.exception))
