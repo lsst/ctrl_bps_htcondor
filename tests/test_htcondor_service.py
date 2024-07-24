@@ -40,6 +40,7 @@ from lsst.ctrl.bps.htcondor.htcondor_service import (
     JobStatus,
     NodeStatus,
     _get_exit_code_summary,
+    _get_state_counts_from_dag_job,
     _htc_node_status_to_wms_state,
     _htc_status_to_wms_state,
     _translate_job_cmds,
@@ -233,6 +234,15 @@ class HtcNodeStatusToWmsStateTestCase(unittest.TestCase):
         result = _htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.PRUNED)
 
+    def testDeletedJob(self):
+        job = {
+            "NodeStatus": NodeStatus.ERROR,
+            "StatusDetails": "HTCondor reported ULOG_JOB_ABORTED event for job proc (1.0.0)",
+            "JobProcsQueued": 0,
+        }
+        result = _htc_node_status_to_wms_state(job)
+        self.assertEqual(result, WmsStates.DELETED)
+
 
 class TweakJobInfoTestCase(unittest.TestCase):
     """Test the function responsible for massaging job information."""
@@ -413,3 +423,39 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             _ = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertIn("retryUnlessExit", str(cm.exception))
+
+
+class GetStateCountsFromDagJobTestCase(unittest.TestCase):
+    """Test counting number of jobs per WMS state."""
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def testCounts(self):
+        job = {
+            "DAG_NodesDone": 1,
+            "DAG_JobsHeld": 2,
+            "DAG_NodesFailed": 3,
+            "DAG_NodesFutile": 4,
+            "DAG_NodesQueued": 5,
+            "DAG_NodesReady": 0,
+            "DAG_NodesUnready": 7,
+            "DAG_NodesTotal": 22,
+        }
+
+        truth = {
+            WmsStates.SUCCEEDED: 1,
+            WmsStates.HELD: 2,
+            WmsStates.UNREADY: 7,
+            WmsStates.READY: 0,
+            WmsStates.FAILED: 3,
+            WmsStates.PRUNED: 4,
+            WmsStates.MISFIT: 0,
+        }
+
+        total, result = _get_state_counts_from_dag_job(job)
+        self.assertEqual(total, 22)
+        self.assertEqual(result, truth)

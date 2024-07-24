@@ -1527,7 +1527,7 @@ def _get_state_counts_from_dag_job(job):
         state_counts = {
             WmsStates.UNREADY: job.get("DAG_NodesUnready", 0),
             WmsStates.READY: job.get("DAG_NodesReady", 0),
-            WmsStates.HELD: job.get("JobProcsHeld", 0),
+            WmsStates.HELD: job.get("DAG_JobsHeld", 0),
             WmsStates.SUCCEEDED: job.get("DAG_NodesDone", 0),
             WmsStates.FAILED: job.get("DAG_NodesFailed", 0),
             WmsStates.PRUNED: job.get("DAG_NodesFutile", 0),
@@ -1660,6 +1660,8 @@ def _htc_node_status_to_wms_state(job):
             # Use job exit status instead of post script exit status.
             if "DAGMAN error 0" in job["StatusDetails"]:
                 wms_state = WmsStates.SUCCEEDED
+            elif "ULOG_JOB_ABORTED" in job["StatusDetails"]:
+                wms_state = WmsStates.DELETED
             else:
                 wms_state = WmsStates.FAILED
         case NodeStatus.FUTILE:

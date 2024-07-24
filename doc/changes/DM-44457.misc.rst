@@ -1,0 +1,1 @@
+Fixed held and deleted state_counts for reporting.

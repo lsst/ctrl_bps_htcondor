@@ -115,6 +115,17 @@ See `bps report`_.
 .. Describe any plugin specific aspects of checking a submission status below
    if any.
 
+In order to make the summary report (``bps report``) faster, the plugin
+uses summary information available with the DAGMan job.  For a running
+DAG, this status can lag behind by a few minutes.  Also, DAGMan tracks
+deletion of individual jobs as failures (no separate counts for
+deleted jobs).  So the summary report flag column will show ``F`` when
+there are either failed or deleted jobs.  If getting a detailed report
+(``bps report --id <id>``), the plugin reads detailed job information
+from files.  So, the detailed report can distinguish between failed and
+deleted jobs, and thus will show ``D`` in the flag column for a running
+workflow if there is a deleted job.
+
 Occasionally, some jobs are put on hold by HTCondor.  To see the reason why
 jobs are being held, use
 
