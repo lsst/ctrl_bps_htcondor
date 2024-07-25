@@ -4,3 +4,33 @@
 #
 #     https://s3df.slac.stanford.edu/public/doc/#/batch-compute
 memoryLimit: 491520
+
+# Define a job that will be responsible for provisioning resources
+# automatically.
+provisioningJob:
+  provisioningNodeCount: 10
+  provisioningCheckInterval: 600
+  provisioningQueue: "milano"
+  provisioningAccount: "rubin:developers"
+  provisioningPlatform: "s3df"
+  provisioningScript: |-
+    #!/bin/bash
+    set -e
+    set -x
+    while true; do
+        ${CTRL_EXECUTE_DIR}/bin/allocateNodes.py \
+            --auto \
+            --node-count {provisioningNodeCount} \
+            --maximum-wall-clock {provisioningMaxWallTime} \
+            --glidein-shutdown {provisioningMaxIdleTime} \
+            --queue {provisioningQueue} \
+            {provisioningPlatform}
+        sleep {provisioningCheckInterval}
+    done
+    exit 0
+  provisioningScriptConfig: |-
+    config.platform["{provisioningPlatform}"].user.name="${USER}"
+    config.platform["{provisioningPlatform}"].user.home="${HOME}"
+
+# By default, disable automatic provisioning of resources.
+provisionResources: false
