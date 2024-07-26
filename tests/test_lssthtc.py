@@ -24,25 +24,19 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Unit tests for classes and functions in lssthtc.py"""
+
+import logging
+import pathlib
+import tempfile
 import unittest
 
-from lsst.ctrl.bps.htcondor import __version__ as version
+import htcondor
+from lsst.ctrl.bps.htcondor import lssthtc
 
-try:
-    import htcondor
-    from lsst.ctrl.bps.htcondor import lssthtc
-except ImportError:
-    htcondor = None
+logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 
 
-class SimpleTestCase(unittest.TestCase):
-    """Simplest possible import test."""
-
-    def test_version(self):
-        self.assertIsNotNone(version)
-
-
-@unittest.skipIf(htcondor is None, "Warning: Missing HTCondor API. Skipping")
 class TestLsstHtc(unittest.TestCase):
     """Test basic usage."""
 
@@ -66,6 +60,100 @@ class TestLsstHtc(unittest.TestCase):
     def testHtcVersion(self):
         ver = lssthtc.htc_version()
         self.assertRegex(ver, r"^\d+\.\d+\.\d+$")
+
+
+class TweakJobInfoTestCase(unittest.TestCase):
+    """Test the function responsible for massaging job information."""
+
+    def setUp(self):
+        self.log_file = tempfile.NamedTemporaryFile(prefix="test_", suffix=".log")
+        self.log_name = pathlib.Path(self.log_file.name)
+        self.job = {
+            "Cluster": 1,
+            "Proc": 0,
+            "Iwd": str(self.log_name.parent),
+            "Owner": self.log_name.owner(),
+            "MyType": None,
+            "TerminatedNormally": True,
+        }
+
+    def tearDown(self):
+        self.log_file.close()
+
+    def testDirectAssignments(self):
+        lssthtc._tweak_log_info(self.log_name, self.job)
+        self.assertEqual(self.job["ClusterId"], self.job["Cluster"])
+        self.assertEqual(self.job["ProcId"], self.job["Proc"])
+        self.assertEqual(self.job["Iwd"], str(self.log_name.parent))
+        self.assertEqual(self.job["Owner"], self.log_name.owner())
+
+    def testJobStatusAssignmentJobAbortedEvent(self):
+        job = self.job | {"MyType": "JobAbortedEvent"}
+        lssthtc._tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.REMOVED)
+
+    def testJobStatusAssignmentExecuteEvent(self):
+        job = self.job | {"MyType": "ExecuteEvent"}
+        lssthtc._tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.RUNNING)
+
+    def testJobStatusAssignmentSubmitEvent(self):
+        job = self.job | {"MyType": "SubmitEvent"}
+        lssthtc._tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.IDLE)
+
+    def testJobStatusAssignmentJobHeldEvent(self):
+        job = self.job | {"MyType": "JobHeldEvent"}
+        lssthtc._tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.HELD)
+
+    def testJobStatusAssignmentJobTerminatedEvent(self):
+        job = self.job | {"MyType": "JobTerminatedEvent"}
+        lssthtc._tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+
+    def testJobStatusAssignmentPostScriptTerminatedEvent(self):
+        job = self.job | {"MyType": "PostScriptTerminatedEvent"}
+        lssthtc._tweak_log_info(self.log_name, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+
+    def testAddingExitStatusSuccess(self):
+        job = self.job | {
+            "MyType": "JobTerminatedEvent",
+            "ToE": {"ExitBySignal": False, "ExitCode": 1},
+        }
+        lssthtc._tweak_log_info(self.log_name, job)
+        self.assertIn("ExitBySignal", job)
+        self.assertIs(job["ExitBySignal"], False)
+        self.assertIn("ExitCode", job)
+        self.assertEqual(job["ExitCode"], 1)
+
+    def testAddingExitStatusFailure(self):
+        job = self.job | {
+            "MyType": "JobHeldEvent",
+        }
+        with self.assertLogs(logger=logger, level="ERROR") as cm:
+            lssthtc._tweak_log_info(self.log_name, job)
+        self.assertIn("Could not determine exit status", cm.output[0])
+
+    def testLoggingUnknownLogEvent(self):
+        job = self.job | {"MyType": "Foo"}
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            lssthtc._tweak_log_info(self.log_name, job)
+        self.assertIn("Unknown log event", cm.output[1])
+
+    def testMissingKey(self):
+        job = self.job
+        del job["Cluster"]
+        with self.assertRaises(KeyError) as cm:
+            lssthtc._tweak_log_info(self.log_name, job)
+        self.assertEqual(str(cm.exception), "'Cluster'")
 
 
 if __name__ == "__main__":
