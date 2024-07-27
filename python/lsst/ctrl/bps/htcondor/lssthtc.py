@@ -1671,8 +1671,24 @@ def htc_check_dagman_output(wms_path):
                 m = re.match(r"(\d\d/\d\d/\d\d \d\d:\d\d:\d\d) Job submit try \d+/\d+ failed", line)
                 if m:
                     last_submit_failed = m.group(1)
+                else:
+                    m = re.search(r"Warning: (.+)", line)
+                    if m:
+                        if ".dag.nodes.log is in /tmp" in m.group(1):
+                            last_warning = "Cannot submit from /tmp."
+                        else:
+                            last_warning = m.group(1)
+                    else:
+                        m = re.search(r"(ERROR: .+)", line)
+                        if m:
+                            if (
+                                m.group(1)
+                                == "ERROR: Warning is fatal error because of DAGMAN_USE_STRICT setting"
+                            ):
+                                message += f"ERROR: {last_warning}"
         if last_submit_failed:
-            message = f"Warn: Job submission issues (last: {last_submit_failed})"
+            message += f"Warn: Job submission issues (last: {last_submit_failed})"
     except (OSError, PermissionError):
         message = f"Warn: Could not read dagman output file from {wms_path}."
+    _LOG.debug("dag output file message: %s", message)
     return message

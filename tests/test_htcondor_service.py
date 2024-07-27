@@ -28,9 +28,11 @@
 """Unit tests for the HTCondor WMS service class and related functions."""
 
 import logging
+import os
 import unittest
-import htcondor
+from shutil import copy2
 
+import htcondor
 from lsst.ctrl.bps import BpsConfig, GenericWorkflowExec, GenericWorkflowJob, WmsStates
 from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
 from lsst.ctrl.bps.htcondor.htcondor_service import (
@@ -38,13 +40,18 @@ from lsst.ctrl.bps.htcondor.htcondor_service import (
     JobStatus,
     NodeStatus,
     _get_exit_code_summary,
+    _get_info_from_path,
     _get_state_counts_from_dag_job,
     _htc_node_status_to_wms_state,
     _htc_status_to_wms_state,
     _translate_job_cmds,
 )
+from lsst.ctrl.bps.htcondor.lssthtc import MISSING_ID
+from lsst.utils.tests import temporaryDirectory
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
+
+TESTDIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class HTCondorServiceTestCase(unittest.TestCase):
@@ -362,3 +369,36 @@ class GetStateCountsFromDagJobTestCase(unittest.TestCase):
         total, result = _get_state_counts_from_dag_job(job)
         self.assertEqual(total, 22)
         self.assertEqual(result, truth)
+
+
+class GetInfoFromPathTestCase(unittest.TestCase):
+    """Test _get_info_from_path function"""
+
+    def test_tmpdir_abort(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/test_tmpdir_abort.dag.dagman.out", tmp_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(tmp_dir)
+            self.assertEqual(wms_workflow_id, MISSING_ID)
+            self.assertEqual(jobs, {})
+            self.assertIn("Cannot submit from /tmp", message)
+
+    def test_no_dagman_messages(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/test_no_messages.dag.dagman.out", tmp_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(tmp_dir)
+            self.assertEqual(wms_workflow_id, MISSING_ID)
+            self.assertEqual(jobs, {})
+            self.assertIn("Could not find HTCondor files", message)
+
+    def test_successful_run(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag", tmp_dir)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.dagman.log", tmp_dir)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.dagman.out", tmp_dir)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.nodes.log", tmp_dir)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.node_status", tmp_dir)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.info.json", tmp_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(tmp_dir)
+            self.assertEqual(wms_workflow_id, "1163.0")
+            self.assertEqual(len(jobs), 6)  # dag, pipetaskInit, 3 science, finalJob
+            self.assertEqual(message, "")

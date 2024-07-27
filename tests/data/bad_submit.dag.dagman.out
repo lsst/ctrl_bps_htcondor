@@ -1,0 +1,59 @@
+07/25/24 20:04:36 TmpDir(3)::Cd2TmpDir()
+07/25/24 20:04:36 Submitting node one from file bad_submit2.sub using direct job submission
+07/25/24 20:04:36 ERROR: submit attempt failed, errno=2 No such file or directory
+07/25/24 20:04:36 could not open submit file : bad_submit2.sub - can't open file
+07/25/24 20:04:36 Job submit try 1/6 failed, will try again in >= 1 second.
+07/25/24 20:04:36 DAG status: 0 (DAG_STATUS_OK)
+07/25/24 20:04:37 TmpDir(4)::Cd2TmpDir()
+07/25/24 20:04:37 Submitting node one from file bad_submit2.sub using direct job submission
+07/25/24 20:04:37 ERROR: submit attempt failed, errno=2 No such file or directory
+07/25/24 20:04:37 could not open submit file : bad_submit2.sub - can't open file
+07/25/24 20:04:37 TmpDir(4)::~TmpDir()
+07/25/24 20:04:37 Job submit try 2/6 failed, will try again in >= 2 seconds.
+07/25/24 20:04:40 TmpDir(5)::Cd2TmpDir()
+07/25/24 20:04:40 Submitting node one from file bad_submit2.sub using direct job submission
+07/25/24 20:04:40 ERROR: submit attempt failed, errno=2 No such file or directory
+07/25/24 20:04:40 could not open submit file : bad_submit2.sub - can't open file
+07/25/24 20:04:40 TmpDir(5)::~TmpDir()
+07/25/24 20:04:40 Job submit try 3/6 failed, will try again in >= 4 seconds.
+07/25/24 20:04:45 Submitting HTCondor Node one job(s)...
+07/25/24 20:04:45 TmpDir(6)::Cd2TmpDir()
+07/25/24 20:04:45 Submitting node one from file bad_submit2.sub using direct job submission
+07/25/24 20:04:45 ERROR: submit attempt failed, errno=2 No such file or directory
+07/25/24 20:04:45 could not open submit file : bad_submit2.sub - can't open file
+07/25/24 20:04:45 TmpDir(6)::~TmpDir()
+07/25/24 20:04:45 Job submit try 4/6 failed, will try again in >= 8 seconds.
+07/25/24 20:04:54 Submitting HTCondor Node one job(s)...
+07/25/24 20:04:54 TmpDir(7)::Cd2TmpDir()
+07/25/24 20:04:54 Submitting node one from file bad_submit2.sub using direct job submission
+07/25/24 20:04:54 ERROR: submit attempt failed, errno=2 No such file or directory
+07/25/24 20:04:54 could not open submit file : bad_submit2.sub - can't open file
+07/25/24 20:04:54 TmpDir(7)::~TmpDir()
+07/25/24 20:04:54 Job submit try 5/6 failed, will try again in >= 16 seconds.
+07/25/24 20:05:11 TmpDir(8)::Cd2TmpDir()
+07/25/24 20:05:11 Submitting node one from file bad_submit2.sub using direct job submission
+07/25/24 20:05:11 ERROR: submit attempt failed, errno=2 No such file or directory
+07/25/24 20:05:11 could not open submit file : bad_submit2.sub - can't open file
+07/25/24 20:05:11 TmpDir(8)::~TmpDir()
+07/25/24 20:05:11 Job submit failed after 6 tries.
+07/25/24 20:05:11 Shortcutting node one retries because of submit failure(s)
+07/25/24 20:05:11 DAG status: 2 (DAG_STATUS_NODE_FAILED)
+07/25/24 20:05:11 ERROR: the following job(s) failed:
+07/25/24 20:05:11 ---------------------- Job ----------------------
+07/25/24 20:05:11       Node Name: one
+07/25/24 20:05:11            Noop: false
+07/25/24 20:05:11          NodeID: 0
+07/25/24 20:05:11     Node Status: STATUS_ERROR    
+07/25/24 20:05:11 Node return val: -1
+07/25/24 20:05:11           Error: Job submit failed
+07/25/24 20:05:11 Job Submit File: bad_submit2.sub
+07/25/24 20:05:11  HTCondor Job ID: [not yet submitted]
+07/25/24 20:05:11 PARENTS:  WAITING: 0 CHILDREN: two
+07/25/24 20:05:11 ---------------------------------------	<END>
+07/25/24 20:05:11 Aborting DAG...
+07/25/24 20:05:11 Writing Rescue DAG to bad_submit.dag.rescue001...
+07/25/24 20:05:11 Removing submitted jobs...
+07/25/24 20:05:11 Removing any/all submitted HTCondor jobs...
+07/25/24 20:05:11 Closing file </work/mgower/gen3work/report-keyerror-43932/bad_submit_dag/./bad_submit.dag.nodes.log>
+07/25/24 20:05:11 ReadMultipleUserLogs: removed log file /work/mgower/gen3work/report-keyerror-43932/bad_submit_dag/./bad_submit.dag.nodes.log (64770:30218021189) from active list
+07/25/24 20:05:11 **** condor_scheduniv_exec.1152.0 (condor_DAGMAN) pid 79551 EXITING WITH STATUS 1

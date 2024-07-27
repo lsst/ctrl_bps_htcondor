@@ -1,0 +1,1 @@
+Report better error message when failed submission from /tmp.

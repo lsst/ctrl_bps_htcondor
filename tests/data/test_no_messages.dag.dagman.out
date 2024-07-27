@@ -1,0 +1,445 @@
+07/23/24 17:24:38 Result of reading /etc/issue:  \S
+ 
+07/23/24 17:24:38 Result of reading /etc/redhat-release:  AlmaLinux release 9.4 (Seafoam Ocelot)
+ 
+07/23/24 17:24:38 Using IDs: 20 processors, 10 CPUs, 10 HTs
+07/23/24 17:24:38 Enumerating interfaces: lo 127.0.0.1 up
+07/23/24 17:24:38 Enumerating interfaces: enp11s0 10.0.0.33 up
+07/23/24 17:24:38 Enumerating interfaces: lo ::1 up
+07/23/24 17:24:38 Enumerating interfaces: enp11s0 2601:248:8201:25c0::b3f6 up
+07/23/24 17:24:38 Enumerating interfaces: enp11s0 2601:248:8201:25c0:b696:91ff:fe06:4d05 up
+07/23/24 17:24:38 Enumerating interfaces: enp11s0 fe80::b696:91ff:fe06:4d05 up
+07/23/24 17:24:38 Directory::Rewind(): path "/work/lsst_stack/w_2024_29/conda/envs/lsst-scipipe-8.0.0/etc/condor/config.d" does not exist (yet)
+07/23/24 17:24:38 Cannot open /work/lsst_stack/w_2024_29/conda/envs/lsst-scipipe-8.0.0/etc/condor/config.d: No such file or directory
+07/23/24 17:24:38 ******************************************************
+07/23/24 17:24:38 ** condor_scheduniv_exec.1100.0 (CONDOR_DAGMAN) STARTING UP
+07/23/24 17:24:38 ** /work/lsst_stack/w_2024_29/conda/envs/lsst-scipipe-8.0.0/bin/condor_dagman
+07/23/24 17:24:38 ** SubsystemInfo: name=DAGMAN type=DAGMAN(9) class=CLIENT(2)
+07/23/24 17:24:38 ** Configuration: subsystem:DAGMAN local:<NONE> class:CLIENT
+07/23/24 17:24:38 ** $CondorVersion: 23.0.3 2024-04-04 $
+07/23/24 17:24:38 ** $CondorPlatform: X86_64-CentOS_7.9 $
+07/23/24 17:24:38 ** PID = 50622
+07/23/24 17:24:38 ** Log last touched time unavailable (No such file or directory)
+07/23/24 17:24:38 ******************************************************
+07/23/24 17:24:38 Using config source: /work/lsst_stack/w_2024_29/conda/envs/lsst-scipipe-8.0.0/etc/condor/condor_config
+07/23/24 17:24:38 Using local config sources: 
+07/23/24 17:24:38    /etc/condor/condor_config
+07/23/24 17:24:38    /etc/condor/config.d/00-htcondor-9.0.config
+07/23/24 17:24:38    /etc/condor/config.d/00-minicondor
+07/23/24 17:24:38    /etc/condor/config.d/10-stash-plugin.conf
+07/23/24 17:24:38    /etc/condor/config.d/99-lsst
+07/23/24 17:24:38    /etc/condor/condor_config.local
+07/23/24 17:24:38 config Macros = 99, Sorted = 99, StringBytes = 3219, TablesBytes = 3644
+07/23/24 17:24:38 CLASSAD_CACHING is ENABLED
+07/23/24 17:24:38 Daemon Log is logging: D_ALWAYS:2 D_ERROR D_STATUS
+07/23/24 17:24:38 Internal pipe for signals resized to 4096 from 65536
+07/23/24 17:24:38 DaemonCore: No command port requested.
+07/23/24 17:24:38 Setting maximum accepts per cycle 8.
+07/23/24 17:24:38 Setting maximum UDP messages per cycle 100.
+07/23/24 17:24:38 Will use TCP to update collector <127.0.0.1:9618>
+07/23/24 17:24:38 Not using shared port because no command port requested
+07/23/24 17:24:38 DAGMAN_USE_STRICT setting: 1
+07/23/24 17:24:38 DAGMAN_VERBOSITY setting: 3
+07/23/24 17:24:38 DAGMAN_DEBUG_CACHE_SIZE setting: 5242880
+07/23/24 17:24:38 DAGMAN_DEBUG_CACHE_ENABLE setting: False
+07/23/24 17:24:38 DAGMAN_SUBMIT_DELAY setting: 0
+07/23/24 17:24:38 DAGMAN_MAX_SUBMIT_ATTEMPTS setting: 6
+07/23/24 17:24:38 DAGMAN_STARTUP_CYCLE_DETECT setting: False
+07/23/24 17:24:38 DAGMAN_MAX_SUBMITS_PER_INTERVAL setting: 100
+07/23/24 17:24:38 DAGMAN_AGGRESSIVE_SUBMIT setting: False
+07/23/24 17:24:38 DAGMAN_USER_LOG_SCAN_INTERVAL setting: 1
+07/23/24 17:24:38 DAGMAN_QUEUE_UPDATE_INTERVAL setting: 30
+07/23/24 17:24:38 DAGMAN_DEFAULT_PRIORITY setting: 0
+07/23/24 17:24:38 DAGMAN_SUPPRESS_NOTIFICATION setting: True
+07/23/24 17:24:38 allow_events (DAGMAN_ALLOW_EVENTS) setting: 114
+07/23/24 17:24:38 DAGMAN_RETRY_SUBMIT_FIRST setting: True
+07/23/24 17:24:38 DAGMAN_RETRY_NODE_FIRST setting: False
+07/23/24 17:24:38 DAGMAN_MAX_JOBS_IDLE setting: 1000
+07/23/24 17:24:38 DAGMAN_MAX_JOBS_SUBMITTED setting: 0
+07/23/24 17:24:38 DAGMAN_MAX_PRE_SCRIPTS setting: 20
+07/23/24 17:24:38 DAGMAN_MAX_POST_SCRIPTS setting: 20
+07/23/24 17:24:38 DAGMAN_MAX_HOLD_SCRIPTS setting: 20
+07/23/24 17:24:38 DAGMAN_MUNGE_NODE_NAMES setting: True
+07/23/24 17:24:38 DAGMAN_PROHIBIT_MULTI_JOBS setting: False
+07/23/24 17:24:38 DAGMAN_SUBMIT_DEPTH_FIRST setting: False
+07/23/24 17:24:38 DAGMAN_ALWAYS_RUN_POST setting: False
+07/23/24 17:24:38 DAGMAN_CONDOR_SUBMIT_EXE setting: /work/lsst_stack/w_2024_29/conda/envs/lsst-scipipe-8.0.0/bin/condor_submit
+07/23/24 17:24:38 DAGMAN_USE_DIRECT_SUBMIT setting: True
+07/23/24 17:24:38 DAGMAN_DEFAULT_APPEND_VARS setting: False
+07/23/24 17:24:38 DAGMAN_ABORT_DUPLICATES setting: True
+07/23/24 17:24:38 DAGMAN_ABORT_ON_SCARY_SUBMIT setting: True
+07/23/24 17:24:38 DAGMAN_PENDING_REPORT_INTERVAL setting: 60
+07/23/24 17:24:38 DAGMAN_AUTO_RESCUE setting: True
+07/23/24 17:24:38 DAGMAN_MAX_RESCUE_NUM setting: 100
+07/23/24 17:24:38 DAGMAN_WRITE_PARTIAL_RESCUE setting: True
+07/23/24 17:24:38 DAGMAN_DEFAULT_NODE_LOG setting: @(DAG_DIR)/@(DAG_FILE).nodes.log
+07/23/24 17:24:38 DAGMAN_GENERATE_SUBDAG_SUBMITS setting: True
+07/23/24 17:24:38 DAGMAN_MAX_JOB_HOLDS setting: 100
+07/23/24 17:24:38 DAGMAN_HOLD_CLAIM_TIME setting: 20
+07/23/24 17:24:38 ALL_DEBUG setting: D_FULLDEBUG
+07/23/24 17:24:38 DAGMAN_DEBUG setting: 
+07/23/24 17:24:38 DAGMAN_SUPPRESS_JOB_LOGS setting: False
+07/23/24 17:24:38 DAGMAN_REMOVE_NODE_JOBS setting: True
+07/23/24 17:24:38 DAGMAN will adjust edges after parsing
+07/23/24 17:24:38 argv[0] == "condor_scheduniv_exec.1100.0"
+07/23/24 17:24:38 argv[1] == "-Lockfile"
+07/23/24 17:24:38 argv[2] == "/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.lock"
+07/23/24 17:24:38 argv[3] == "-AutoRescue"
+07/23/24 17:24:38 argv[4] == "1"
+07/23/24 17:24:38 argv[5] == "-DoRescueFrom"
+07/23/24 17:24:38 argv[6] == "0"
+07/23/24 17:24:38 argv[7] == "-Dag"
+07/23/24 17:24:38 argv[8] == "/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag"
+07/23/24 17:24:38 argv[9] == "-Suppress_notification"
+07/23/24 17:24:38 argv[10] == "-CsdVersion"
+07/23/24 17:24:38 argv[11] == "$CondorVersion: 23.0.3 2024-04-04 $"
+07/23/24 17:24:38 argv[12] == "-Dagman"
+07/23/24 17:24:38 argv[13] == "/work/lsst_stack/w_2024_29/conda/envs/lsst-scipipe-8.0.0/bin/condor_dagman"
+07/23/24 17:24:38 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:24:38 Can't open directory "/etc/condor/passwords.d" as PRIV_ROOT, errno: 13 (Permission denied)
+07/23/24 17:24:38 Can't open directory "/etc/condor/passwords.d" as PRIV_ROOT, errno: 13 (Permission denied)
+07/23/24 17:24:38 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:24:38 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:24:38 Workflow batch-id: <1100.0>
+07/23/24 17:24:38 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:24:38 Workflow batch-name: <u_mgower_pipelines_check_20240723T222426Z.dag+1100>
+07/23/24 17:24:38 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:24:38 Workflow accounting_group: <>
+07/23/24 17:24:38 Workflow accounting_group_user: <>
+07/23/24 17:24:38 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:24:38 Warning: failed to get attribute DAGNodeName
+07/23/24 17:24:38 DAGMAN_LOG_ON_NFS_IS_ERROR setting: False
+07/23/24 17:24:38 Default node log file is: </work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log>
+07/23/24 17:24:38 DAG Lockfile will be written to /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.lock
+07/23/24 17:24:38 DAG Input file is /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag
+07/23/24 17:24:38 Parsing 1 dagfiles
+07/23/24 17:24:38 Parsing /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag ...
+07/23/24 17:24:38 TmpDir(0)::TmpDir()
+07/23/24 17:24:38 TmpDir(1)::TmpDir()
+07/23/24 17:24:38 TmpDir(1)::Cd2MainDir()
+07/23/24 17:24:38 TmpDir(1)::~TmpDir()
+07/23/24 17:24:38 TmpDir(2)::TmpDir()
+07/23/24 17:24:38 TmpDir(2)::Cd2MainDir()
+07/23/24 17:24:38 TmpDir(2)::~TmpDir()
+07/23/24 17:24:38 TmpDir(3)::TmpDir()
+07/23/24 17:24:38 TmpDir(3)::Cd2MainDir()
+07/23/24 17:24:38 TmpDir(3)::~TmpDir()
+07/23/24 17:24:38 TmpDir(4)::TmpDir()
+07/23/24 17:24:38 TmpDir(4)::Cd2MainDir()
+07/23/24 17:24:38 TmpDir(4)::~TmpDir()
+07/23/24 17:24:38 TmpDir(5)::TmpDir()
+07/23/24 17:24:38 TmpDir(5)::Cd2MainDir()
+07/23/24 17:24:38 TmpDir(5)::~TmpDir()
+07/23/24 17:24:38 TmpDir(0)::~TmpDir()
+07/23/24 17:24:38 Adjusting edges
+07/23/24 17:24:38 Dag contains 5 total jobs
+07/23/24 17:24:38 Bootstrapping...
+07/23/24 17:24:38 Number of pre-completed nodes: 0
+07/23/24 17:24:38 ReadMultipleUserLogs::monitorLogFile(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log, 1)
+07/23/24 17:24:38 MultiLogFiles::InitializeFile(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log, 0)
+07/23/24 17:24:38 ReadMultipleUserLogs: didn't find LogFileMonitor object for /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log (64770:30225186812)
+07/23/24 17:24:38 MultiLogFiles::InitializeFile(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log, 1)
+07/23/24 17:24:38 MultiLogFiles: truncating log file /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log
+07/23/24 17:24:38 ReadMultipleUserLogs: created LogFileMonitor object for log file /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log
+07/23/24 17:24:38 init: Opening file /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log
+07/23/24 17:24:38 Opening log file #0 '/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log' (is_lock_cur=false,seek=false,read_header=true)
+07/23/24 17:24:38 Error, apparently invalid user log file
+07/23/24 17:24:38 ReadMultipleUserLogs: added log file /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log (64770:30225186812) to active list
+07/23/24 17:24:38 DAG status: 0 (DAG_STATUS_OK)
+07/23/24 17:24:38 Of 5 nodes total:
+07/23/24 17:24:38  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+07/23/24 17:24:38   ===     ===      ===     ===     ===        ===      ===      ===
+07/23/24 17:24:38     0       0        0       0       1          4        0        0
+07/23/24 17:24:38 0 job proc(s) currently held
+07/23/24 17:24:38 DAGMan Runtime Statistics: [ EventCycleTimeCount = 0.0; EventCycleTimeSum = 0.0; LogProcessCycleTimeCount = 0.0; LogProcessCycleTimeSum = 0.0; SleepCycleTimeCount = 0.0; SleepCycleTimeSum = 0.0; SubmitCycleTimeCount = 0.0; SubmitCycleTimeSum = 0.0; ]
+07/23/24 17:24:38 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:24:38 Registering condor_event_timer...
+07/23/24 17:24:39 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:39 Submitting HTCondor Node pipetaskInit job(s)...
+07/23/24 17:24:39 TmpDir(6)::TmpDir()
+07/23/24 17:24:39 TmpDir(6)::Cd2TmpDir()
+07/23/24 17:24:39 Submitting node pipetaskInit from file jobs/pipetaskInit/pipetaskInit.sub using direct job submission
+07/23/24 17:24:39 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:24:39 TmpDir(6)::Cd2MainDir()
+07/23/24 17:24:39 TmpDir(6)::~TmpDir()
+07/23/24 17:24:39 	assigned HTCondor ID (1101.0.0)
+07/23/24 17:24:39 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:24:39 Just submitted 1 job this cycle...
+07/23/24 17:24:39 DAG status: 0 (DAG_STATUS_OK)
+07/23/24 17:24:39 Of 5 nodes total:
+07/23/24 17:24:39  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+07/23/24 17:24:39   ===     ===      ===     ===     ===        ===      ===      ===
+07/23/24 17:24:39     0       0        1       0       0          4        0        0
+07/23/24 17:24:39 0 job proc(s) currently held
+07/23/24 17:24:39 DAGMan Runtime Statistics: [ EventCycleTimeCount = 0.0; EventCycleTimeSum = 0.0; LogProcessCycleTimeCount = 0.0; LogProcessCycleTimeSum = 0.0; SleepCycleTimeCount = 0.0; SleepCycleTimeSum = 0.0; SubmitCycleTimeAvg = 0.07607913017272949; SubmitCycleTimeCount = 1.0; SubmitCycleTimeMax = 0.07607913017272949; SubmitCycleTimeMin = 0.07607913017272949; SubmitCycleTimeStd = 0.07607913017272949; SubmitCycleTimeSum = 0.07607913017272949; ]
+07/23/24 17:24:40 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:40 Currently monitoring 1 HTCondor log file(s)
+07/23/24 17:24:40 ReadMultipleUserLogs::readEvent()
+07/23/24 17:24:40 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:24:40 Reassigning the id of job pipetaskInit from (1101.0.0) to (1101.0.0)
+07/23/24 17:24:40 Event: ULOG_SUBMIT for HTCondor Node pipetaskInit (1101.0.0) {07/23/24 17:24:39}
+07/23/24 17:24:40 Number of idle job procs: 1
+07/23/24 17:24:40 ReadMultipleUserLogs::readEvent()
+07/23/24 17:24:40 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:24:41 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:42 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:43 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:44 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:45 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:46 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:47 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:48 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:49 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:50 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:50 Currently monitoring 1 HTCondor log file(s)
+07/23/24 17:24:50 ReadMultipleUserLogs::readEvent()
+07/23/24 17:24:50 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:24:50 Event: ULOG_EXECUTE for HTCondor Node pipetaskInit (1101.0.0) {07/23/24 17:24:50}
+07/23/24 17:24:50 Number of idle job procs: 0
+07/23/24 17:24:50 ReadMultipleUserLogs::readEvent()
+07/23/24 17:24:50 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:24:50 Event: ULOG_JOB_EVICTED for HTCondor Node pipetaskInit (1101.0.0) {07/23/24 17:24:50}
+07/23/24 17:24:50 Number of idle job procs: 1
+07/23/24 17:24:50 ReadMultipleUserLogs::readEvent()
+07/23/24 17:24:50 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:24:50 Event: ULOG_JOB_HELD for HTCondor Node pipetaskInit (1101.0.0) {07/23/24 17:24:50}
+07/23/24 17:24:50   Hold reason: via condor_hold (by user mgower)
+07/23/24 17:24:50 Number of idle job procs: 1
+07/23/24 17:24:50 ReadMultipleUserLogs::readEvent()
+07/23/24 17:24:50 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:24:50 DAG status: 0 (DAG_STATUS_OK)
+07/23/24 17:24:50 Of 5 nodes total:
+07/23/24 17:24:50  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+07/23/24 17:24:50   ===     ===      ===     ===     ===        ===      ===      ===
+07/23/24 17:24:50     0       0        1       0       0          4        0        0
+07/23/24 17:24:50 1 job proc(s) currently held
+07/23/24 17:24:50 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.007021210410378196; EventCycleTimeCount = 11.0; EventCycleTimeMax = 0.07639718055725098; EventCycleTimeMin = 5.507469177246094E-05; EventCycleTimeStd = 0.02300943177791282; EventCycleTimeSum = 0.07723331451416016; LogProcessCycleTimeAvg = 0.0001645088195800781; LogProcessCycleTimeCount = 2.0; LogProcessCycleTimeMax = 0.0002288818359375; LogProcessCycleTimeMin = 0.0001001358032226562; LogProcessCycleTimeStd = 9.103719278353111E-05; LogProcessCycleTimeSum = 0.0003290176391601562; SleepCycleTimeAvg = 1.001084262674505; SleepCycleTimeCount = 11.0; SleepCycleTimeMax = 1.001131057739258; SleepCycleTimeMin = 1.001057863235474; SleepCycleTimeStd = 2.283325113263503E-05; SleepCycleTimeSum = 11.01192688941956; SubmitCycleTimeAvg = 0.006346325079600017; SubmitCycleTimeCount = 12.0; SubmitCycleTimeMax = 0.07607913017272949; SubmitCycleTimeMin = 5.006790161132812E-06; SubmitCycleTimeStd = 0.02196013847924693; SubmitCycleTimeSum = 0.0761559009552002; ]
+07/23/24 17:24:51 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:52 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:53 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:54 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:55 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:56 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:57 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:24:59 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:00 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:01 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:02 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:03 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:04 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:05 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:06 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:07 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:08 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:09 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:10 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:10 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:25:11 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:12 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:13 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:14 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:15 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:16 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:17 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:18 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:19 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:20 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:21 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:22 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:23 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:24 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:25 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:26 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:27 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:28 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:29 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:30 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:31 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:32 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:33 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:34 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:35 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:36 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:37 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:38 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:39 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:40 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:40 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:25:41 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:42 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:43 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:44 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:45 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:45 Currently monitoring 1 HTCondor log file(s)
+07/23/24 17:25:45 ReadMultipleUserLogs::readEvent()
+07/23/24 17:25:45 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:45 Event: ULOG_JOB_ABORTED for HTCondor Node pipetaskInit (1101.0.0) {07/23/24 17:25:44}
+07/23/24 17:25:45 Number of idle job procs: 0
+07/23/24 17:25:45 ReadMultipleUserLogs::readEvent()
+07/23/24 17:25:45 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:45 DAG status: 2 (DAG_STATUS_NODE_FAILED)
+07/23/24 17:25:45 Of 5 nodes total:
+07/23/24 17:25:45  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+07/23/24 17:25:45   ===     ===      ===     ===     ===        ===      ===      ===
+07/23/24 17:25:45     0       0        0       0       0          1        1        3
+07/23/24 17:25:45 0 job proc(s) currently held
+07/23/24 17:25:45 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.00146632928114671; EventCycleTimeCount = 65.0; EventCycleTimeMax = 0.07639718055725098; EventCycleTimeMin = 4.1961669921875E-05; EventCycleTimeStd = 0.009515132529861994; EventCycleTimeSum = 0.09531140327453613; LogProcessCycleTimeAvg = 0.0001426537831624349; LogProcessCycleTimeCount = 3.0; LogProcessCycleTimeMax = 0.0002288818359375; LogProcessCycleTimeMin = 9.894371032714844E-05; LogProcessCycleTimeStd = 7.467806294623901E-05; LogProcessCycleTimeSum = 0.0004279613494873047; SleepCycleTimeAvg = 1.001084180978628; SleepCycleTimeCount = 65.0; SleepCycleTimeMax = 1.00117015838623; SleepCycleTimeMin = 1.001038789749146; SleepCycleTimeStd = 2.553854281593642E-05; SleepCycleTimeSum = 65.07047176361084; SubmitCycleTimeAvg = 0.001162124402595289; SubmitCycleTimeCount = 66.0; SubmitCycleTimeMax = 0.07607913017272949; SubmitCycleTimeMin = 4.053115844726562E-06; SubmitCycleTimeStd = 0.009363522471779998; SubmitCycleTimeSum = 0.07670021057128906; ]
+07/23/24 17:25:45 ERROR: the following job(s) failed:
+07/23/24 17:25:45 ---------------------- Job ----------------------
+07/23/24 17:25:45       Node Name: pipetaskInit
+07/23/24 17:25:45            Noop: false
+07/23/24 17:25:45          NodeID: 0
+07/23/24 17:25:45     Node Status: STATUS_ERROR    
+07/23/24 17:25:45 Node return val: -1002
+07/23/24 17:25:45           Error: HTCondor reported ULOG_JOB_ABORTED event for job proc (1101.0.0)
+07/23/24 17:25:45 Job Submit File: jobs/pipetaskInit/pipetaskInit.sub
+07/23/24 17:25:45  HTCondor Job ID: (1101.0.0)
+07/23/24 17:25:45 PARENTS:  WAITING: 0 CHILDREN: 6ece0486-98e3-4ab6-a59e-8579c35849f6_isr_903342_10
+07/23/24 17:25:45 ---------------------------------------	<END>
+07/23/24 17:25:45 Aborting DAG...
+07/23/24 17:25:45 Writing Rescue DAG to /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.rescue001...
+07/23/24 17:25:45 Removing submitted jobs...
+07/23/24 17:25:45 Removing any/all submitted HTCondor jobs...
+07/23/24 17:25:45 Running: /work/lsst_stack/w_2024_29/conda/envs/lsst-scipipe-8.0.0/bin/condor_rm -const DAGManJobId==1100 -reason DAG' 'Abort:' 'DAG' 'is' 'exiting' 'and' 'writing' 'rescue' 'file.
+07/23/24 17:25:45 Note: 0 total job deferrals because of -MaxJobs limit (0)
+07/23/24 17:25:45 Note: 0 total job deferrals because of -MaxIdle limit (1000)
+07/23/24 17:25:45 Note: 0 total job deferrals because of node category throttles
+07/23/24 17:25:45 Note: 0 total PRE script deferrals because of -MaxPre limit (20) or DEFER
+07/23/24 17:25:45 Note: 0 total POST script deferrals because of -MaxPost limit (20) or DEFER
+07/23/24 17:25:45 Note: 0 total HOLD script deferrals because of -MaxHold limit (20) or DEFER
+07/23/24 17:25:45 Starting final node...
+07/23/24 17:25:46 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:46 Submitting HTCondor Node finalJob job(s)...
+07/23/24 17:25:46 TmpDir(7)::TmpDir()
+07/23/24 17:25:46 TmpDir(7)::Cd2TmpDir()
+07/23/24 17:25:46 Submitting node finalJob from file jobs/finalJob/finalJob.sub using direct job submission
+07/23/24 17:25:46 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:25:46 Submit warning: Submit:0:the line 'concurrency_limit = db_limit' was unused by DAGMAN. Is it a typo?
+07/23/24 17:25:46 TmpDir(7)::Cd2MainDir()
+07/23/24 17:25:46 TmpDir(7)::~TmpDir()
+07/23/24 17:25:46 	assigned HTCondor ID (1102.0.0)
+07/23/24 17:25:46 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:25:46 Just submitted 1 job this cycle...
+07/23/24 17:25:46 DAG status: 2 (DAG_STATUS_NODE_FAILED)
+07/23/24 17:25:46 Of 5 nodes total:
+07/23/24 17:25:46  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+07/23/24 17:25:46   ===     ===      ===     ===     ===        ===      ===      ===
+07/23/24 17:25:46     0       0        1       0       0          0        1        3
+07/23/24 17:25:46 0 job proc(s) currently held
+07/23/24 17:25:46 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.00146632928114671; EventCycleTimeCount = 65.0; EventCycleTimeMax = 0.07639718055725098; EventCycleTimeMin = 4.1961669921875E-05; EventCycleTimeStd = 0.009515132529861994; EventCycleTimeSum = 0.09531140327453613; LogProcessCycleTimeAvg = 0.0001426537831624349; LogProcessCycleTimeCount = 3.0; LogProcessCycleTimeMax = 0.0002288818359375; LogProcessCycleTimeMin = 9.894371032714844E-05; LogProcessCycleTimeStd = 7.467806294623901E-05; LogProcessCycleTimeSum = 0.0004279613494873047; SleepCycleTimeAvg = 1.018558783964677; SleepCycleTimeCount = 66.0; SleepCycleTimeMax = 2.154407978057861; SleepCycleTimeMin = 1.001038789749146; SleepCycleTimeStd = 0.1419643480262042; SleepCycleTimeSum = 67.2248797416687; SubmitCycleTimeAvg = 0.003267167219475134; SubmitCycleTimeCount = 67.0; SubmitCycleTimeMax = 0.1421999931335449; SubmitCycleTimeMin = 4.053115844726562E-06; SubmitCycleTimeStd = 0.01957646260407521; SubmitCycleTimeSum = 0.218900203704834; ]
+07/23/24 17:25:47 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:47 Currently monitoring 1 HTCondor log file(s)
+07/23/24 17:25:47 ReadMultipleUserLogs::readEvent()
+07/23/24 17:25:47 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:47 Reassigning the id of job finalJob from (1102.0.0) to (1102.0.0)
+07/23/24 17:25:47 Event: ULOG_SUBMIT for HTCondor Node finalJob (1102.0.0) {07/23/24 17:25:46}
+07/23/24 17:25:47 Number of idle job procs: 1
+07/23/24 17:25:47 ReadMultipleUserLogs::readEvent()
+07/23/24 17:25:47 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:48 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:49 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:50 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:51 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:51 Currently monitoring 1 HTCondor log file(s)
+07/23/24 17:25:51 ReadMultipleUserLogs::readEvent()
+07/23/24 17:25:51 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:51 Event: ULOG_EXECUTE for HTCondor Node finalJob (1102.0.0) {07/23/24 17:25:50}
+07/23/24 17:25:51 Number of idle job procs: 0
+07/23/24 17:25:51 ReadMultipleUserLogs::readEvent()
+07/23/24 17:25:51 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:52 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:53 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:54 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:55 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:56 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:57 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:57 Currently monitoring 1 HTCondor log file(s)
+07/23/24 17:25:57 ReadMultipleUserLogs::readEvent()
+07/23/24 17:25:57 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:57 Event: ULOG_JOB_TERMINATED for HTCondor Node finalJob (1102.0.0) {07/23/24 17:25:57}
+07/23/24 17:25:57 Number of idle job procs: 0
+07/23/24 17:25:57 Node finalJob job proc (1102.0.0) completed successfully.
+07/23/24 17:25:57 Node finalJob job completed
+07/23/24 17:25:57 Running POST script of Node finalJob...
+07/23/24 17:25:57 TmpDir(8)::TmpDir()
+07/23/24 17:25:57 TmpDir(8)::Cd2TmpDir()
+07/23/24 17:25:57 Warning: mysin has length 0 (ignore if produced by DAGMan; see gittrac #4987, #5031)
+07/23/24 17:25:57 TmpDir(8)::Cd2MainDir()
+07/23/24 17:25:57 TmpDir(8)::~TmpDir()
+07/23/24 17:25:57 ReadMultipleUserLogs::readEvent()
+07/23/24 17:25:57 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:57 DAG status: 2 (DAG_STATUS_NODE_FAILED)
+07/23/24 17:25:57 Of 5 nodes total:
+07/23/24 17:25:57  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+07/23/24 17:25:57   ===     ===      ===     ===     ===        ===      ===      ===
+07/23/24 17:25:57     0       0        0       1       0          0        1        3
+07/23/24 17:25:57 0 job proc(s) currently held
+07/23/24 17:25:57 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.003141309085645174; EventCycleTimeCount = 76.0; EventCycleTimeMax = 0.1424250602722168; EventCycleTimeMin = 4.1961669921875E-05; EventCycleTimeStd = 0.01842797440683634; EventCycleTimeSum = 0.2387394905090332; LogProcessCycleTimeAvg = 0.0006138086318969727; LogProcessCycleTimeCount = 6.0; LogProcessCycleTimeMax = 0.002986907958984375; LogProcessCycleTimeMin = 9.894371032714844E-05; LogProcessCycleTimeStd = 0.001163557333094188; LogProcessCycleTimeSum = 0.003682851791381836; SleepCycleTimeAvg = 1.016060643381887; SleepCycleTimeCount = 77.0; SleepCycleTimeMax = 2.154407978057861; SleepCycleTimeMin = 1.001038789749146; SleepCycleTimeStd = 0.1314336513038745; SleepCycleTimeSum = 78.23666954040527; SubmitCycleTimeAvg = 0.002808812337043958; SubmitCycleTimeCount = 78.0; SubmitCycleTimeMax = 0.1421999931335449; SubmitCycleTimeMin = 4.053115844726562E-06; SubmitCycleTimeStd = 0.0181600090280521; SubmitCycleTimeSum = 0.2190873622894287; ]
+07/23/24 17:25:57 Initializing user log writer for /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log, (1102.0.0)
+07/23/24 17:25:57 WriteUserLog::initialize: opened /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log successfully
+07/23/24 17:25:57 WriteUserLog::user_priv_flag (~) is 0
+07/23/24 17:25:58 ReadMultipleUserLogs::GetLogStatus()
+07/23/24 17:25:58 Currently monitoring 1 HTCondor log file(s)
+07/23/24 17:25:58 ReadMultipleUserLogs::readEvent()
+07/23/24 17:25:58 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:58 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node finalJob (1102.0.0) {07/23/24 17:25:57}
+07/23/24 17:25:58 POST Script of node finalJob failed with status 2
+07/23/24 17:25:58 POST for Node finalJob returned 2
+07/23/24 17:25:58 ReadMultipleUserLogs::readEvent()
+07/23/24 17:25:58 ReadMultipleUserLogs::readEventFromLog(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:58 DAG status: 2 (DAG_STATUS_NODE_FAILED)
+07/23/24 17:25:58 Of 5 nodes total:
+07/23/24 17:25:58  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+07/23/24 17:25:58   ===     ===      ===     ===     ===        ===      ===      ===
+07/23/24 17:25:58     0       0        0       0       0          0        2        3
+07/23/24 17:25:58 0 job proc(s) currently held
+07/23/24 17:25:58 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.003141709736415318; EventCycleTimeCount = 77.0; EventCycleTimeMax = 0.1424250602722168; EventCycleTimeMin = 4.1961669921875E-05; EventCycleTimeStd = 0.01830633662035724; EventCycleTimeSum = 0.2419116497039795; LogProcessCycleTimeAvg = 0.0005444117954799107; LogProcessCycleTimeCount = 7.0; LogProcessCycleTimeMax = 0.002986907958984375; LogProcessCycleTimeMin = 9.894371032714844E-05; LogProcessCycleTimeStd = 0.001077929884468647; LogProcessCycleTimeSum = 0.003810882568359375; SleepCycleTimeAvg = 1.015909763482901; SleepCycleTimeCount = 78.0; SleepCycleTimeMax = 2.154407978057861; SleepCycleTimeMin = 1.001038789749146; SleepCycleTimeStd = 0.1305841959510068; SleepCycleTimeSum = 79.24096155166626; SubmitCycleTimeAvg = 0.002773321127589745; SubmitCycleTimeCount = 79.0; SubmitCycleTimeMax = 0.1421999931335449; SubmitCycleTimeMin = 4.053115844726562E-06; SubmitCycleTimeStd = 0.01804598053950558; SubmitCycleTimeSum = 0.2190923690795898; ]
+07/23/24 17:25:58 ERROR: the following job(s) failed:
+07/23/24 17:25:58 ---------------------- Job ----------------------
+07/23/24 17:25:58       Node Name: pipetaskInit
+07/23/24 17:25:58            Noop: false
+07/23/24 17:25:58          NodeID: 0
+07/23/24 17:25:58     Node Status: STATUS_ERROR    
+07/23/24 17:25:58 Node return val: -1002
+07/23/24 17:25:58           Error: HTCondor reported ULOG_JOB_ABORTED event for job proc (1101.0.0)
+07/23/24 17:25:58 Job Submit File: jobs/pipetaskInit/pipetaskInit.sub
+07/23/24 17:25:58  HTCondor Job ID: (1101.0.0)
+07/23/24 17:25:58 PARENTS:  WAITING: 0 CHILDREN: 6ece0486-98e3-4ab6-a59e-8579c35849f6_isr_903342_10
+07/23/24 17:25:58 ---------------------- Job ----------------------
+07/23/24 17:25:58       Node Name: finalJob
+07/23/24 17:25:58            Noop: false
+07/23/24 17:25:58          NodeID: 4
+07/23/24 17:25:58     Node Status: STATUS_ERROR    
+07/23/24 17:25:58 Node return val: 2
+07/23/24 17:25:58           Error: Job failed due to DAGMAN error 0 and POST Script failed with status 2
+07/23/24 17:25:58 Job Submit File: jobs/finalJob/finalJob.sub
+07/23/24 17:25:58     POST Script: /work/mgower/gen3work/summary-report-held-44457/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/final_post.sh finalJob $DAG_STATUS $RETURN
+07/23/24 17:25:58  HTCondor Job ID: (1102.0.0)
+07/23/24 17:25:58 PARENTS:  WAITING: 0 CHILDREN: 
+07/23/24 17:25:58 ---------------------------------------	<END>
+07/23/24 17:25:58 Aborting DAG...
+07/23/24 17:25:58 Writing Rescue DAG to /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.rescue001...
+07/23/24 17:25:58 Removing submitted jobs...
+07/23/24 17:25:58 Removing any/all submitted HTCondor jobs...
+07/23/24 17:25:58 Running: /work/lsst_stack/w_2024_29/conda/envs/lsst-scipipe-8.0.0/bin/condor_rm -const DAGManJobId==1100 -reason DAG' 'Abort:' 'DAG' 'is' 'exiting' 'and' 'writing' 'rescue' 'file.
+07/23/24 17:25:58 Note: 0 total job deferrals because of -MaxJobs limit (0)
+07/23/24 17:25:58 Note: 0 total job deferrals because of -MaxIdle limit (1000)
+07/23/24 17:25:58 Note: 0 total job deferrals because of node category throttles
+07/23/24 17:25:58 Note: 0 total PRE script deferrals because of -MaxPre limit (20) or DEFER
+07/23/24 17:25:58 Note: 0 total POST script deferrals because of -MaxPost limit (20) or DEFER
+07/23/24 17:25:58 Note: 0 total HOLD script deferrals because of -MaxHold limit (20) or DEFER
+07/23/24 17:25:58 DAG status: 2 (DAG_STATUS_NODE_FAILED)
+07/23/24 17:25:58 Of 5 nodes total:
+07/23/24 17:25:58  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+07/23/24 17:25:58   ===     ===      ===     ===     ===        ===      ===      ===
+07/23/24 17:25:58     0       0        0       0       0          0        2        3
+07/23/24 17:25:58 0 job proc(s) currently held
+07/23/24 17:25:58 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.003141709736415318; EventCycleTimeCount = 77.0; EventCycleTimeMax = 0.1424250602722168; EventCycleTimeMin = 4.1961669921875E-05; EventCycleTimeStd = 0.01830633662035724; EventCycleTimeSum = 0.2419116497039795; LogProcessCycleTimeAvg = 0.0005444117954799107; LogProcessCycleTimeCount = 7.0; LogProcessCycleTimeMax = 0.002986907958984375; LogProcessCycleTimeMin = 9.894371032714844E-05; LogProcessCycleTimeStd = 0.001077929884468647; LogProcessCycleTimeSum = 0.003810882568359375; SleepCycleTimeAvg = 1.015909763482901; SleepCycleTimeCount = 78.0; SleepCycleTimeMax = 2.154407978057861; SleepCycleTimeMin = 1.001038789749146; SleepCycleTimeStd = 0.1305841959510068; SleepCycleTimeSum = 79.24096155166626; SubmitCycleTimeAvg = 0.002773321127589745; SubmitCycleTimeCount = 79.0; SubmitCycleTimeMax = 0.1421999931335449; SubmitCycleTimeMin = 4.053115844726562E-06; SubmitCycleTimeStd = 0.01804598053950558; SubmitCycleTimeSum = 0.2190923690795898; ]
+07/23/24 17:25:58 SharedPortClient: sent connection request to local schedd for shared port id schedd_1697_944e
+07/23/24 17:25:58 Wrote metrics file /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.metrics.
+07/23/24 17:25:58 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.003141709736415318; EventCycleTimeCount = 77.0; EventCycleTimeMax = 0.1424250602722168; EventCycleTimeMin = 4.1961669921875E-05; EventCycleTimeStd = 0.01830633662035724; EventCycleTimeSum = 0.2419116497039795; LogProcessCycleTimeAvg = 0.0005444117954799107; LogProcessCycleTimeCount = 7.0; LogProcessCycleTimeMax = 0.002986907958984375; LogProcessCycleTimeMin = 9.894371032714844E-05; LogProcessCycleTimeStd = 0.001077929884468647; LogProcessCycleTimeSum = 0.003810882568359375; SleepCycleTimeAvg = 1.015909763482901; SleepCycleTimeCount = 78.0; SleepCycleTimeMax = 2.154407978057861; SleepCycleTimeMin = 1.001038789749146; SleepCycleTimeStd = 0.1305841959510068; SleepCycleTimeSum = 79.24096155166626; SubmitCycleTimeAvg = 0.002773321127589745; SubmitCycleTimeCount = 79.0; SubmitCycleTimeMax = 0.1421999931335449; SubmitCycleTimeMin = 4.053115844726562E-06; SubmitCycleTimeStd = 0.01804598053950558; SubmitCycleTimeSum = 0.2190923690795898; ]
+07/23/24 17:25:58 ReadMultipleUserLogs::unmonitorLogFile(/work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log)
+07/23/24 17:25:58 ReadMultipleUserLogs: found LogFileMonitor object for /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log (64770:30225186812)
+07/23/24 17:25:58 Closing file </work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log>
+07/23/24 17:25:58 ReadMultipleUserLogs: removed log file /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.nodes.log (64770:30225186812) from active list
+07/23/24 17:25:58 **** condor_scheduniv_exec.1100.0 (condor_DAGMAN) pid 50622 EXITING WITH STATUS 1

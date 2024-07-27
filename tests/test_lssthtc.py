@@ -27,14 +27,18 @@
 """Unit tests for classes and functions in lssthtc.py"""
 
 import logging
+import os
 import pathlib
 import tempfile
 import unittest
+from shutil import copy2
 
 import htcondor
 from lsst.ctrl.bps.htcondor import lssthtc
+from lsst.utils.tests import temporaryDirectory
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
+TESTDIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class TestLsstHtc(unittest.TestCase):
@@ -154,6 +158,42 @@ class TweakJobInfoTestCase(unittest.TestCase):
         with self.assertRaises(KeyError) as cm:
             lssthtc._tweak_log_info(self.log_name, job)
         self.assertEqual(str(cm.exception), "'Cluster'")
+
+
+class HtcCheckDagmanOutputTestCase(unittest.TestCase):
+    """Test htc_check_dagman_output function."""
+
+    def test_missing_output_file(self):
+        with temporaryDirectory() as tmp_dir:
+            with self.assertRaises(FileNotFoundError):
+                _ = lssthtc.htc_check_dagman_output(tmp_dir)
+
+    def test_permissions_output_file(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/test_tmpdir_abort.dag.dagman.out", tmp_dir)
+            os.chmod(f"{tmp_dir}/test_tmpdir_abort.dag.dagman.out", 0o200)
+            print(os.stat(f"{tmp_dir}/test_tmpdir_abort.dag.dagman.out"))
+            results = lssthtc.htc_check_dagman_output(tmp_dir)
+            os.chmod(f"{tmp_dir}/test_tmpdir_abort.dag.dagman.out", 0o600)
+            self.assertIn("Could not read dagman output file", results)
+
+    def test_submit_failure(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/bad_submit.dag.dagman.out", tmp_dir)
+            results = lssthtc.htc_check_dagman_output(tmp_dir)
+            self.assertIn("Warn: Job submission issues (last: ", results)
+
+    def test_tmpdir_abort(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/test_tmpdir_abort.dag.dagman.out", tmp_dir)
+            results = lssthtc.htc_check_dagman_output(tmp_dir)
+            self.assertIn("Cannot submit from /tmp", results)
+
+    def test_no_messages(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/test_no_messages.dag.dagman.out", tmp_dir)
+            results = lssthtc.htc_check_dagman_output(tmp_dir)
+            self.assertEqual("", results)
 
 
 if __name__ == "__main__":
