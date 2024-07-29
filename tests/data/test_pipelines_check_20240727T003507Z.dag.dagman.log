@@ -1,0 +1,15 @@
+000 (1163.000.000) 2024-07-26 19:35:18 Job submitted from host: <127.0.0.1:9618?addrs=127.0.0.1-9618+[2601-248-8201-25c0--b3f6]-9618&alias=acws02&noUDP&sock=schedd_1710_7f09>
+...
+001 (1163.000.000) 2024-07-26 19:35:18 Job executing on host: <127.0.0.1:9618?addrs=127.0.0.1-9618+[2601-248-8201-25c0--b3f6]-9618&alias=acws02&noUDP&sock=schedd_1710_7f09>
+...
+005 (1163.000.000) 2024-07-26 19:38:38 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...

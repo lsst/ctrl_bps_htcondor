@@ -28,9 +28,9 @@
 """Unit tests for the HTCondor WMS service class and related functions."""
 
 import logging
-import pathlib
-import tempfile
+import os
 import unittest
+from shutil import copy2
 
 import htcondor
 from lsst.ctrl.bps import BpsConfig, GenericWorkflowExec, GenericWorkflowJob, WmsStates
@@ -40,14 +40,18 @@ from lsst.ctrl.bps.htcondor.htcondor_service import (
     JobStatus,
     NodeStatus,
     _get_exit_code_summary,
+    _get_info_from_path,
     _get_state_counts_from_dag_job,
     _htc_node_status_to_wms_state,
     _htc_status_to_wms_state,
     _translate_job_cmds,
 )
-from lsst.ctrl.bps.htcondor.lssthtc import _tweak_log_info
+from lsst.ctrl.bps.htcondor.lssthtc import MISSING_ID
+from lsst.utils.tests import temporaryDirectory
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
+
+TESTDIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class HTCondorServiceTestCase(unittest.TestCase):
@@ -244,100 +248,6 @@ class HtcNodeStatusToWmsStateTestCase(unittest.TestCase):
         self.assertEqual(result, WmsStates.DELETED)
 
 
-class TweakJobInfoTestCase(unittest.TestCase):
-    """Test the function responsible for massaging job information."""
-
-    def setUp(self):
-        self.log_file = tempfile.NamedTemporaryFile(prefix="test_", suffix=".log")
-        self.log_name = pathlib.Path(self.log_file.name)
-        self.job = {
-            "Cluster": 1,
-            "Proc": 0,
-            "Iwd": str(self.log_name.parent),
-            "Owner": self.log_name.owner(),
-            "MyType": None,
-            "TerminatedNormally": True,
-        }
-
-    def tearDown(self):
-        self.log_file.close()
-
-    def testDirectAssignments(self):
-        _tweak_log_info(self.log_name, self.job)
-        self.assertEqual(self.job["ClusterId"], self.job["Cluster"])
-        self.assertEqual(self.job["ProcId"], self.job["Proc"])
-        self.assertEqual(self.job["Iwd"], str(self.log_name.parent))
-        self.assertEqual(self.job["Owner"], self.log_name.owner())
-
-    def testJobStatusAssignmentJobAbortedEvent(self):
-        job = self.job | {"MyType": "JobAbortedEvent"}
-        _tweak_log_info(self.log_name, job)
-        self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.REMOVED)
-
-    def testJobStatusAssignmentExecuteEvent(self):
-        job = self.job | {"MyType": "ExecuteEvent"}
-        _tweak_log_info(self.log_name, job)
-        self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.RUNNING)
-
-    def testJobStatusAssignmentSubmitEvent(self):
-        job = self.job | {"MyType": "SubmitEvent"}
-        _tweak_log_info(self.log_name, job)
-        self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.IDLE)
-
-    def testJobStatusAssignmentJobHeldEvent(self):
-        job = self.job | {"MyType": "JobHeldEvent"}
-        _tweak_log_info(self.log_name, job)
-        self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.HELD)
-
-    def testJobStatusAssignmentJobTerminatedEvent(self):
-        job = self.job | {"MyType": "JobTerminatedEvent"}
-        _tweak_log_info(self.log_name, job)
-        self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
-
-    def testJobStatusAssignmentPostScriptTerminatedEvent(self):
-        job = self.job | {"MyType": "PostScriptTerminatedEvent"}
-        _tweak_log_info(self.log_name, job)
-        self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
-
-    def testAddingExitStatusSuccess(self):
-        job = self.job | {
-            "MyType": "JobTerminatedEvent",
-            "ToE": {"ExitBySignal": False, "ExitCode": 1},
-        }
-        _tweak_log_info(self.log_name, job)
-        self.assertIn("ExitBySignal", job)
-        self.assertIs(job["ExitBySignal"], False)
-        self.assertIn("ExitCode", job)
-        self.assertEqual(job["ExitCode"], 1)
-
-    def testAddingExitStatusFailure(self):
-        job = self.job | {
-            "MyType": "JobHeldEvent",
-        }
-        with self.assertLogs(logger=logger, level="ERROR") as cm:
-            _tweak_log_info(self.log_name, job)
-        self.assertIn("Could not determine exit status", cm.output[0])
-
-    def testLoggingUnknownLogEvent(self):
-        job = self.job | {"MyType": "Foo"}
-        with self.assertLogs(logger=logger, level="DEBUG") as cm:
-            _tweak_log_info(self.log_name, job)
-        self.assertIn("Unknown log event", cm.output[1])
-
-    def testMissingKey(self):
-        job = self.job
-        del job["Cluster"]
-        with self.assertRaises(KeyError) as cm:
-            _tweak_log_info(self.log_name, job)
-        self.assertEqual(str(cm.exception), "'Cluster'")
-
-
 class HtcStatusToWmsStateTestCase(unittest.TestCase):
     """Test assigning WMS state base on HTCondor status."""
 
@@ -459,3 +369,36 @@ class GetStateCountsFromDagJobTestCase(unittest.TestCase):
         total, result = _get_state_counts_from_dag_job(job)
         self.assertEqual(total, 22)
         self.assertEqual(result, truth)
+
+
+class GetInfoFromPathTestCase(unittest.TestCase):
+    """Test _get_info_from_path function"""
+
+    def test_tmpdir_abort(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/test_tmpdir_abort.dag.dagman.out", tmp_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(tmp_dir)
+            self.assertEqual(wms_workflow_id, MISSING_ID)
+            self.assertEqual(jobs, {})
+            self.assertIn("Cannot submit from /tmp", message)
+
+    def test_no_dagman_messages(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/test_no_messages.dag.dagman.out", tmp_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(tmp_dir)
+            self.assertEqual(wms_workflow_id, MISSING_ID)
+            self.assertEqual(jobs, {})
+            self.assertIn("Could not find HTCondor files", message)
+
+    def test_successful_run(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag", tmp_dir)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.dagman.log", tmp_dir)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.dagman.out", tmp_dir)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.nodes.log", tmp_dir)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.node_status", tmp_dir)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.info.json", tmp_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(tmp_dir)
+            self.assertEqual(wms_workflow_id, "1163.0")
+            self.assertEqual(len(jobs), 6)  # dag, pipetaskInit, 3 science, finalJob
+            self.assertEqual(message, "")

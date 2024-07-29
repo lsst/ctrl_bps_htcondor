@@ -1201,10 +1201,15 @@ def _get_info_from_path(wms_path):
         message = f"Could not find HTCondor files in '{wms_path}'"
         _LOG.warning(message)
         messages.append(message)
+        message = htc_check_dagman_output(wms_path)
+        if message:
+            messages.append(message)
         wms_workflow_id = MISSING_ID
         jobs = {}
 
     message = "\n".join([msg for msg in messages if msg])
+    _LOG.debug("wms_workflow_id = %s, jobs = %s", wms_workflow_id, jobs.keys())
+    _LOG.debug("message = %s", message)
     return wms_workflow_id, jobs, message
 
 
@@ -1226,6 +1231,7 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
     """
     _LOG.debug("_create_detailed_report: id = %s, job = %s", wms_workflow_id, jobs[wms_workflow_id])
     dag_job = jobs.pop(wms_workflow_id)
+    total_jobs, state_counts = _get_state_counts_from_dag_job(dag_job)
     report = WmsRunReport(
         wms_id=f"{dag_job['ClusterId']}.{dag_job['ProcId']}",
         global_wms_id=dag_job.get("GlobalJobId", "MISS"),
@@ -1239,8 +1245,8 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
         run_summary=_get_run_summary(dag_job),
         state=_htc_status_to_wms_state(dag_job),
         jobs=[],
-        total_number_jobs=dag_job["total_jobs"],
-        job_state_counts=dag_job["state_counts"],
+        total_number_jobs=dag_job.get("total_jobs", total_jobs),
+        job_state_counts=dag_job.get("state_counts", state_counts),
         exit_code_summary=_get_exit_code_summary(jobs),
     )
 

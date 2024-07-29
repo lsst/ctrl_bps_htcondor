@@ -1,0 +1,22 @@
+JOB pipetaskInit jobs/pipetaskInit/pipetaskInit.sub
+JOB 57c045a8-6124-42e5-bc6e-6304083ae933_isr_903342_10 jobs/isr/903342/57c045a8-6124-42e5-bc6e-6304083ae933_isr_903342_10.sub
+JOB 93fde04f-f3c2-4626-ae3e-43e618372ab8_characterizeImage_903342_10 jobs/characterizeImage/903342/93fde04f-f3c2-4626-ae3e-43e618372ab8_characterizeImage_903342_10.sub
+JOB 582c5da1-af17-48a4-9b41-ef7d9b2458c3_calibrate_903342_10 jobs/calibrate/903342/582c5da1-af17-48a4-9b41-ef7d9b2458c3_calibrate_903342_10.sub
+PARENT pipetaskInit CHILD 57c045a8-6124-42e5-bc6e-6304083ae933_isr_903342_10
+PARENT 57c045a8-6124-42e5-bc6e-6304083ae933_isr_903342_10 CHILD 93fde04f-f3c2-4626-ae3e-43e618372ab8_characterizeImage_903342_10
+PARENT 93fde04f-f3c2-4626-ae3e-43e618372ab8_characterizeImage_903342_10 CHILD 582c5da1-af17-48a4-9b41-ef7d9b2458c3_calibrate_903342_10
+DOT test_pipelines_check_20240727T003507Z.dot
+NODE_STATUS_FILE test_pipelines_check_20240727T003507Z.node_status
+SET_JOB_ATTR bps_isjob= "True"
+SET_JOB_ATTR bps_project= "dev"
+SET_JOB_ATTR bps_campaign= "quick"
+SET_JOB_ATTR bps_run= "test_pipelines_check_20240727T003507Z"
+SET_JOB_ATTR bps_operator= "mgower"
+SET_JOB_ATTR bps_payload= "pipelines_check"
+SET_JOB_ATTR bps_runsite= "ncsapool"
+SET_JOB_ATTR bps_wms_service= "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorService"
+SET_JOB_ATTR bps_wms_workflow= "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorWorkflow"
+SET_JOB_ATTR bps_run_quanta= "isr:1;characterizeImage:1;calibrate:1"
+SET_JOB_ATTR bps_job_summary= "pipetaskInit:1;isr:1;characterizeImage:1;calibrate:1;finalJob:1"
+FINAL finalJob jobs/finalJob/finalJob.sub
+SCRIPT POST finalJob /work/mgower/gen3work/report-keyerror-43932/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/final_post.sh finalJob $DAG_STATUS $RETURN

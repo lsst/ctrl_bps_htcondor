@@ -1,0 +1,69 @@
+[
+  Type = "DagStatus";
+  DagFiles = {
+    "/work/mgower/gen3work/report-keyerror-43932/submit/test_pipelines_check/20240727T003507Z/test_pipelines_check_20240727T003507Z.dag"
+  };
+  Timestamp = 1722040718; /* "Fri Jul 26 19:38:38 2024" */
+  DagStatus = 5; /* "STATUS_DONE (success)" */
+  NodesTotal = 5;
+  NodesDone = 5;
+  NodesPre = 0;
+  NodesQueued = 0;
+  NodesPost = 0;
+  NodesReady = 0;
+  NodesUnready = 0;
+  NodesFutile = 0;
+  NodesFailed = 0;
+  JobProcsHeld = 0;
+  JobProcsIdle = 0; /* includes held */
+]
+[
+  Type = "NodeStatus";
+  Node = "pipetaskInit";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "57c045a8-6124-42e5-bc6e-6304083ae933_isr_903342_10";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "93fde04f-f3c2-4626-ae3e-43e618372ab8_characterizeImage_903342_10";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "582c5da1-af17-48a4-9b41-ef7d9b2458c3_calibrate_903342_10";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "finalJob";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "StatusEnd";
+  EndTime = 1722040718; /* "Fri Jul 26 19:38:38 2024" */
+  NextUpdate = 0; /* "none" */
+]
