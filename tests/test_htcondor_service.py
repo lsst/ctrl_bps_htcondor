@@ -53,6 +53,29 @@ logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 
+LOCATE_SUCCESS = """[
+        CondorPlatform = "$CondorPlatform: X86_64-CentOS_7.9 $";
+        MyType = "Scheduler";
+        Machine = "testmachine";
+        Name = "testmachine";
+        CondorVersion = "$CondorVersion: 23.0.3 2024-04-04 $";
+        MyAddress = "<127.0.0.1:9618?addrs=127.0.0.1-9618+snip>"
+    ]
+"""
+
+PING_SUCCESS = """[
+        AuthCommand = 60011;
+        AuthMethods = "FS_REMOTE";
+        Command = 60040;
+        AuthorizationSucceeded = true;
+        ValidCommands = "60002,60003,60011,60014,60045,60046,60047,60048,60049,60050,60052,523";
+        TriedAuthentication = true;
+        RemoteVersion = "$CondorVersion: 10.9.0 2023-09-28 BuildID: 678228 PackageID: 10.9.0-1 $";
+        MyRemoteUserName = "testuser@testmachine";
+        Authentication = "YES";
+    ]
+"""
+
 
 class HTCondorServiceTestCase(unittest.TestCase):
     """Test selected methods of the HTCondor WMS service class."""
@@ -70,6 +93,28 @@ class HTCondorServiceTestCase(unittest.TestCase):
     def testDefaultsPath(self):
         self.assertEqual(self.service.defaults_uri, HTC_DEFAULTS_URI)
         self.assertFalse(self.service.defaults_uri.isdir())
+
+    @unittest.mock.patch.object(htcondor.Collector, "locate", return_value=LOCATE_SUCCESS)
+    @unittest.mock.patch.object(htcondor.SecMan, "ping", return_value=PING_SUCCESS)
+    def testPingSuccess(self, mock_locate, mock_ping):
+        status, message = self.service.ping(None)
+        self.assertEqual(status, 0)
+        self.assertEqual(message, "")
+
+    def testPingFailure(self):
+        with unittest.mock.patch("htcondor.Collector.locate") as locate_mock:
+            locate_mock.side_effect = htcondor.HTCondorLocateError()
+            status, message = self.service.ping(None)
+            self.assertEqual(status, 1)
+            self.assertEqual(message, "Could not locate Schedd service.")
+
+    @unittest.mock.patch.object(htcondor.Collector, "locate", return_value=LOCATE_SUCCESS)
+    def testPingPermission(self, mock_locate):
+        with unittest.mock.patch("htcondor.SecMan.ping") as ping_mock:
+            ping_mock.side_effect = htcondor.HTCondorIOError()
+            status, message = self.service.ping(None)
+            self.assertEqual(status, 1)
+            self.assertEqual(message, "Permission problem with Schedd service.")
 
 
 class GetExitCodeSummaryTestCase(unittest.TestCase):

@@ -497,6 +497,42 @@ class HTCondorService(BaseWmsService):
         _LOG.debug("deleted: %s; message = %s", deleted, message)
         return deleted, message
 
+    def ping(self, pass_thru):
+        """Check whether WMS services are up, reachable, and can authenticate
+        if authentication is required.
+
+        The services to be checked are those needed for submit, report, cancel,
+        restart, but ping cannot guarantee whether jobs would actually run
+        successfully.
+
+        Parameters
+        ----------
+        pass_thru : `str`, optional
+            Information to pass through to WMS.
+
+        Returns
+        -------
+        status : `int`
+            0 for success, non-zero for failure.
+        message : `str`
+            Any message from WMS (e.g., error details).
+        """
+        coll = htcondor.Collector()
+        secman = htcondor.SecMan()
+        status = 0
+        message = ""
+        _LOG.info("Not verifying that compute resources exist.")
+        try:
+            for daemon_type in [htcondor.DaemonTypes.Schedd, htcondor.DaemonTypes.Collector]:
+                _ = secman.ping(coll.locate(daemon_type))
+        except htcondor.HTCondorLocateError:
+            status = 1
+            message = f"Could not locate {daemon_type} service."
+        except htcondor.HTCondorIOError:
+            status = 1
+            message = f"Permission problem with {daemon_type} service."
+        return status, message
+
 
 class HTCondorWorkflow(BaseWmsWorkflow):
     """Single HTCondor workflow.
