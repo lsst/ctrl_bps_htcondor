@@ -1,0 +1,1 @@
+Updated plugin to allow spaces in job submit file path.

@@ -833,7 +833,7 @@ class HTCJob:
         stream : `IO` or `str`
             Output Stream.
         """
-        print(f"JOB {self.name} {self.subfile}", file=stream)
+        print(f'JOB {self.name} "{self.subfile}"', file=stream)
         _htc_write_job_commands(stream, self.name, self.dagcmds)
 
     def dump(self, fh):
@@ -1241,16 +1241,15 @@ def summary_from_dag(dir_name):
     job_name_to_pipetask : `dict` [`str`, `str`]
         Mapping of job names to job labels.
     """
-    dag = next(Path(dir_name).glob("*.dag"))
-
     # Later code depends upon insertion order
     counts = defaultdict(int)
     job_name_to_pipetask = {}
     try:
+        dag = next(Path(dir_name).glob("*.dag"))
         with open(dag) as fh:
             for line in fh:
                 if line.startswith("JOB"):
-                    m = re.match(r"JOB ([^\s]+) jobs/([^/]+)/", line)
+                    m = re.match(r'JOB (\S+) "jobs/([^/]+)/', line)
                     if m:
                         label = m.group(2)
                         if label == "init":
@@ -1258,7 +1257,7 @@ def summary_from_dag(dir_name):
                         job_name_to_pipetask[m.group(1)] = label
                         counts[label] += 1
                     else:  # Check if Pegasus submission
-                        m = re.match(r"JOB ([^\s]+) ([^\s]+)", line)
+                        m = re.match(r"JOB (\S+) (\S+)", line)
                         if m:
                             label = pegasus_name_to_label(m.group(1))
                             job_name_to_pipetask[m.group(1)] = label
@@ -1266,7 +1265,7 @@ def summary_from_dag(dir_name):
                         else:
                             _LOG.warning("Parse DAG: unmatched job line: %s", line)
                 elif line.startswith("FINAL"):
-                    m = re.match(r"FINAL ([^\s]+) jobs/([^/]+)/", line)
+                    m = re.match(r"FINAL (\S+) jobs/([^/]+)/", line)
                     if m:
                         label = m.group(2)
                         job_name_to_pipetask[m.group(1)] = label

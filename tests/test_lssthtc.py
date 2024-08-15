@@ -196,5 +196,31 @@ class HtcCheckDagmanOutputTestCase(unittest.TestCase):
             self.assertEqual("", results)
 
 
+class SummaryFromDagTestCase(unittest.TestCase):
+    """Test summary_from_dag function."""
+
+    def test_no_dag_file(self):
+        with temporaryDirectory() as tmp_dir:
+            summary, job_name_to_pipetask = lssthtc.summary_from_dag(tmp_dir)
+            self.assertFalse(len(job_name_to_pipetask))
+            self.assertFalse(summary)
+
+    def test_success(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/good.dag", tmp_dir)
+            summary, job_name_to_pipetask = lssthtc.summary_from_dag(tmp_dir)
+            self.assertEqual(summary, "pipetaskInit:1;label1:1;label2:1;label3:1;finalJob:1")
+            self.assertEqual(
+                job_name_to_pipetask,
+                {
+                    "pipetaskInit": "pipetaskInit",
+                    "0682f8f9-12f0-40a5-971e-8b30c7231e5c_label1_val1_val2": "label1",
+                    "d0305e2d-f164-4a85-bd24-06afe6c84ed9_label2_val1_val2": "label2",
+                    "2806ecc9-1bba-4362-8fff-ab4e6abb9f83_label3_val1_val2": "label3",
+                    "finalJob": "finalJob",
+                },
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
