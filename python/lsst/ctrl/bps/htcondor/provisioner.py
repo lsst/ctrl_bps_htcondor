@@ -144,20 +144,21 @@ class Provisioner:
         """
         if name is None:
             name = "provisioningJob"
+
         job = HTCJob(name=name, label=name)
         job.subfile = Path("jobs") / job.label / f"{name}.sub"
-        job_cmds = {
+        job.add_job_attrs({"bps_job_name": job.name, "bps_job_label": job.label, "bps_job_quanta": ""})
+        cmds = {
             "universe": "local",
             "executable": f"{self.script_name}",
             "should_transfer_files": "NO",
             "getenv": "True",
-            "output": f"{job.subfile}.$(Cluster).out",
-            "error": f"{job.subfile}.$(Cluster).err",
-            "log": f"{job.subfile}.$(Cluster).log",
         }
-        job.add_job_attrs({"bps_job_name": job.name, "bps_job_label": job.label, "bps_job_quanta": ""})
-        job.add_job_cmds(job_cmds)
-        dag.add_service_job(job)
+        cmds |= {
+            stream: str(job.subfile.with_suffix(f".$(Cluster).{stream[:3]}"))
+            for stream in ("output", "error", "log")
+        }
+        job.add_job_cmds(cmds)
 
-        bps_job_summary = dag.graph["attrs"]["bps_job_summary"] + ";provisioningJob:1"
-        dag.add_attribs({"bps_job_summary": bps_job_summary})
+        dag.add_service_job(job)
+        dag.add_attribs({"bps_provisioning_job": job.label})
