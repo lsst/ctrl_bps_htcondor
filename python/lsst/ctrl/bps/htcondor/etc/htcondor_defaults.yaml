@@ -5,15 +5,14 @@
 #     https://s3df.slac.stanford.edu/public/doc/#/batch-compute
 memoryLimit: 491520
 
-# Define a job that will be responsible for provisioning resources
-# automatically.
-provisioningJob:
+# Define how to provision resources automatically.
+provisioning:
   provisioningNodeCount: 10
   provisioningCheckInterval: 600
   provisioningQueue: "milano"
   provisioningAccount: "rubin:developers"
   provisioningPlatform: "s3df"
-  provisioningScript: |-
+  provisioningScript: |
     #!/bin/bash
     set -e
     set -x
@@ -28,9 +27,10 @@ provisioningJob:
         sleep {provisioningCheckInterval}
     done
     exit 0
-  provisioningScriptConfig: |-
+  provisioningScriptConfig: |
     config.platform["{provisioningPlatform}"].user.name="${USER}"
     config.platform["{provisioningPlatform}"].user.home="${HOME}"
+  provisioningScriptConfigPath: "${HOME}/.lsst/condor-info.py"
 
 # By default, disable automatic provisioning of resources.
 provisionResources: false

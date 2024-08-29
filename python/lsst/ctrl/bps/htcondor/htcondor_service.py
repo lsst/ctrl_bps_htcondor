@@ -152,10 +152,14 @@ class HTCondorService(BaseWmsService):
             if enable_provisioning:
                 search_opts = {
                     "expandVars": True,
-                    "searchobj": self.config["provisioningJob"],
+                    "searchobj": self.config["provisioning"],
                 }
+
+                _, prov_config_path = config.search("provisioningScriptConfigPath", opt=search_opts)
+                prov_config_path = Path(prov_config_path)
+
                 provisioner = Provisioner(config, search_opts=search_opts)
-                provisioner.configure("condor-info.py", prefix=Path.home() / ".lsst")
+                provisioner.configure(prov_config_path.name, prefix=prov_config_path.parent)
                 provisioner.prepare("provisioning_job.bash", prefix=out_prefix)
                 provisioner.provision(workflow.dag)
 
