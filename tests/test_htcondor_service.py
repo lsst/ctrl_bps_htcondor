@@ -30,6 +30,7 @@
 import logging
 import os
 import unittest
+from pathlib import Path
 from shutil import copy2
 
 import htcondor
@@ -39,12 +40,14 @@ from lsst.ctrl.bps.htcondor.htcondor_service import (
     HTCondorService,
     JobStatus,
     NodeStatus,
+    WmsIdType,
     _get_exit_code_summary,
     _get_info_from_path,
     _get_state_counts_from_dag_job,
     _htc_node_status_to_wms_state,
     _htc_status_to_wms_state,
     _translate_job_cmds,
+    _wms_id_to_dir,
 )
 from lsst.ctrl.bps.htcondor.lssthtc import MISSING_ID
 from lsst.utils.tests import temporaryDirectory
@@ -447,3 +450,35 @@ class GetInfoFromPathTestCase(unittest.TestCase):
             self.assertEqual(wms_workflow_id, "1163.0")
             self.assertEqual(len(jobs), 6)  # dag, pipetaskInit, 3 science, finalJob
             self.assertEqual(message, "")
+
+
+class WmsIdToDirTestCase(unittest.TestCase):
+    """Test _wms_id_to_dir function"""
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    def testInvalidIdType(self, _wms_id_type_mock):
+        _wms_id_type_mock.return_value = WmsIdType.UNKNOWN
+        with self.assertRaises(TypeError) as cm:
+            _, _ = _wms_id_to_dir("not_used")
+        self.assertIn("Invalid job id type", str(cm.exception))
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    def testAbsPathId(self, mock_wms_id_type):
+        mock_wms_id_type.return_value = WmsIdType.PATH
+        with temporaryDirectory() as tmp_dir:
+            wms_path, id_type = _wms_id_to_dir(tmp_dir)
+            self.assertEqual(id_type, WmsIdType.PATH)
+            self.assertEqual(Path(tmp_dir).resolve(), wms_path)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    def testRelPathId(self, _wms_id_type_mock):
+        _wms_id_type_mock.return_value = WmsIdType.PATH
+        orig_dir = Path.cwd()
+        with temporaryDirectory() as tmp_dir:
+            os.chdir(tmp_dir)
+            abs_path = Path(tmp_dir) / "newdir"
+            abs_path.mkdir()
+            wms_path, id_type = _wms_id_to_dir("newdir")
+            self.assertEqual(id_type, WmsIdType.PATH)
+            self.assertEqual(abs_path.resolve(), wms_path)
+            os.chdir(orig_dir)

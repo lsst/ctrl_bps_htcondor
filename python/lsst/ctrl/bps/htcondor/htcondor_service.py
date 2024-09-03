@@ -265,7 +265,7 @@ class HTCondorService(BaseWmsService):
         run_id, run_name, message = None, None, ""
         with chdir(wms_path):
             try:
-                dag_path = next(wms_path.glob("*.dag.condor.sub"))
+                dag_path = next(Path.cwd().glob("*.dag.condor.sub"))
             except StopIteration:
                 message = f"DAGMan submit description file not found in '{wms_path}'"
             else:
@@ -1847,7 +1847,7 @@ def _wms_id_to_dir(wms_id):
             constraint = f'GlobalJobId == "{wms_id}"'
             schedd_ads.extend(coll.locateAll(htcondor.DaemonTypes.Schedd))
         case WmsIdType.PATH:
-            wms_path = Path(wms_id)
+            wms_path = Path(wms_id).resolve()
         case WmsIdType.UNKNOWN:
             raise TypeError(f"Invalid job id type: {wms_id}")
     if constraint is not None:
