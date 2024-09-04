@@ -1,0 +1,2 @@
+Updated ``bps restart`` to work with relative path as id.
+Updated ``bps report --id <relpath>`` to display absolute path.
