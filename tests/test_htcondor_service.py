@@ -451,6 +451,25 @@ class GetInfoFromPathTestCase(unittest.TestCase):
             self.assertEqual(len(jobs), 6)  # dag, pipetaskInit, 3 science, finalJob
             self.assertEqual(message, "")
 
+    def test_relative_path(self):
+        orig_dir = Path.cwd()
+        with temporaryDirectory() as tmp_dir:
+            os.chdir(tmp_dir)
+            abs_path = Path(tmp_dir).resolve() / "subdir"
+            abs_path.mkdir()
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag", abs_path)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.dagman.log", abs_path)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.dagman.out", abs_path)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.nodes.log", abs_path)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.node_status", abs_path)
+            copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.info.json", abs_path)
+            wms_workflow_id, jobs, message = _get_info_from_path("subdir")
+            self.assertEqual(wms_workflow_id, "1163.0")
+            self.assertEqual(len(jobs), 6)  # dag, pipetaskInit, 3 science, finalJob
+            self.assertEqual(message, "")
+            self.assertEqual(jobs["1163.0"]["Iwd"], str(abs_path))
+            os.chdir(orig_dir)
+
 
 class WmsIdToDirTestCase(unittest.TestCase):
     """Test _wms_id_to_dir function"""

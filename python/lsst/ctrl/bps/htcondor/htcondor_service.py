@@ -1193,6 +1193,10 @@ def _get_info_from_path(wms_path):
     message : `str`
         Message to be printed with the summary report.
     """
+    # Ensure path is absolute, in particular for folks helping
+    # debug failures that need to dig around submit files.
+    wms_path = Path(wms_path).resolve()
+
     messages = []
     try:
         wms_workflow_id, jobs = read_dag_log(wms_path)
