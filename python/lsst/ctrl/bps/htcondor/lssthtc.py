@@ -1621,13 +1621,11 @@ def write_dag_info(filename, dag_info):
     schedd_name = next(iter(dag_info))
     dag_id = next(iter(dag_info[schedd_name]))
     dag_ad = dag_info[schedd_name][dag_id]
+    ad = {"ClusterId": dag_ad["ClusterId"], "GlobalJobId": dag_ad["GlobalJobId"]}
+    ad.update({key: val for key, val in dag_ad.items() if key.startswith("bps")})
     try:
         with open(filename, "w") as fh:
-            info = {
-                schedd_name: {
-                    dag_id: {"ClusterId": dag_ad["ClusterId"], "GlobalJobId": dag_ad["GlobalJobId"]}
-                }
-            }
+            info = {schedd_name: {dag_id: ad}}
             json.dump(info, fh)
     except (KeyError, OSError, PermissionError) as exc:
         _LOG.debug("Persisting DAGMan job information failed: %s", exc)
