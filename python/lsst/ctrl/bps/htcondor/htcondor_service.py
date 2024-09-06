@@ -1289,23 +1289,23 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
         id and the value is a collection of report information for that run.
     """
     _LOG.debug("_create_detailed_report: id = %s, job = %s", wms_workflow_id, jobs[wms_workflow_id])
-    dag_job = jobs.pop(wms_workflow_id)
-    total_jobs, state_counts = _get_state_counts_from_dag_job(dag_job)
+    dag_ad = jobs.pop(wms_workflow_id)
+    total_jobs, state_counts = _get_state_counts_from_dag_job(dag_ad)
     report = WmsRunReport(
-        wms_id=f"{dag_job['ClusterId']}.{dag_job['ProcId']}",
-        global_wms_id=dag_job.get("GlobalJobId", "MISS"),
-        path=dag_job["Iwd"],
-        label=dag_job.get("bps_job_label", "MISS"),
-        run=dag_job.get("bps_run", "MISS"),
-        project=dag_job.get("bps_project", "MISS"),
-        campaign=dag_job.get("bps_campaign", "MISS"),
-        payload=dag_job.get("bps_payload", "MISS"),
-        operator=_get_owner(dag_job),
-        run_summary=_get_run_summary(dag_job),
-        state=_htc_status_to_wms_state(dag_job),
+        wms_id=f"{dag_ad['ClusterId']}.{dag_ad['ProcId']}",
+        global_wms_id=dag_ad.get("GlobalJobId", "MISS"),
+        path=dag_ad["Iwd"],
+        label=dag_ad.get("bps_job_label", "MISS"),
+        run=dag_ad.get("bps_run", "MISS"),
+        project=dag_ad.get("bps_project", "MISS"),
+        campaign=dag_ad.get("bps_campaign", "MISS"),
+        payload=dag_ad.get("bps_payload", "MISS"),
+        operator=_get_owner(dag_ad),
+        run_summary=_get_run_summary(dag_ad),
+        state=_htc_status_to_wms_state(dag_ad),
         jobs=[],
-        total_number_jobs=dag_job.get("total_jobs", total_jobs),
-        job_state_counts=dag_job.get("state_counts", state_counts),
+        total_number_jobs=dag_ad.get("total_jobs", total_jobs),
+        job_state_counts=dag_ad.get("state_counts", state_counts),
         exit_code_summary=_get_exit_code_summary(jobs),
     )
 
@@ -1326,7 +1326,7 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
 
     # Add the removed entry to restore the original content of the dictionary.
     # The ordering of keys will be change permanently though.
-    jobs.update({wms_workflow_id: dag_job})
+    jobs.update({wms_workflow_id: dag_ad})
 
     run_reports = {report.wms_id: report}
     _LOG.debug("_create_detailed_report: run_reports = %s", run_reports)
@@ -1554,10 +1554,9 @@ def _get_state_counts_from_jobs(wms_workflow_id, jobs):
         that are in that WMS state.
     """
     state_counts = dict.fromkeys(WmsStates, 0)
-
-    for jid, jinfo in jobs.items():
-        if jid != wms_workflow_id:
-            state_counts[_htc_status_to_wms_state(jinfo)] += 1
+    for job_id, job_info in jobs.items():
+        if job_id != wms_workflow_id:
+            state_counts[_htc_status_to_wms_state(job_info)] += 1
 
     total_counted = sum(state_counts.values())
     if "NodesTotal" in jobs[wms_workflow_id]:
@@ -1746,11 +1745,11 @@ def _update_jobs(jobs1, jobs2):
     jobs2 : `dict` [`str`, `dict` [`str`, `Any`]]
         Additional HTCondor job information.
     """
-    for jid, jinfo in jobs2.items():
-        if jid in jobs1:
-            jobs1[jid].update(jinfo)
+    for job_id, job_ad in jobs2.items():
+        if job_id in jobs1:
+            jobs1[job_id].update(job_ad)
         else:
-            jobs1[jid] = jinfo
+            jobs1[job_id] = job_ad
 
 
 def _wms_id_type(wms_id):

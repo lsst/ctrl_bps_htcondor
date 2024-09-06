@@ -1258,12 +1258,12 @@ def summary_from_dag(dir_name):
     summary : `str`
         Semi-colon separated list of job labels and counts.
         (Same format as saved in dag classad).
-    job_name_to_pipetask : `dict` [`str`, `str`]
+    job_name_to_label : `dict` [`str`, `str`]
         Mapping of job names to job labels.
     """
     # Later code depends upon insertion order
     counts = defaultdict(int)
-    job_name_to_pipetask = {}
+    job_name_to_label = {}
     try:
         dag = next(Path(dir_name).glob("*.dag"))
         with open(dag) as fh:
@@ -1274,13 +1274,13 @@ def summary_from_dag(dir_name):
                         label = m.group(2)
                         if label == "init":
                             label = "pipetaskInit"
-                        job_name_to_pipetask[m.group(1)] = label
+                        job_name_to_label[m.group(1)] = label
                         counts[label] += 1
                     else:  # Check if Pegasus submission
                         m = re.match(r"JOB (\S+) (\S+)", line)
                         if m:
                             label = pegasus_name_to_label(m.group(1))
-                            job_name_to_pipetask[m.group(1)] = label
+                            job_name_to_label[m.group(1)] = label
                             counts[label] += 1
                         else:
                             _LOG.warning("Parse DAG: unmatched job line: %s", line)
@@ -1288,15 +1288,19 @@ def summary_from_dag(dir_name):
                     m = re.match(r"FINAL (\S+) jobs/([^/]+)/", line)
                     if m:
                         label = m.group(2)
-                        job_name_to_pipetask[m.group(1)] = label
+                        job_name_to_label[m.group(1)] = label
                         counts[label] += 1
-
+                elif line.startswith("SERVICE"):
+                    m = re.match(r"SERVICE (\S+) jobs/([^/]+)/", line)
+                    if m:
+                        label = m.group(2)
+                        job_name_to_label[m.group(1)] = label
     except (OSError, PermissionError, StopIteration):
         pass
 
     summary = ";".join([f"{name}:{counts[name]}" for name in counts])
-    _LOG.debug("summary_from_dag: %s %s", summary, job_name_to_pipetask)
-    return summary, job_name_to_pipetask
+    _LOG.debug("summary_from_dag: %s %s", summary, job_name_to_label)
+    return summary, job_name_to_label
 
 
 def pegasus_name_to_label(name):
@@ -1396,17 +1400,17 @@ def read_node_status(wms_path):
         file.
     """
     # Get jobid info from other places to fill in gaps in info from node_status
-    _, job_name_to_pipetask = summary_from_dag(wms_path)
+    _, job_name_to_label = summary_from_dag(wms_path)
     wms_workflow_id, loginfo = read_dag_log(wms_path)
     loginfo = read_dag_nodes_log(wms_path)
     _LOG.debug("loginfo = %s", loginfo)
     job_name_to_id = {}
-    for jid, jinfo in loginfo.items():
-        if "LogNotes" in jinfo:
-            m = re.match(r"DAG Node: ([^\s]+)", jinfo["LogNotes"])
+    for job_id, job_info in loginfo.items():
+        if "LogNotes" in job_info:
+            m = re.match(r"DAG Node: (\S+)", job_info["LogNotes"])
             if m:
-                job_name_to_id[m.group(1)] = jid
-                jinfo["DAGNodeName"] = m.group(1)
+                job_name_to_id[m.group(1)] = job_id
+                job_info["DAGNodeName"] = m.group(1)
 
     try:
         node_status = next(Path(wms_path).glob("*.node_status"))
@@ -1417,46 +1421,48 @@ def read_node_status(wms_path):
     fake_id = -1.0  # For nodes that do not yet have a job id, give fake one
     try:
         with open(node_status) as fh:
-            ads = classad.parseAds(fh)
-
-            for jclassad in ads:
-                if jclassad["Type"] == "DagStatus":
-                    # skip DAG summary
-                    pass
-                elif "Node" not in jclassad:
-                    if jclassad["Type"] != "StatusEnd":
-                        _LOG.debug("Key 'Node' not in classad: %s", jclassad)
-                    break
-                else:
-                    if jclassad["Node"] in job_name_to_pipetask:
-                        try:
-                            label = job_name_to_pipetask[jclassad["Node"]]
-                        except KeyError:
-                            _LOG.error("%s not in %s", jclassad["Node"], job_name_to_pipetask.keys())
-                            raise
-                    elif "_" in jclassad["Node"]:
-                        label = jclassad["Node"].split("_")[1]
-                    else:
-                        label = jclassad["Node"]
-
-                    # Make job info as if came from condor_q
-                    if jclassad["Node"] in job_name_to_id:
-                        job_id = str(job_name_to_id[jclassad["Node"]])
-                    else:
-                        job_id = str(fake_id)
-                        fake_id -= 1
-
-                    job = dict(jclassad)
-                    job["ClusterId"] = int(float(job_id))
-                    job["DAGManJobID"] = wms_workflow_id
-                    job["DAGNodeName"] = jclassad["Node"]
-                    job["bps_job_label"] = label
-
-                    jobs[job_id] = job
-                    try:
-                        jobs[job_id] |= loginfo[job_id]
-                    except KeyError:
+            for ad in classad.parseAds(fh):
+                match ad["Type"]:
+                    case "DagStatus":
+                        # Skip DAG summary.
                         pass
+                    case "NodeStatus":
+                        job_name = ad["Node"]
+                        if job_name in job_name_to_label:
+                            job_label = job_name_to_label[job_name]
+                        elif "_" in job_name:
+                            job_label = job_name.split("_")[1]
+                        else:
+                            job_label = job_name
+
+                        # Make job info as if came from condor_q.
+                        if job_name in job_name_to_id:
+                            job_id = str(job_name_to_id[job_name])
+                        else:
+                            job_id = str(fake_id)
+                            fake_id -= 1
+                        job = dict(ad)
+                        job["ClusterId"] = int(float(job_id))
+                        job["DAGManJobID"] = wms_workflow_id
+                        job["DAGNodeName"] = job_name
+                        job["bps_job_label"] = job_label
+
+                        # Include information retrieved from the event log
+                        # if available.
+                        jobs[job_id] = job
+                        try:
+                            jobs[job_id] |= loginfo[job_id]
+                        except KeyError:
+                            pass
+                    case "StatusEnd":
+                        # Skip node status file "epilog".
+                        pass
+                    case _:
+                        _LOG.debug(
+                            "Ignoring unknown classad type '%s' in the node status file '%s'",
+                            ad["Type"],
+                            wms_path,
+                        )
     except (OSError, PermissionError):
         pass
 
