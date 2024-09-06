@@ -1102,7 +1102,7 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
             # At the moment missing DAGMan log is pretty much a fatal error.
             # So empty the DAG info to finish early (see the if statement
             # below).
-            schedd_dag_info.clean()
+            schedd_dag_info.clear()
             messages.append(f"Cannot create the report for '{dag_id}': {exc}")
         else:
             if path_dag_id != dag_id:
