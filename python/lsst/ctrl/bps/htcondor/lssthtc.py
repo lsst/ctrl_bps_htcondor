@@ -81,6 +81,7 @@ from collections.abc import MutableMapping
 from datetime import datetime, timedelta
 from enum import IntEnum
 from pathlib import Path
+from typing import Any
 
 import classad
 import htcondor
@@ -1462,7 +1463,7 @@ def read_node_status(wms_path):
     return jobs
 
 
-def read_dag_log(wms_path):
+def read_dag_log(wms_path: str) -> tuple[str, dict[str, Any]]:
     """Read job information from the DAGMan log file.
 
     Parameters

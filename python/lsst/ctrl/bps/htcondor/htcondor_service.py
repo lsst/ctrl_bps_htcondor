@@ -37,6 +37,7 @@ import re
 from collections import defaultdict
 from enum import IntEnum, auto
 from pathlib import Path
+from typing import Any
 
 import htcondor
 from lsst.ctrl.bps import (
@@ -1150,7 +1151,9 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
     return run_reports, message
 
 
-def _get_info_from_schedd(wms_workflow_id, hist, schedds):
+def _get_info_from_schedd(
+    wms_workflow_id: str, hist: float, schedds: dict[str, htcondor.Schedd]
+) -> dict[str, dict[str, dict[str, Any]]]:
     """Gather run information from HTCondor.
 
     Parameters
@@ -1190,7 +1193,7 @@ def _get_info_from_schedd(wms_workflow_id, hist, schedds):
     return schedd_dag_info
 
 
-def _get_info_from_path(wms_path):
+def _get_info_from_path(wms_path: str) -> tuple[str, dict[str, dict[str, Any]], str]:
     """Gather run information from a given run directory.
 
     Parameters
