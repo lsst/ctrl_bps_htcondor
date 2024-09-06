@@ -47,6 +47,7 @@ from lsst.ctrl.bps import (
     GenericWorkflowJob,
     WmsJobReport,
     WmsRunReport,
+    WmsSpecificInfo,
     WmsStates,
 )
 from lsst.ctrl.bps.bps_utils import chdir, create_count_summary
@@ -1272,7 +1273,9 @@ def _get_info_from_path(wms_path: str) -> tuple[str, dict[str, dict[str, Any]], 
     return wms_workflow_id, jobs, message
 
 
-def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
+def _create_detailed_report_from_jobs(
+    wms_workflow_id: str, jobs: dict[str, dict[str, Any]]
+) -> dict[str, WmsRunReport]:
     """Gather run information to be used in generating summary reports.
 
     Parameters
@@ -1309,20 +1312,43 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
         exit_code_summary=_get_exit_code_summary(jobs),
     )
 
-    for job_id, job_info in jobs.items():
-        try:
-            job_report = WmsJobReport(
-                wms_id=job_id,
-                name=job_info.get("DAGNodeName", job_id),
-                label=job_info.get("bps_job_label", pegasus_name_to_label(job_info["DAGNodeName"])),
-                state=_htc_status_to_wms_state(job_info),
-            )
-            if job_report.label == "init":
-                job_report.label = "pipetaskInit"
-            report.jobs.append(job_report)
-        except KeyError as ex:
-            _LOG.error("Job missing key '%s': %s", str(ex), job_info)
-            raise
+    for job_id, job_ad in jobs.items():
+        is_service_node = int(float(job_id)) == 0
+        if not is_service_node:
+            try:
+                job_report = WmsJobReport(
+                    wms_id=job_id,
+                    name=job_ad.get("DAGNodeName", job_id),
+                    label=job_ad.get("bps_job_label", pegasus_name_to_label(job_ad["DAGNodeName"])),
+                    state=_htc_status_to_wms_state(job_ad),
+                )
+                if job_report.label == "init":
+                    job_report.label = "pipetaskInit"
+                report.jobs.append(job_report)
+            except KeyError as ex:
+                _LOG.error("Job missing key '%s': %s", str(ex), job_ad)
+                raise
+        else:
+            job_label = job_ad.get("bps_job_label")
+            if job_label is None:
+                _LOG.warning("Service job with id '%s': missing label, no action taken", job_id)
+            elif job_label == dag_ad.get("bps_provisioning_job", "MISS"):
+                # If the workflow is still running, include additional
+                # information about resource provisioning in the report.
+                if report.state == WmsStates.RUNNING:
+                    report.specific_info = WmsSpecificInfo()
+                    if job_ad is not None:
+                        job_state = _htc_status_to_wms_state(job_ad).name
+                        msg = "Automatic resource provisioning enabled (provisioning job status: {status})"
+                        ctx = {"status": job_state}
+                    else:
+                        msg = "Automatic resource provisioning disabled"
+                        ctx = None
+                    report.specific_info.add_message(template=msg, context=ctx)
+            else:
+                _LOG.warning(
+                    "Service job with id '%s' (label '%s'): no handler, no action taken", job_id, job_label
+                )
 
     # Add the removed entry to restore the original content of the dictionary.
     # The ordering of keys will be change permanently though.
@@ -1535,8 +1561,12 @@ def _get_exit_code_summary(jobs):
     return summary
 
 
-def _get_state_counts_from_jobs(wms_workflow_id, jobs):
+def _get_state_counts_from_jobs(
+    wms_workflow_id: str, jobs: dict[str, dict[str, Any]]
+) -> tuple[int, dict[WmsStates, int]]:
     """Count number of jobs per WMS state.
+
+    The workflow job and the service jobs are excluded from the count.
 
     Parameters
     ----------
@@ -1555,17 +1585,17 @@ def _get_state_counts_from_jobs(wms_workflow_id, jobs):
     """
     state_counts = dict.fromkeys(WmsStates, 0)
     for job_id, job_info in jobs.items():
-        if job_id != wms_workflow_id:
+        is_service_job = int(float(job_id)) == 0
+        if job_id != wms_workflow_id and not is_service_job:
             state_counts[_htc_status_to_wms_state(job_info)] += 1
-
     total_counted = sum(state_counts.values())
+
     if "NodesTotal" in jobs[wms_workflow_id]:
         total_count = jobs[wms_workflow_id]["NodesTotal"]
     else:
         total_count = total_counted
 
     state_counts[WmsStates.UNREADY] += total_count - total_counted
-
     return total_count, state_counts
 
 
