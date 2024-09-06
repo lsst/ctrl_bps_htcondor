@@ -1465,6 +1465,22 @@ def read_node_status(wms_path):
                         )
     except (OSError, PermissionError):
         pass
+    else:
+        # Assume that the jobs found in the event log, but *not* in the node
+        # status file are the service jobs as HTCondor does not include
+        # information about these jobs in the node status file at the moment.
+        #
+        # Note: To be able to easily identify the service jobs downstream,
+        # we reverse the ClusterId and ProcId in their HTCondor ids in internal
+        # use. For example, if HTCondor id of a service job is '1.0', we will
+        # use '0.1' instead.
+        service_jobs = {job_id: loginfo[job_id] for job_id in set(loginfo) - set(jobs)}
+        job_id_to_name = {
+            job_id: job_name for job_name, job_id in job_name_to_id.items() if job_id in service_jobs
+        }
+        for job_id, job_info in service_jobs.items():
+            job_info["bps_job_label"] = job_name_to_label[job_id_to_name[job_id]]
+            jobs[f"{job_info['ProcId']}.{job_info['ClusterId']}"] = job_info
 
     return jobs
 
