@@ -1313,8 +1313,7 @@ def _create_detailed_report_from_jobs(
     )
 
     for job_id, job_ad in jobs.items():
-        is_service_node = int(float(job_id)) == 0
-        if not is_service_node:
+        if not is_service_job(job_id):
             try:
                 job_report = WmsJobReport(
                     wms_id=job_id,
@@ -1585,8 +1584,7 @@ def _get_state_counts_from_jobs(
     """
     state_counts = dict.fromkeys(WmsStates, 0)
     for job_id, job_info in jobs.items():
-        is_service_job = int(float(job_id)) == 0
-        if job_id != wms_workflow_id and not is_service_job:
+        if job_id != wms_workflow_id and not is_service_job(job_id):
             state_counts[_htc_status_to_wms_state(job_info)] += 1
     total_counted = sum(state_counts.values())
 
@@ -2140,3 +2138,27 @@ def _gather_site_values(config, compute_site):
                 site_values["profile"][key] = val
 
     return site_values
+
+
+def is_service_job(job_id: str) -> bool:
+    """Determine if a job is a service one.
+
+    Parameters
+    ----------
+    job_id : str
+        HTCondor job id.
+
+    Returns
+    -------
+    is_service_job : `bool`
+        True if the job is a service one, false otherwise.
+
+    Notes
+    -----
+    At the moment, HTCondor does not provide a native way to distinguish
+    between payload and service jobs in the workflow. As a result, the current
+    implementation depends entirely on the logic that is used in
+    :py:func:`read_node_status()`. If it changes, this function needs to be
+    updated too.
+    """
+    return int(float(job_id)) == 0
