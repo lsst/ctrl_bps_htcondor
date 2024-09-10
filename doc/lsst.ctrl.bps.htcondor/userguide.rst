@@ -81,11 +81,6 @@ available in your BPS configuration file. For example:
            requirements: '(ALLOCATED_NODE_SET == &quot;${NODESET}&quot;)'
            +JOB_NODE_SET: '&quot;${NODESET}&quot;'
 
-.. note::
-
-   Package `ctrl_execute`_ is not the part of the `lsst_distrib`_ metapackage
-   and it needs to be (as well as its dependencies) installed manually.
-
 .. __: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#bps-configuration-file
 .. __: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#supported-settings
 
