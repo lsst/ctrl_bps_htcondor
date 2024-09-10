@@ -194,6 +194,102 @@ initially run with 2 GB of memory and failed because of exceeding the limit,
 result the entire workflow fails again due to other reasons, the job will ask
 for 2 GB of memory during the first execution after the workflow is restarted.
 
+.. _htc-plugin-provisioning:
+
+Provisioning resources automatically
+------------------------------------
+
+Computational resources required to execute a workflow may not always be
+managed directly by HTCondor and may need to be provisioned first by a
+different workload manager, for example, `Slurm`_.  In such a case
+**ctrl_bps_htcondor** can be instructed to run a provisioning job alongside of
+the workflow which will firstly create and then maintain `glideins`__ necessary
+for the execution of the workflow.
+
+To enable automatic provisioning of the resources, add the following settings to
+your BPS configuration:
+
+.. code-block:: yaml
+
+   provisionResources: true
+   provisioning:
+     provisioningMaxWallTime: <value>
+
+where ``<value>`` is the approximate time your workflow needs to complete,
+e.g., 3600, 10:00:00.
+
+This will instruct **ctrl_bps_htcondor** to include a service job that will run
+alongside the other, payload jobs in the workflow that should automatically
+create and maintain glideins required for the payload jobs to run.
+
+The service job managing the glideins will be automatically canceled once
+the workflow is completed.  However, the exisiting glideins will be left for
+HTCondor to shut them down once they will remain inactive for the period
+specified by ``provisioningMaxIdleTime`` (default value: 10 min., see below) or
+maximum wall time is reached.
+
+If the automatic provisioning of the resources is enabled, the script that the
+service job is supposed to run in order to provide the required resources *must
+be* defined by the ``provisioningScript`` setting in the ``provisioning``
+section of your BPS configuration file.  By default, **ctrl_bps_htcondor** will
+use ``allocateNodes.py`` from `ctrl_execute`_ package with the following
+settings:
+
+.. code-block:: yaml
+
+   provisioning:
+     provisioningNodeCount: 10
+     provisioningCheckInterval: 600
+     provisioningQueue: "milano"
+     provisioningAccountingUser: "rubin:developers"
+     provisioningPlatform: "s3df"
+     provisioningScript: |
+       #!/bin/bash
+       set -e
+       set -x
+       while true; do
+           ${CTRL_EXECUTE_DIR}/bin/allocateNodes.py \
+               --account {provisioningAccountingUser} \
+               --auto \
+               --node-count {provisioningNodeCount} \
+               --maximum-wall-clock {provisioningMaxWallTime} \
+               --glidein-shutdown {provisioningMaxIdleTime} \
+               --queue {provisioningQueue} \
+               {provisioningPlatform}
+           sleep {provisioningCheckInterval}
+       done
+       exit 0
+
+``allocateNodes.py`` requires a small configuration file located in the user's
+directory to work. With automatic provisioning enabled **ctrl_bps_htcondor**
+will create a new file if it does not exist at the location defined by
+``provisioningScriptConfigPath`` using the template defined by
+``provisioningScriptConfig`` settings in the ``provisioning`` section:
+
+.. code-block:: yaml
+
+   provisioning:
+     provisioningScriptConfig: |
+       config.platform["{provisioningPlatform}"].user.name="${USER}"
+       config.platform["{provisioningPlatform}"].user.home="${HOME}"
+     provisioningScriptConfigPath: "${HOME}/.lsst/condor-info.py"
+
+If you're using a custom provisioning script that does not require any
+external configuration, set ``provisioningConfigScript`` to an empty string.
+
+If the file already exists, it will be used instead. If you wish to recreate it
+after making any changes to ``provisioningScriptConfig``, you need to manually
+remove or rename the existing file.
+
+.. note::
+
+   ``${CTRL_BPS_HTCONDOR_DIR}/python/lsst/ctrl/bps/htcondor/etc/htcondor_defaults.yaml``
+   contains default values used by every bps submission when using
+   ``ctrl_bps_htcondor`` plugin that are automatically included in your
+   submission configuration.
+
+.. __: https://htcondor.readthedocs.io/en/latest/codes-other-values/glossary.html#term-Glidein
+
 .. _htc-plugin-troubleshooting:
 
 Troubleshooting
@@ -210,8 +306,31 @@ Why did my submission fail?
 Check the ``*.dag.dagman.out`` in run submit directory for errors, in
 particular for ``ERROR: submit attempt failed``.
 
+I enabled automatic provisioning, but my jobs still sit idle in the queue!
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The service node responsible for executing the provisioning script runs on a
+best-effort basis.  If this node fails to submit correctly or crashes during
+the workflow execution, this will not register as an error and the workflow
+will continue normally until the existing gliedins expire.  As a result,
+payload jobs may get stuck in the job queue if the glideins were not created
+or expired before the execution of the workflow could be completed.
+
+Firstly, use ``bps report --id <run id>`` to display the run report and look
+for the line
+
+.. code-block::
+
+   Provisioning job status: <status>
+
+If the ``<status>`` is different from RUNNING, it means that the automatic
+provisioning is not working.  In such a case, create `glideins manually`__ to
+complete your run.
+
+.. __: https://developer.lsst.io/usdf/batch.html#ctrl-bps-htcondor
 
 .. _HTCondor: https://htcondor.readthedocs.io/en/latest/
+.. _Slurm: https://slurm.schedmd.com/overview.html
 .. _bps cancel: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#canceling-submitted-jobs
 .. _bps report: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#checking-status
 .. _bps restart: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#restarting-a-failed-run
