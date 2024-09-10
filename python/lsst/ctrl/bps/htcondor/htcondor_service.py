@@ -1328,18 +1328,13 @@ def _create_detailed_report_from_jobs(
             if job_label is None:
                 _LOG.warning("Service job with id '%s': missing label, no action taken", job_id)
             elif job_label == dag_ad.get("bps_provisioning_job", "MISS"):
-                # If the workflow is still running, include additional
-                # information about resource provisioning in the report.
                 if report.state == WmsStates.RUNNING:
                     report.specific_info = WmsSpecificInfo()
-                    if job_ad is not None:
-                        job_state = _htc_status_to_wms_state(job_ad).name
-                        msg = "Automatic resource provisioning enabled (provisioning job status: {status})"
-                        ctx = {"status": job_state}
-                    else:
-                        msg = "Automatic resource provisioning disabled"
-                        ctx = None
-                    report.specific_info.add_message(template=msg, context=ctx)
+                    job_state = _htc_status_to_wms_state(job_ad).name
+                    report.specific_info.add_message(
+                        template="Provisioning job status: {status}",
+                        context={"status": job_state},
+                    )
             else:
                 _LOG.warning(
                     "Service job with id '%s' (label '%s'): no handler, no action taken", job_id, job_label
