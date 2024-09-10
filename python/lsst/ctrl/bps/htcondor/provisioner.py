@@ -57,54 +57,56 @@ class Provisioner:
         self.script_name: Path | None = None
         self.script_file: Path | None = None
 
-    def configure(self, name: Path | str, prefix: Path | str | None = None, overwrite: bool = False) -> None:
-        """Create a configuration file for the provisioning script.
+    def configure(self) -> None:
+        """Create the configuration file for the provisioning script.
 
-        If the configuration file with the specified name already exists in
-        the given directory, it will be used instead unless ``overwrite`` is
-        ``True``.
+        The content of the configuration file for the provisioning script
+        must be specified by ``provisioningScriptConfig`` setting in the BPS
+        config and its location by ``provisioningScriptConfigPath``,
+        respectively.
 
-        Parameters
-        ----------
-        name : `pathlib.Path` | `str`
-            Name of the file where to output the configuration for provisioning
-            script.
-        prefix : `pathlib.Path` | `str`, optional
-            Directory to which output the configuration file. If not provided,
-            the current working directory will be used.
-        overwrite : `bool`
-            If ``True``, the new provisioning configuration file will be
-            created based on the template defined by
-            ``provisioningScriptConfig`` setting in the BPS configuration.
+        If ``provisioningScriptConfig`` is empty, the methods assumes that
+        the provisioning script does not require any configuration and does
+        nothing.
 
-            The previous configruation will be saved at the same directory,
-            under the same name with appended ``.bak`` suffix.
+        If the configuration file for the provisioning script already exists at
+        the specified location, it will be used instead.
         """
-        prefix = Path.cwd() if prefix is None else Path(prefix)
-        prefix.mkdir(parents=True, exist_ok=True)
-        config_file = prefix / name
-        if config_file.is_file():
-            if overwrite:
-                target = config_file.parent / (config_file.name + ".bak")
-                _LOG.info("Saving a copy of the existing provisioning configuration to %s", target)
-                config_file.rename(target)
-                create_config = True
-            else:
-                _LOG.info("Using existing provisioning configuration from %s.", config_file)
-                create_config = False
-        else:
-            _LOG.warning(
-                "Configuration file %s required for provisioning not found. "
-                "Creating a new one using the template defined by 'provisioningScriptConfig'",
-                config_file,
-            )
-            create_config = True
+        search_opts = self.search_opts | {"expandEnvVars": True, "required": True}
+        _, script_config_content = self.config.search("provisioningScriptConfig", opt=search_opts)
 
-        if create_config:
-            _LOG.info("Saving provisioning configuration to %s", config_file)
-            search_opts = self.search_opts | {"expandEnvVars": True, "required": True}
-            _, script_content = self.config.search("provisioningScriptConfig", opt=search_opts)
-            config_file.write_text(script_content)
+        if not script_config_content:
+            return
+
+        _, script_config_path = self.config.search("provisioningScriptConfigPath", opt=search_opts)
+        script_config_path = Path(script_config_path)
+
+        if script_config_path.is_file():
+            _LOG.info(
+                "Using existing configuration file for the provisioning script found in '%s'",
+                str(script_config_path),
+            )
+        else:
+            _LOG.info(
+                "Configuration file required for provisioning not found in '%s'. "
+                "Creating a new one using the template defined by 'provisioningScriptConfig' setting",
+                script_config_path,
+            )
+
+            # If necessary, create directory that will hold the script's
+            # configuration file.
+            prefix = script_config_path.parent
+            try:
+                prefix.mkdir(parents=True, exist_ok=True)
+            except FileExistsError as exc:
+                _LOG.error(
+                    "Cannot create directory '%s' for the configuration of the provisioning script: %s",
+                    str(prefix),
+                    exc,
+                )
+                raise
+
+            script_config_path.write_text(script_config_content)
 
     def prepare(self, name: Path | str, prefix: Path | str = None) -> None:
         """Create the script responsible for the provisioning resources.

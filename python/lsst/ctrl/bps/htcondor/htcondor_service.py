@@ -156,12 +156,8 @@ class HTCondorService(BaseWmsService):
                     "expandVars": True,
                     "searchobj": self.config["provisioning"],
                 }
-
-                _, prov_config_path = config.search("provisioningScriptConfigPath", opt=search_opts)
-                prov_config_path = Path(prov_config_path)
-
                 provisioner = Provisioner(config, search_opts=search_opts)
-                provisioner.configure(prov_config_path.name, prefix=prov_config_path.parent)
+                provisioner.configure()
                 provisioner.prepare("provisioning_job.bash", prefix=out_prefix)
                 provisioner.provision(workflow.dag)
 
