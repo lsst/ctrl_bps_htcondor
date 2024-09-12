@@ -108,11 +108,11 @@ class Provisioner:
             prefix = script_config_path.parent
             try:
                 prefix.mkdir(parents=True, exist_ok=True)
-            except FileExistsError as exc:
+            except OSError as exc:
                 _LOG.error(
-                    "Cannot create directory '%s' for the configuration of the provisioning script: %s",
-                    str(prefix),
-                    exc,
+                    "Cannot create configuration file for the provisioning script '%s': %s",
+                    str(script_config_path),
+                    exc.strerror,
                 )
                 raise
 
