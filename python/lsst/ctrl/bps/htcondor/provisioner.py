@@ -147,22 +147,19 @@ class Provisioner:
         _, script_content = self.config.search("provisioningScript", opt=search_opts)
 
         _LOG.debug("Writing provisioning script to %s", self.script_file)
-        with open(self.script_file, mode="w", encoding="utf8") as handle:
-            handle.write(script_content)
+        with open(self.script_file, mode="w", encoding="utf8") as file:
+            file.write(script_content)
         self.script_file.chmod(0o755)
 
         self.is_prepared = True
 
-    def provision(self, dag: HTCDag, name: str | None = None) -> None:
+    def provision(self, dag: HTCDag) -> None:
         """Add the provisioning job to the HTCondor workflow.
 
         Parameters
         ----------
         dag : `lsst.ctrl.bps.htcondor.HTCDag`
             HTCondor DAG.
-        name : `str`, optional
-            Name of the HTCJob to create. If not provided, defaults to
-            ``provisioningJob``.
         """
         if not self.is_prepared:
             raise RuntimeError(
