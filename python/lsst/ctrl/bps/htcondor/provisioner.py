@@ -93,7 +93,7 @@ class Provisioner:
 
         if script_config_path.is_file():
             _LOG.info(
-                "Using existing configuration file for the provisioning script found in '%s'",
+                "Using existing configuration file for the provisioning script '%s'",
                 str(script_config_path),
             )
         else:
