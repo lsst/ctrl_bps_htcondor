@@ -62,6 +62,8 @@ class Provisioner:
             self.search_opts |= search_opts
         self.script_name: Path | None = None
         self.script_file: Path | None = None
+        self.is_configured: bool = False
+        self.is_prepared: bool = False
 
     def configure(self) -> None:
         """Create the configuration file for the provisioning script.
@@ -82,6 +84,8 @@ class Provisioner:
         _, script_config_content = self.config.search("provisioningScriptConfig", opt=search_opts)
 
         if not script_config_content:
+            _LOG.info("Configuration the provisioning script not provided; skipping configuration step")
+            self.is_configured = True
             return
 
         _, script_config_path = self.config.search("provisioningScriptConfigPath", opt=search_opts)
@@ -114,6 +118,8 @@ class Provisioner:
 
             script_config_path.write_text(script_config_content)
 
+        self.is_configured = True
+
     def prepare(self, name: Path | str, prefix: Path | str = None) -> None:
         """Create the script responsible for the provisioning resources.
 
@@ -128,6 +134,12 @@ class Provisioner:
         prefix : `pathlib.Path` | `str`, optional
             Directory in which to output the provisioning script.
         """
+        if not self.is_configured:
+            raise RuntimeError(
+                "Cannot create provisioning script: configuration file might be missing. "
+                "Run Provisioner.configure() to verify it exits or is not needed"
+            )
+
         self.script_name = Path(name)
         self.script_file = Path(prefix) / self.script_name if prefix else self.script_name
 
@@ -138,6 +150,8 @@ class Provisioner:
         with open(self.script_file, mode="w", encoding="utf8") as handle:
             handle.write(script_content)
         self.script_file.chmod(0o755)
+
+        self.is_prepared = True
 
     def provision(self, dag: HTCDag, name: str | None = None) -> None:
         """Add the provisioning job to the HTCondor workflow.
@@ -150,9 +164,13 @@ class Provisioner:
             Name of the HTCJob to create. If not provided, defaults to
             ``provisioningJob``.
         """
-        if name is None:
-            name = "provisioningJob"
+        if not self.is_prepared:
+            raise RuntimeError(
+                "Cannot add provisioning job to the workflow: provisioning script was not created."
+                "Run Provisioner.prepare() to create it"
+            )
 
+        name = self.script_name.stem
         job = HTCJob(name=name, label=name)
         job.subfile = Path("jobs") / job.label / f"{name}.sub"
         job.add_job_attrs({"bps_job_name": job.name, "bps_job_label": job.label, "bps_job_quanta": ""})
