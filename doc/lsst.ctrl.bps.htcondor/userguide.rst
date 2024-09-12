@@ -234,6 +234,7 @@ settings:
 
    provisioning:
      provisioningNodeCount: 10
+     provisioningMaxIdleTime: 900
      provisioningCheckInterval: 600
      provisioningQueue: "milano"
      provisioningAccountingUser: "rubin:developers"

@@ -8,6 +8,7 @@ memoryLimit: 491520
 # Define how to provision resources automatically.
 provisioning:
   provisioningNodeCount: 10
+  provisioningMaxIdleTime: 900
   provisioningCheckInterval: 600
   provisioningQueue: "milano"
   provisioningAccount: "rubin:developers"
