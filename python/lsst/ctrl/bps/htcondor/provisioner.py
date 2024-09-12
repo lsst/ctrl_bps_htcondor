@@ -53,7 +53,13 @@ class Provisioner:
 
     def __init__(self, config: BpsConfig, search_opts: dict[str, Any] | None = None) -> None:
         self.config: BpsConfig = config
-        self.search_opts: dict[str, Any] = search_opts if search_opts is not None else {}
+        self.search_opts: dict[str, Any] = {
+            "expandVars": True,
+            "searchobj": self.config[".provisioning"],
+            "required": True,
+        }
+        if search_opts is not None:
+            self.search_opts |= search_opts
         self.script_name: Path | None = None
         self.script_file: Path | None = None
 
@@ -72,7 +78,7 @@ class Provisioner:
         If the configuration file for the provisioning script already exists at
         the specified location, it will be used instead.
         """
-        search_opts = self.search_opts | {"expandEnvVars": True, "required": True}
+        search_opts = self.search_opts | {"expandEnvVars": True}
         _, script_config_content = self.config.search("provisioningScriptConfig", opt=search_opts)
 
         if not script_config_content:
@@ -125,7 +131,7 @@ class Provisioner:
         self.script_name = Path(name)
         self.script_file = Path(prefix) / self.script_name if prefix else self.script_name
 
-        search_opts = self.search_opts | {"expandEnvVars": False, "required": True}
+        search_opts = self.search_opts | {"expandEnvVars": False}
         _, script_content = self.config.search("provisioningScript", opt=search_opts)
 
         _LOG.debug("Writing provisioning script to %s", self.script_file)

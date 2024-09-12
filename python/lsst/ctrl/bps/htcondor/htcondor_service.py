@@ -152,13 +152,9 @@ class HTCondorService(BaseWmsService):
 
             _, enable_provisioning = config.search("provisionResources")
             if enable_provisioning:
-                search_opts = {
-                    "expandVars": True,
-                    "searchobj": self.config["provisioning"],
-                }
-                provisioner = Provisioner(config, search_opts=search_opts)
+                provisioner = Provisioner(config)
                 provisioner.configure()
-                provisioner.prepare("provisioning_job.bash", prefix=out_prefix)
+                provisioner.prepare("provisioningJob.bash", prefix=out_prefix)
                 provisioner.provision(workflow.dag)
 
         with time_this(
