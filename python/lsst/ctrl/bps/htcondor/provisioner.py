@@ -73,7 +73,7 @@ class Provisioner:
         config and its location by ``provisioningScriptConfigPath``,
         respectively.
 
-        If ``provisioningScriptConfig`` is empty, the methods assumes that
+        If ``provisioningScriptConfig`` is empty, the method assumes that
         the provisioning script does not require any configuration and does
         nothing.
 
@@ -120,19 +120,19 @@ class Provisioner:
 
         self.is_configured = True
 
-    def prepare(self, name: Path | str, prefix: Path | str = None) -> None:
-        """Create the script responsible for the provisioning resources.
+    def prepare(self, filename: Path | str, prefix: Path | str = None) -> None:
+        """Create the script responsible for provisioning resources.
 
         The script is created based on the template defined by
         the ``provisioningScript`` setting in the BPS configuration.
 
         Parameters
         ----------
-        name : `pathlib.Path` | `str`
-            Name of the template file to use for creating the provisioning
-            script.
+        filename : `pathlib.Path` | `str`
+            Name of the file to use when creating the provisioning script.
         prefix : `pathlib.Path` | `str`, optional
-            Directory in which to output the provisioning script.
+            Directory in which to output the provisioning script. If not
+            provided, the script will be written to the current directory.
         """
         if not self.is_configured:
             raise RuntimeError(
@@ -140,7 +140,7 @@ class Provisioner:
                 "Run Provisioner.configure() to verify it exits or is not needed"
             )
 
-        self.script_name = Path(name)
+        self.script_name = Path(filename)
         self.script_file = Path(prefix) / self.script_name if prefix else self.script_name
 
         search_opts = self.search_opts | {"expandEnvVars": False}
