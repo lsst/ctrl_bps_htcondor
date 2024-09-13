@@ -94,7 +94,7 @@ class Provisioner:
         if script_config_path.is_file():
             _LOG.info(
                 "Using existing configuration file for the provisioning script '%s'",
-                str(script_config_path),
+                script_config_path,
             )
         else:
             _LOG.info(
@@ -111,7 +111,7 @@ class Provisioner:
             except OSError as exc:
                 _LOG.error(
                     "Cannot create configuration file for the provisioning script '%s': %s",
-                    str(script_config_path),
+                    script_config_path,
                     exc.strerror,
                 )
                 raise
