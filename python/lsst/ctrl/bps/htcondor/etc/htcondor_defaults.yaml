@@ -11,7 +11,7 @@ provisioning:
   provisioningMaxIdleTime: 900
   provisioningCheckInterval: 600
   provisioningQueue: "milano"
-  provisioningAccount: "rubin:developers"
+  provisioningAccountingUser: "rubin:developers"
   provisioningPlatform: "s3df"
   provisioningScript: |
     #!/bin/bash
@@ -19,6 +19,7 @@ provisioning:
     set -x
     while true; do
         ${CTRL_EXECUTE_DIR}/bin/allocateNodes.py \
+            --account {provisioningAccountingUser} \
             --auto \
             --node-count {provisioningNodeCount} \
             --maximum-wall-clock {provisioningMaxWallTime} \
