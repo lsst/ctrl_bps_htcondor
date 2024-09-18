@@ -238,6 +238,7 @@ settings:
      provisioningCheckInterval: 600
      provisioningQueue: "milano"
      provisioningAccountingUser: "rubin:developers"
+     provisioningExtraOptions: ""
      provisioningPlatform: "s3df"
      provisioningScript: |
        #!/bin/bash
@@ -251,6 +252,7 @@ settings:
                --maximum-wall-clock {provisioningMaxWallTime} \
                --glidein-shutdown {provisioningMaxIdleTime} \
                --queue {provisioningQueue} \
+               {provisioningExtraOptions} \
                {provisioningPlatform}
            sleep {provisioningCheckInterval}
        done
