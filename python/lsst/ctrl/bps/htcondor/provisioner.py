@@ -73,33 +73,42 @@ class Provisioner:
         config and its location by ``provisioningScriptConfigPath``,
         respectively.
 
-        If ``provisioningScriptConfig`` is empty, the method assumes that
-        the provisioning script does not require any configuration and does
-        nothing.
+        The method is effectively a no-op if *any* of the conditions below
+        is met:
 
-        If the configuration file for the provisioning script already exists at
-        the specified location, it will be used instead.
+        1. the value of the ``provisioningScriptConfig`` is an empty string
+           (in such a case the class assumes that the provisioning script
+           does not require any configuration file),
+        2. the file specified by ``provisioningScriptConfigPath`` already
+           exists.
+
+        Raises
+        ------
+        OSError
+            Raised if the configuration file cannot be created.
         """
         search_opts = self.search_opts | {"expandEnvVars": True}
         _, script_config_content = self.config.search("provisioningScriptConfig", opt=search_opts)
-
         if not script_config_content:
-            _LOG.info("Configuration the provisioning script not provided; skipping configuration step")
+            _LOG.info(
+                "Configuration for the provisioning script not provided; "
+                "assuming the provisioning script require no configuration file"
+            )
             self.is_configured = True
             return
 
         _, script_config_path = self.config.search("provisioningScriptConfigPath", opt=search_opts)
         script_config_path = Path(script_config_path)
-
         if script_config_path.is_file():
             _LOG.info(
-                "Using existing configuration file for the provisioning script '%s'",
+                "Configuration file for the provisioning script '%s' already exists; "
+                "no further actions required",
                 script_config_path,
             )
         else:
             _LOG.info(
-                "Configuration file required for provisioning not found in '%s'. "
-                "Creating a new one using the template defined by 'provisioningScriptConfig' setting",
+                "Configuration file for provisioning script '%s' not found; "
+                "creating a new one using the content specified by 'provisioningScriptConfig' setting",
                 script_config_path,
             )
 
@@ -123,7 +132,7 @@ class Provisioner:
     def prepare(self, filename: Path | str, prefix: Path | str = None) -> None:
         """Create the script responsible for provisioning resources.
 
-        The script is created based on the template defined by
+        The script is created based on the content defined by
         the ``provisioningScript`` setting in the BPS configuration.
 
         Parameters
@@ -133,11 +142,16 @@ class Provisioner:
         prefix : `pathlib.Path` | `str`, optional
             Directory in which to output the provisioning script. If not
             provided, the script will be written to the current directory.
+
+        Raises
+        ------
+        RuntimeError
+            Raised if the configuration step was omitted.
         """
         if not self.is_configured:
             raise RuntimeError(
-                "Cannot create provisioning script: configuration file might be missing. "
-                "Run Provisioner.configure() to verify it exits or is not needed"
+                f"Cannot create provisioning script: configuration file might be missing. "
+                f"Run {type(self).__qualname__}.configure() to ensure"
             )
 
         self.script_name = Path(filename)
@@ -160,11 +174,16 @@ class Provisioner:
         ----------
         dag : `lsst.ctrl.bps.htcondor.HTCDag`
             HTCondor DAG.
+
+        Raises
+        ------
+        RuntimeError
+            Raised if the prepare step was omitted.
         """
         if not self.is_prepared:
             raise RuntimeError(
-                "Cannot add provisioning job to the workflow: provisioning script was not created."
-                "Run Provisioner.prepare() to create it"
+                f"Cannot add provisioning job to the workflow: provisioning script was not created."
+                f"Run {type(self).__qualname__}.prepare() to create it."
             )
 
         name = self.script_name.stem

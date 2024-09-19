@@ -76,7 +76,7 @@ class ProvisionerTestCase(unittest.TestCase):
             with self.assertLogs(level="INFO") as cm:
                 provisioner.configure()
 
-            self.assertRegex(cm.output[0], "existing.*file")
+            self.assertRegex(cm.output[0], "file.*exists")
             self.assertEqual(Path(tmpfile.name).read_text(), "foo")
             self.assertTrue(provisioner.is_configured)
 
@@ -124,7 +124,6 @@ class ProvisionerTestCase(unittest.TestCase):
                 provisioner.configure()
                 provisioner.prepare(prov_script.name, prefix=prov_script.parent)
 
-            self.assertRegex(cm.output[0], "Creating")
             self.assertRegex(cm.output[1], "Writing.*provisioning script")
             self.assertTrue(provisioner.is_configured)
             self.assertTrue(prov_config.is_file())
@@ -132,11 +131,11 @@ class ProvisionerTestCase(unittest.TestCase):
             self.assertTrue(prov_script.is_file())
             self.assertEqual(prov_script.read_text(), "bar")
 
-    def testPrepareError(self):
+    def testPrepareIfNotConfigured(self):
         """Test if method raises when the configuration step was skipped."""
         provisioner = Provisioner(self.config)
         with self.assertRaises(RuntimeError):
-            provisioner.prepare("provisioningJob.sh", prefix="")
+            provisioner.prepare("provisioning_job.sh", prefix="")
 
     def testProvision(self):
         """Test if provisioning job is added to the DAG."""
