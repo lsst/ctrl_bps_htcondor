@@ -833,8 +833,11 @@ class HTCJob:
         stream : `IO` or `str`
             Output Stream.
         """
-        print(f'JOB {self.name} "{self.subfile}"', file=stream)
-        _htc_write_job_commands(stream, self.name, self.dagcmds)
+        if self.name.startswith("noop"):
+            print(f'JOB {self.name} noop_notthere.sub NOOP', file=stream)
+        else:
+            print(f'JOB {self.name} "{self.subfile}"', file=stream)
+            _htc_write_job_commands(stream, self.name, self.dagcmds)
 
     def dump(self, fh):
         """Dump job information to output stream.

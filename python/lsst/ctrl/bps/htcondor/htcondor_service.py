@@ -44,6 +44,7 @@ from lsst.ctrl.bps import (
     BaseWmsWorkflow,
     GenericWorkflow,
     GenericWorkflowJob,
+    GenericWorkflowNodeType,
     WmsJobReport,
     WmsRunReport,
     WmsStates,
@@ -576,15 +577,18 @@ class HTCondorWorkflow(BaseWmsWorkflow):
         site_values = {}  # cache compute site specific values to reduce config lookups
         for job_name in generic_workflow:
             gwjob = generic_workflow.get_job(job_name)
-            if gwjob.compute_site not in site_values:
-                site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
-            htc_job = _create_job(
-                subdir_template[gwjob.label],
-                site_values[gwjob.compute_site],
-                generic_workflow,
-                gwjob,
-                out_prefix,
-            )
+            if gwjob.node_type != GenericWorkflowNodeType.NOOP:
+                if gwjob.compute_site not in site_values:
+                    site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
+                htc_job = _create_job(
+                    subdir_template[gwjob.label],
+                    site_values[gwjob.compute_site],
+                    generic_workflow,
+                    gwjob,
+                    out_prefix,
+                )
+            else:
+                htc_job = HTCJob(gwjob.name, label=gwjob.label)
             htc_workflow.dag.add_job(htc_job)
 
         # Add job dependencies to the DAG
@@ -1292,15 +1296,17 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
 
     for job_id, job_info in jobs.items():
         try:
-            job_report = WmsJobReport(
-                wms_id=job_id,
-                name=job_info.get("DAGNodeName", job_id),
-                label=job_info.get("bps_job_label", pegasus_name_to_label(job_info["DAGNodeName"])),
-                state=_htc_status_to_wms_state(job_info),
-            )
-            if job_report.label == "init":
-                job_report.label = "pipetaskInit"
-            report.jobs.append(job_report)
+            name = job_info.get("DAGNodeName", job_id)
+            if not name.startswith("noop"):
+                job_report = WmsJobReport(
+                    wms_id=job_id,
+                    name=job_info.get("DAGNodeName", job_id),
+                    label=job_info.get("bps_job_label", pegasus_name_to_label(job_info["DAGNodeName"])),
+                    state=_htc_status_to_wms_state(job_info ),
+                )
+                if job_report.label == "init":
+                    job_report.label = "pipetaskInit"
+                report.jobs.append(job_report)
         except KeyError as ex:
             _LOG.error("Job missing key '%s': %s", str(ex), job_info)
             raise
