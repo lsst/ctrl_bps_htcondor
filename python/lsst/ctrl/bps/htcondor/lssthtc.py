@@ -834,8 +834,11 @@ class HTCJob:
         stream : `IO` or `str`
             Output Stream.
         """
-        print(f'JOB {self.name} "{self.subfile}"', file=stream)
-        _htc_write_job_commands(stream, self.name, self.dagcmds)
+        if self.name.startswith("wms_noop"):
+            print(f"JOB {self.name} noop_notthere.sub NOOP", file=stream)
+        else:
+            print(f'JOB {self.name} "{self.subfile}"', file=stream)
+            _htc_write_job_commands(stream, self.name, self.dagcmds)
 
     def dump(self, fh):
         """Dump job information to output stream.
@@ -985,8 +988,12 @@ class HTCDag(networkx.DiGraph):
         self.graph["dag_filename"] = os.path.join(submit_path, f"{self.graph['name']}.dag")
         os.makedirs(submit_path, exist_ok=True)
         with open(self.graph["dag_filename"], "w") as fh:
-            for _, nodeval in self.nodes().items():
-                job = nodeval["data"]
+            for name, nodeval in self.nodes().items():
+                try:
+                    job = nodeval["data"]
+                except KeyError:
+                    _LOG.error("Job %s doesn't have data (keys: %s).", name, nodeval.keys())
+                    raise
                 job.write_submit_file(submit_path, job_subdir)
                 job.write_dag_commands(fh)
             for edge in self.edges():
