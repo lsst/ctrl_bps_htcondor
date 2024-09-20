@@ -26,6 +26,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """Unit tests for classes and functions in lssthtc.py."""
 
+import io
 import logging
 import os
 import pathlib
@@ -263,6 +264,93 @@ class SummarizeDagTestCase(unittest.TestCase):
                 },
             )
 
+    def test_noop(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/noop_running_1/noop_running_1.dag", tmp_dir)
+            summary, job_name_to_label, job_name_to_type = lssthtc.summarize_dag(tmp_dir)
+            self.assertEqual(
+                set(summary.split(";")),
+                {"pipetaskInit:1", "label1:6", "label2:6", "label3:6", "label4:6", "label5:6", "finalJob:1"},
+            )
+            self.assertEqual(
+                job_name_to_label,
+                {
+                    "label1_val1a_val2a": "label1",
+                    "label1_val1a_val2b": "label1",
+                    "label1_val1b_val2a": "label1",
+                    "label1_val1b_val2b": "label1",
+                    "label1_val1c_val2a": "label1",
+                    "label1_val1c_val2b": "label1",
+                    "label2_val1a_val2a": "label2",
+                    "label2_val1a_val2b": "label2",
+                    "label2_val1b_val2a": "label2",
+                    "label2_val1b_val2b": "label2",
+                    "label2_val1c_val2a": "label2",
+                    "label2_val1c_val2b": "label2",
+                    "label3_val1a_val2a": "label3",
+                    "label3_val1a_val2b": "label3",
+                    "label3_val1b_val2a": "label3",
+                    "label3_val1b_val2b": "label3",
+                    "label3_val1c_val2a": "label3",
+                    "label3_val1c_val2b": "label3",
+                    "label4_val1a_val2a": "label4",
+                    "label4_val1a_val2b": "label4",
+                    "label4_val1b_val2a": "label4",
+                    "label4_val1b_val2b": "label4",
+                    "label4_val1c_val2a": "label4",
+                    "label4_val1c_val2b": "label4",
+                    "label5_val1a_val2a": "label5",
+                    "label5_val1a_val2b": "label5",
+                    "label5_val1b_val2a": "label5",
+                    "label5_val1b_val2b": "label5",
+                    "label5_val1c_val2a": "label5",
+                    "label5_val1c_val2b": "label5",
+                    "finalJob": "finalJob",
+                    "pipetaskInit": "pipetaskInit",
+                    "wms_noop_order1_val1a": "noop",
+                    "wms_noop_order1_val1b": "noop",
+                },
+            )
+            self.assertEqual(
+                job_name_to_type,
+                {
+                    "label1_val1a_val2a": "payload",
+                    "label1_val1a_val2b": "payload",
+                    "label1_val1b_val2a": "payload",
+                    "label1_val1b_val2b": "payload",
+                    "label1_val1c_val2a": "payload",
+                    "label1_val1c_val2b": "payload",
+                    "label2_val1a_val2a": "payload",
+                    "label2_val1a_val2b": "payload",
+                    "label2_val1b_val2a": "payload",
+                    "label2_val1b_val2b": "payload",
+                    "label2_val1c_val2a": "payload",
+                    "label2_val1c_val2b": "payload",
+                    "label3_val1a_val2a": "payload",
+                    "label3_val1a_val2b": "payload",
+                    "label3_val1b_val2a": "payload",
+                    "label3_val1b_val2b": "payload",
+                    "label3_val1c_val2a": "payload",
+                    "label3_val1c_val2b": "payload",
+                    "label4_val1a_val2a": "payload",
+                    "label4_val1a_val2b": "payload",
+                    "label4_val1b_val2a": "payload",
+                    "label4_val1b_val2b": "payload",
+                    "label4_val1c_val2a": "payload",
+                    "label4_val1c_val2b": "payload",
+                    "label5_val1a_val2a": "payload",
+                    "label5_val1a_val2b": "payload",
+                    "label5_val1b_val2a": "payload",
+                    "label5_val1b_val2b": "payload",
+                    "label5_val1c_val2a": "payload",
+                    "label5_val1c_val2b": "payload",
+                    "finalJob": "final",
+                    "pipetaskInit": "payload",
+                    "wms_noop_order1_val1a": "noop",
+                    "wms_noop_order1_val1b": "noop",
+                },
+            )
+
 
 class ReadDagNodesLogTestCase(unittest.TestCase):
     """Test read_dag_nodes_log function."""
@@ -314,6 +402,24 @@ class ReadNodeStatusTestCase(unittest.TestCase):
         found = [id_ for id_ in jobs if jobs[id_].get("bps_job_type", "MISS") == "service"]
         self.assertEqual(len(found), 1)
         self.assertEqual(jobs[found[0]]["DAGNodeName"], "provisioningJob")
+
+
+class HTCJobTestCase(unittest.TestCase):
+    """Test HTCJob methods."""
+
+    def testWriteDagCommandsPayload(self):
+        job = lssthtc.HTCJob(
+            "job1", "label1", {"executable": "/bin/sleep", "arguments": "60", "log": "job1.log"}
+        )
+        fakefile = io.StringIO()
+        job.write_dag_commands(fakefile)
+        self.assertIn("job1", fakefile.getvalue())
+
+    def testWriteDagCommandsNoop(self):
+        job = lssthtc.HTCJob("wms_noop_job1", "label1")
+        fakefile = io.StringIO()
+        job.write_dag_commands(fakefile)
+        self.assertIn("NOOP", fakefile.getvalue())
 
 
 if __name__ == "__main__":

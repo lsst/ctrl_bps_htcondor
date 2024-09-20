@@ -93,7 +93,7 @@ from .handlers import HTC_JOB_AD_HANDLERS
 
 _LOG = logging.getLogger(__name__)
 
-MISSING_ID = -99999
+MISSING_ID = "-99999"
 
 
 class DagStatus(IntEnum):
@@ -835,8 +835,11 @@ class HTCJob:
         stream : `IO` or `str`
             Output Stream.
         """
-        print(f'JOB {self.name} "{self.subfile}"', file=stream)
-        _htc_write_job_commands(stream, self.name, self.dagcmds)
+        if self.name.startswith("wms_noop"):
+            print(f"JOB {self.name} noop_notthere.sub NOOP", file=stream)
+        else:
+            print(f'JOB {self.name} "{self.subfile}"', file=stream)
+            _htc_write_job_commands(stream, self.name, self.dagcmds)
 
     def dump(self, fh):
         """Dump job information to output stream.
@@ -986,8 +989,12 @@ class HTCDag(networkx.DiGraph):
         self.graph["dag_filename"] = os.path.join(submit_path, f"{self.graph['name']}.dag")
         os.makedirs(submit_path, exist_ok=True)
         with open(self.graph["dag_filename"], "w") as fh:
-            for _, nodeval in self.nodes().items():
-                job = nodeval["data"]
+            for name, nodeval in self.nodes().items():
+                try:
+                    job = nodeval["data"]
+                except KeyError:
+                    _LOG.error("Job %s doesn't have data (keys: %s).", name, nodeval.keys())
+                    raise
                 job.write_submit_file(submit_path, job_subdir)
                 job.write_dag_commands(fh)
             for edge in self.edges():
@@ -1246,7 +1253,7 @@ def update_job_info(job_info, other_info):
     return job_info
 
 
-def summarize_dag(dir_name: str) -> tuple[str, dict[str, str], dict[str, str]]:
+def summarize_dag(dir_name: str | os.PathLike) -> tuple[str, dict[str, str], dict[str, str]]:
     """Build bps_run_summary string from dag file.
 
     Parameters
@@ -1275,22 +1282,28 @@ def summarize_dag(dir_name: str) -> tuple[str, dict[str, str], dict[str, str]]:
             for line in fh:
                 job_name = ""
                 if line.startswith("JOB"):
-                    m = re.match(r'JOB (\S+) "?jobs/([^/]+)/', line)
+                    m = re.match(r"JOB (wms_noop_\S+) \S+ NOOP", line)
                     if m:
                         job_name = m.group(1)
-                        label = m.group(2)
-                        if label == "init":
-                            label = "pipetaskInit"
-                        counts[label] += 1
-                    else:  # Check if Pegasus submission
-                        m = re.match(r"JOB (\S+) (\S+)", line)
+                        label = "noop"
+                        job_type = "noop"
+                    else:
+                        m = re.match(r'JOB (\S+) "?jobs/([^/]+)', line)
                         if m:
                             job_name = m.group(1)
-                            label = pegasus_name_to_label(m.group(1))
+                            label = m.group(2)
+                            if label == "init":
+                                label = "pipetaskInit"
                             counts[label] += 1
-                        else:
-                            _LOG.warning("Parse DAG: unmatched job line: %s", line)
-                    job_type = "payload"
+                        else:  # Check if Pegasus submission
+                            m = re.match(r"JOB (\S+) (\S+)", line)
+                            if m:
+                                job_name = m.group(1)
+                                label = pegasus_name_to_label(m.group(1))
+                                counts[label] += 1
+                            else:
+                                _LOG.warning("Parse DAG: unmatched job line: %s", line)
+                        job_type = "payload"
                 elif line.startswith("FINAL"):
                     m = re.match(r"FINAL (\S+) jobs/([^/]+)/", line)
                     if m:
@@ -1343,12 +1356,12 @@ def pegasus_name_to_label(name):
     return label
 
 
-def read_dag_status(wms_path):
+def read_dag_status(wms_path: str | os.PathLike) -> dict[str, Any]:
     """Read the node status file for DAG summary information.
 
     Parameters
     ----------
-    wms_path : `str`
+    wms_path : `str` or `os.PathLike
         Path that includes node status file for a run.
 
     Returns
@@ -1395,7 +1408,7 @@ def read_dag_status(wms_path):
     return dict(dag_ad)
 
 
-def read_node_status(wms_path):
+def read_node_status(wms_path: str | os.PathLike) -> dict[str, Any]:
     """Read entire node status file.
 
     Parameters
@@ -1494,19 +1507,19 @@ def read_node_status(wms_path):
     return jobs
 
 
-def read_dag_log(wms_path: str) -> tuple[str, dict[str, Any]]:
+def read_dag_log(wms_path: str | os.PathLike) -> tuple[str, dict[str, Any]]:
     """Read job information from the DAGMan log file.
 
     Parameters
     ----------
-    wms_path : `str`
+    wms_path : `str` or `os.PathLike`
         Path containing the DAGMan log file.
 
     Returns
     -------
     wms_workflow_id : `str`
         HTCondor job id (i.e., <ClusterId>.<ProcId>) of the DAGMan job.
-    dag_info : `dict` [`str`, `~collections.abc.Any`]
+    dag_info : `dict` [`str`, `dict` [`str`, `~collections.abc.Any`]]
         HTCondor job information read from the log file mapped to HTCondor
         job id.
 
@@ -1515,8 +1528,8 @@ def read_dag_log(wms_path: str) -> tuple[str, dict[str, Any]]:
     FileNotFoundError
         If cannot find DAGMan log in given wms_path.
     """
-    wms_workflow_id = 0
-    dag_info = {}
+    wms_workflow_id = MISSING_ID
+    dag_info: dict[str, dict[str, Any]] = {}
 
     path = Path(wms_path)
     if path.exists():
@@ -1526,7 +1539,7 @@ def read_dag_log(wms_path: str) -> tuple[str, dict[str, Any]]:
             raise FileNotFoundError(f"DAGMan log not found in {wms_path}") from exc
         _LOG.debug("dag node log filename: %s", filename)
 
-        info = {}
+        info: dict[str, Any] = {}
         job_event_log = htcondor.JobEventLog(str(filename))
         for event in job_event_log.events(stop_after=0):
             id_ = f"{event['Cluster']}.{event['Proc']}"
@@ -1544,7 +1557,7 @@ def read_dag_log(wms_path: str) -> tuple[str, dict[str, Any]]:
     return wms_workflow_id, dag_info
 
 
-def read_dag_nodes_log(wms_path):
+def read_dag_nodes_log(wms_path: str | os.PathLike) -> dict[str, Any]:
     """Read job information from the DAGMan nodes log file.
 
     Parameters
@@ -1569,7 +1582,7 @@ def read_dag_nodes_log(wms_path):
         raise FileNotFoundError(f"DAGMan node log not found in {wms_path}") from exc
     _LOG.debug("dag node log filename: %s", filename)
 
-    info = {}
+    info: dict[str, Any] = {}
     job_event_log = htcondor.JobEventLog(str(filename))
     for event in job_event_log.events(stop_after=0):
         id_ = f"{event['Cluster']}.{event['Proc']}"
@@ -1585,7 +1598,7 @@ def read_dag_nodes_log(wms_path):
     return info
 
 
-def read_dag_info(wms_path):
+def read_dag_info(wms_path: str | os.PathLike) -> dict[str, dict[str, Any]]:
     """Read custom DAGMan job information from the file.
 
     Parameters
@@ -1603,6 +1616,7 @@ def read_dag_info(wms_path):
     FileNotFoundError
         If cannot find DAGMan job info file in the given location.
     """
+    dag_info: dict[str, dict[str, Any]] = {}
     try:
         filename = next(Path(wms_path).glob("*.info.json"))
     except StopIteration as exc:
@@ -1613,7 +1627,6 @@ def read_dag_info(wms_path):
             dag_info = json.load(fh)
     except (OSError, PermissionError) as exc:
         _LOG.debug("Retrieving DAGMan job information failed: %s", exc)
-        dag_info = {}
     return dag_info
 
 
@@ -1686,7 +1699,7 @@ def _tweak_log_info(filename, job):
         raise
 
 
-def htc_check_dagman_output(wms_path):
+def htc_check_dagman_output(wms_path: str | os.PathLike) -> str:
     """Check the DAGMan output for error messages.
 
     Parameters

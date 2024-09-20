@@ -363,56 +363,56 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
         self.cached_vals = {"profile": {}, "bpsUseShared": True}
 
     def testRetryUnlessNone(self):
-        gwjob = GenericWorkflowJob("retryUnless", executable=self.gw_exec)
+        gwjob = GenericWorkflowJob("retryUnless", "label1", executable=self.gw_exec)
         gwjob.retry_unless_exit = None
         htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertNotIn("retry_until", htc_commands)
 
     def testRetryUnlessInt(self):
-        gwjob = GenericWorkflowJob("retryUnlessInt", executable=self.gw_exec)
+        gwjob = GenericWorkflowJob("retryUnlessInt", "label1", executable=self.gw_exec)
         gwjob.retry_unless_exit = 3
         htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(int(htc_commands["retry_until"]), gwjob.retry_unless_exit)
 
     def testRetryUnlessList(self):
-        gwjob = GenericWorkflowJob("retryUnlessList", executable=self.gw_exec)
+        gwjob = GenericWorkflowJob("retryUnlessList", "label1", executable=self.gw_exec)
         gwjob.retry_unless_exit = [1, 2]
         htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["retry_until"], "member(ExitCode, {1,2})")
 
     def testRetryUnlessBad(self):
-        gwjob = GenericWorkflowJob("retryUnlessBad", executable=self.gw_exec)
+        gwjob = GenericWorkflowJob("retryUnlessBad", "label1", executable=self.gw_exec)
         gwjob.retry_unless_exit = "1,2,3"
         with self.assertRaises(ValueError) as cm:
             _ = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertIn("retryUnlessExit", str(cm.exception))
 
     def testEnvironmentBasic(self):
-        gwjob = GenericWorkflowJob("jobEnvironment", executable=self.gw_exec)
+        gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_INT": 1, "TEST_STR": "TWO"}
         htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], "TEST_INT=1 TEST_STR='TWO'")
 
     def testEnvironmentSpaces(self):
-        gwjob = GenericWorkflowJob("jobEnvironment", executable=self.gw_exec)
+        gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_SPACES": "spacey value"}
         htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], "TEST_SPACES='spacey value'")
 
     def testEnvironmentSingleQuotes(self):
-        gwjob = GenericWorkflowJob("jobEnvironment", executable=self.gw_exec)
+        gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_SINGLE_QUOTES": "spacey 'quoted' value"}
         htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], "TEST_SINGLE_QUOTES='spacey ''quoted'' value'")
 
     def testEnvironmentDoubleQuotes(self):
-        gwjob = GenericWorkflowJob("jobEnvironment", executable=self.gw_exec)
+        gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_DOUBLE_QUOTES": 'spacey "double" value'}
         htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], """TEST_DOUBLE_QUOTES='spacey ""double"" value'""")
 
     def testEnvironmentWithEnvVars(self):
-        gwjob = GenericWorkflowJob("jobEnvironment", executable=self.gw_exec)
+        gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_ENV_VAR": "<ENV:CTRL_BPS_DIR>/tests"}
         htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], "TEST_ENV_VAR='$ENV(CTRL_BPS_DIR)/tests'")
@@ -1019,6 +1019,86 @@ class CreateDetailedReportFromJobsTestCase(unittest.TestCase):
             self.assertEqual(
                 report.specific_info.context,
                 {"job_name": "provisioningJob", "status": "RUNNING", "status_details": ""},
+            )
+
+    def testNoopRunning(self):
+        with temporaryDirectory() as tmp_dir:
+            test_submit_dir = os.path.join(tmp_dir, "noop_running_1")
+            copytree(f"{TESTDIR}/data/noop_running_1", test_submit_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(test_submit_dir)
+            run_reports = _create_detailed_report_from_jobs(wms_workflow_id, jobs)
+            self.assertEqual(len(run_reports), 1)
+            report = run_reports[wms_workflow_id]
+            self.assertEqual(report.wms_id, wms_workflow_id)
+            self.assertEqual(report.state, WmsStates.RUNNING)
+            self.assertTrue(os.path.samefile(report.path, test_submit_dir))
+            self.assertEqual(
+                set(report.run_summary.split(";")),
+                {"pipetaskInit:1", "label1:6", "label2:6", "label3:6", "label4:6", "label5:6", "finalJob:1"},
+            )
+            self.assertEqual(
+                report.job_state_counts,
+                {
+                    WmsStates.UNKNOWN: 0,
+                    WmsStates.MISFIT: 0,
+                    WmsStates.UNREADY: 12,
+                    WmsStates.READY: 0,
+                    WmsStates.PENDING: 1,
+                    WmsStates.RUNNING: 10,
+                    WmsStates.DELETED: 0,
+                    WmsStates.HELD: 0,
+                    WmsStates.SUCCEEDED: 9,
+                    WmsStates.FAILED: 0,
+                    WmsStates.PRUNED: 0,
+                },
+            )
+            self.assertEqual(report.total_number_jobs, 32)
+            self.assertIsNone(report.specific_info)
+
+    def testNoopFailed(self):
+        with temporaryDirectory() as tmp_dir:
+            test_submit_dir = os.path.join(tmp_dir, "noop_failed_1")
+            copytree(f"{TESTDIR}/data/noop_failed_1", test_submit_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(test_submit_dir)
+            run_reports = _create_detailed_report_from_jobs(wms_workflow_id, jobs)
+            self.assertEqual(len(run_reports), 1)
+            report = run_reports[wms_workflow_id]
+            self.assertEqual(report.wms_id, wms_workflow_id)
+            self.assertEqual(report.state, WmsStates.FAILED)
+            self.assertTrue(os.path.samefile(report.path, test_submit_dir))
+            self.assertEqual(
+                set(report.run_summary.split(";")),
+                {"pipetaskInit:1", "label1:6", "label2:6", "label3:6", "label4:6", "label5:6", "finalJob:1"},
+            )
+            self.assertEqual(
+                report.job_state_counts,
+                {
+                    WmsStates.UNKNOWN: 0,
+                    WmsStates.MISFIT: 0,
+                    WmsStates.UNREADY: 0,
+                    WmsStates.READY: 0,
+                    WmsStates.PENDING: 0,
+                    WmsStates.RUNNING: 0,
+                    WmsStates.DELETED: 0,
+                    WmsStates.HELD: 0,
+                    WmsStates.SUCCEEDED: 27,
+                    WmsStates.FAILED: 1,
+                    WmsStates.PRUNED: 4,
+                },
+            )
+            self.assertEqual(report.total_number_jobs, 32)
+            self.assertIsNone(report.specific_info)
+            self.assertEqual(
+                report.exit_code_summary,
+                {
+                    "pipetaskInit": [],
+                    "label1": [],
+                    "label2": [1],
+                    "label3": [],
+                    "label4": [],
+                    "label5": [],
+                    "finalJob": [],
+                },
             )
 
 

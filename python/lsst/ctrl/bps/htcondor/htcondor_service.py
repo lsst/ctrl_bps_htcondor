@@ -33,7 +33,7 @@ __all__ = ["HTCondorService", "HTCondorWorkflow"]
 import logging
 import os
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from enum import IntEnum, auto
 from pathlib import Path
 from typing import Any
@@ -46,12 +46,13 @@ from lsst.ctrl.bps import (
     BaseWmsWorkflow,
     GenericWorkflow,
     GenericWorkflowJob,
+    GenericWorkflowNodeType,
     WmsJobReport,
     WmsRunReport,
     WmsSpecificInfo,
     WmsStates,
 )
-from lsst.ctrl.bps.bps_utils import chdir, create_count_summary
+from lsst.ctrl.bps.bps_utils import chdir, create_count_summary, parse_count_summary
 from lsst.daf.butler import Config
 from lsst.utils.timer import time_this
 
@@ -226,7 +227,7 @@ class HTCondorService(BaseWmsService):
                 None,
                 (
                     f"workflow with run id '{wms_workflow_id}' not found. "
-                    f"Hint: use run's submit directory as the id instead"
+                    "Hint: use run's submit directory as the id instead"
                 ),
             )
 
@@ -584,22 +585,39 @@ class HTCondorWorkflow(BaseWmsWorkflow):
 
         # Create all DAG jobs
         site_values = {}  # cache compute site specific values to reduce config lookups
+        workflow_job_counts = Counter()
         for job_name in generic_workflow:
             gwjob = generic_workflow.get_job(job_name)
-            if gwjob.compute_site not in site_values:
-                site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
-            htc_job = _create_job(
-                subdir_template[gwjob.label],
-                site_values[gwjob.compute_site],
-                generic_workflow,
-                gwjob,
-                out_prefix,
-            )
+            if gwjob.node_type != GenericWorkflowNodeType.NOOP:
+                if gwjob.compute_site not in site_values:
+                    site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
+                htc_job = _create_job(
+                    subdir_template[gwjob.label],
+                    site_values[gwjob.compute_site],
+                    generic_workflow,
+                    gwjob,
+                    out_prefix,
+                )
+                workflow_job_counts["payload"] += 1
+            else:
+                htc_job = HTCJob(f"wms_{gwjob.name}", label=gwjob.label)
+                htc_job.add_job_attrs({"bps_job_name": gwjob.name, "bps_job_label": gwjob.label})
+                workflow_job_counts["noop"] += 1
+            _LOG.debug("adding job %s %s", htc_job.name, htc_job.label)
             htc_workflow.dag.add_job(htc_job)
 
-        # Add job dependencies to the DAG
+        # Add job dependencies to the DAG (be careful with wms_ jobs)
         for job_name in generic_workflow:
-            htc_workflow.dag.add_job_relationships([job_name], generic_workflow.successors(job_name))
+            gwjob = generic_workflow.get_job(job_name)
+            successor_jobs = [generic_workflow.get_job(j) for j in generic_workflow.successors(job_name)]
+            parent_name = (
+                f"wms_{gwjob.name}" if gwjob.node_type != GenericWorkflowNodeType.PAYLOAD else gwjob.name
+            )
+            children_names = [
+                f"wms_{sjob.name}" if sjob.node_type != GenericWorkflowNodeType.PAYLOAD else sjob.name
+                for sjob in successor_jobs
+            ]
+            htc_workflow.dag.add_job_relationships([parent_name], children_names)
 
         # If final job exists in generic workflow, create DAG final job
         final = generic_workflow.get_final()
@@ -618,10 +636,13 @@ class HTCondorWorkflow(BaseWmsWorkflow):
                     f"{os.path.dirname(__file__)}/final_post.sh {final.name} $DAG_STATUS $RETURN"
                 )
             htc_workflow.dag.add_final_job(final_htjob)
+            workflow_job_counts["payload"] += 1
         elif final and isinstance(final, GenericWorkflow):
             raise NotImplementedError("HTCondor plugin does not support a workflow as the final job")
         elif final:
             return TypeError(f"Invalid type for GenericWorkflow.get_final() results ({type(final)})")
+
+        htc_workflow.dag.add_attribs({"workflow_job_summary": create_count_summary(workflow_job_counts)})
 
         return htc_workflow
 
@@ -681,8 +702,10 @@ def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefi
         # Exceeding memory sometimes triggering SIGBUS or SIGSEGV error. Tell
         # htcondor to put on hold any jobs which exited by a signal.
         "on_exit_hold": "ExitBySignal == true",
-        "on_exit_hold_reason": 'strcat("Job raised a signal ", string(ExitSignal), ". ", '
-        '"Handling signal as if job has gone over memory limit.")',
+        "on_exit_hold_reason": (
+            'strcat("Job raised a signal ", string(ExitSignal), ". ", '
+            '"Handling signal as if job has gone over memory limit.")'
+        ),
         "on_exit_hold_subcode": "34",
     }
 
@@ -1200,12 +1223,12 @@ def _get_info_from_schedd(
     return schedd_dag_info
 
 
-def _get_info_from_path(wms_path: str) -> tuple[str, dict[str, dict[str, Any]], str]:
+def _get_info_from_path(wms_path: str | Path) -> tuple[str, dict[str, dict[str, Any]], str]:
     """Gather run information from a given run directory.
 
     Parameters
     ----------
-    wms_path : `str`
+    wms_path : `str` | `pathlib.Path`
         Directory containing HTCondor files.
 
     Returns
@@ -1298,8 +1321,19 @@ def _create_detailed_report_from_jobs(
         id and the value is a collection of report information for that run.
     """
     _LOG.debug("_create_detailed_report: id = %s, job = %s", wms_workflow_id, jobs[wms_workflow_id])
-    dag_ad = jobs.pop(wms_workflow_id)
-    total_jobs, state_counts = _get_state_counts_from_dag_job(dag_ad)
+
+    dag_ad = jobs[wms_workflow_id]
+
+    # Following code assumes only payload jobs in job dictionary
+    payload_jobs = {}
+    wms_jobs = {}
+    for job_id, job_ad in jobs.items():
+        name = job_ad.get("DAGNodeName", job_id)
+        if job_id == wms_workflow_id or name.startswith("wms_"):
+            wms_jobs[job_id] = job_ad
+        else:
+            payload_jobs[job_id] = job_ad
+
     report = WmsRunReport(
         wms_id=f"{dag_ad['ClusterId']}.{dag_ad['ProcId']}",
         global_wms_id=dag_ad.get("GlobalJobId", "MISS"),
@@ -1312,28 +1346,34 @@ def _create_detailed_report_from_jobs(
         operator=_get_owner(dag_ad),
         run_summary=_get_run_summary(dag_ad),
         state=_htc_status_to_wms_state(dag_ad),
+        total_number_jobs=0,
         jobs=[],
-        total_number_jobs=dag_ad.get("total_jobs", total_jobs),
-        job_state_counts=dag_ad.get("state_counts", state_counts),
-        exit_code_summary=_get_exit_code_summary(jobs),
+        job_state_counts=dict.fromkeys(WmsStates, 0),
+        exit_code_summary={},
     )
+
+    payload_jobs = {}  # keep track for later processing
     specific_info = WmsSpecificInfo()
     for job_id, job_ad in jobs.items():
-        if not is_service_job(job_ad):
+        if job_ad.get("bps_job_type", "MISS") in ["payload", "final"]:
             try:
+                name = job_ad.get("DAGNodeName", job_id)
+                wms_state = _htc_status_to_wms_state(job_ad)
                 job_report = WmsJobReport(
                     wms_id=job_id,
                     name=job_ad.get("DAGNodeName", job_id),
                     label=job_ad.get("bps_job_label", pegasus_name_to_label(job_ad["DAGNodeName"])),
-                    state=_htc_status_to_wms_state(job_ad),
+                    state=wms_state,
                 )
                 if job_report.label == "init":
                     job_report.label = "pipetaskInit"
+                report.job_state_counts[wms_state] += 1
                 report.jobs.append(job_report)
+                payload_jobs[job_id] = job_ad
             except KeyError as ex:
                 _LOG.error("Job missing key '%s': %s", str(ex), job_ad)
                 raise
-        else:
+        elif is_service_job(job_ad):
             _LOG.debug(
                 "Found service job: id='%s', name='%s', label='%s', NodeStatus='%s', JobStatus='%s'",
                 job_id,
@@ -1344,6 +1384,8 @@ def _create_detailed_report_from_jobs(
             )
             _add_service_job_specific_info(job_ad, specific_info)
 
+    report.total_number_jobs = len(payload_jobs)
+    report.exit_code_summary = _get_exit_code_summary(payload_jobs)
     if specific_info:
         report.specific_info = specific_info
 
@@ -1450,6 +1492,7 @@ def _summary_report(user, hist, pass_thru, schedds=None):
 
     # Have list of DAGMan jobs, need to get run_report info.
     run_reports = {}
+    msg = ""
     for jobs in job_info.values():
         for job_id, job in jobs.items():
             total_jobs, state_counts = _get_state_counts_from_dag_job(job)
@@ -1482,7 +1525,7 @@ def _summary_report(user, hist, pass_thru, schedds=None):
             )
             run_reports[report.global_wms_id] = report
 
-    return run_reports, ""
+    return run_reports, msg
 
 
 def _add_run_info(wms_path, job):
@@ -1643,11 +1686,12 @@ def _get_state_counts_from_jobs(
             state_counts[_htc_status_to_wms_state(job_ad)] += 1
     total_counted = sum(state_counts.values())
 
-    if "NodesTotal" in jobs[wms_workflow_id]:
-        total_count = jobs[wms_workflow_id]["NodesTotal"]
+    dag_ad = jobs[wms_workflow_id]
+    if "workflow_job_summary" in dag_ad:
+        expected_workflow_job_counts = parse_count_summary(dag_ad["workflow_job_summary"])
+        total_count = expected_workflow_job_counts["payload"]
     else:
-        total_count = total_counted
-
+        total_count = dag_ad.get("NodesTotal", total_counted)
     state_counts[WmsStates.UNREADY] += total_count - total_counted
     return total_count, state_counts
 
