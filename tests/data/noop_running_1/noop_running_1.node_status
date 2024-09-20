@@ -1,0 +1,330 @@
+[
+  Type = "DagStatus";
+  DagFiles = {
+    "/work/testuser/gen3work/ordering-46294/noop/submit/u/testuser/DM-46294/noop/fail/20250305T235949Z/u_testuser_DM-46294_noop_fail_20250305T235949Z.dag"
+  };
+  Timestamp = 1741219205; /* "Wed Mar  5 18:00:05 2025" */
+  DagStatus = 3; /* "STATUS_SUBMITTED ()" */
+  NodesTotal = 34;
+  NodesDone = 0;
+  NodesPre = 0;
+  NodesQueued = 1;
+  NodesPost = 0;
+  NodesReady = 0;
+  NodesUnready = 33;
+  NodesFutile = 0;
+  NodesFailed = 0;
+  JobProcsHeld = 0;
+  JobProcsIdle = 0; /* includes held */
+]
+[
+  Type = "NodeStatus";
+  Node = "pipetaskInit";
+  NodeStatus = 3; /* "STATUS_SUBMITTED" */
+  StatusDetails = "not_idle";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label1_val1c_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label1_val1a_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label1_val1b_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label1_val1c_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label1_val1a_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label1_val1b_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label3_val1c_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label2_val1c_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label3_val1a_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label2_val1a_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label3_val1b_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label2_val1b_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label3_val1c_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label2_val1c_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label3_val1a_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label2_val1a_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label3_val1b_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label2_val1b_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label5_val1c_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label5_val1a_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label4_val1a_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label5_val1b_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label5_val1c_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label4_val1a_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label5_val1a_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label5_val1b_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "wms_noop_order1_val1a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label4_val1b_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label4_val1b_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "wms_noop_order1_val1b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label4_val1c_val2a";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "label4_val1c_val2b";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "finalJob";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "StatusEnd";
+  EndTime = 1741219205; /* "Wed Mar  5 18:00:05 2025" */
+  NextUpdate = 1741219265; /* "Wed Mar  5 18:01:05 2025" */
+]
