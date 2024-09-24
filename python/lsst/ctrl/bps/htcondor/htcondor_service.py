@@ -154,7 +154,7 @@ class HTCondorService(BaseWmsService):
             if enable_provisioning:
                 provisioner = Provisioner(config)
                 provisioner.configure()
-                provisioner.prepare("provisioningJob.bash", prefix=out_prefix)
+                provisioner.prepare("provisioning_job.bash", prefix=out_prefix)
                 provisioner.provision(workflow.dag)
 
         with time_this(
