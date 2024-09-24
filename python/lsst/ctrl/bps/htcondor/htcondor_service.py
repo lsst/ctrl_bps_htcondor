@@ -2145,7 +2145,8 @@ def is_service_job(job_id: str) -> bool:
     At the moment, HTCondor does not provide a native way to distinguish
     between payload and service jobs in the workflow. As a result, the current
     implementation depends entirely on the logic that is used in
-    :py:func:`read_node_status()`. If it changes, this function needs to be
+    :py:func:`read_node_status()` (service jobs are given ids with ClusterId=0
+    and ProcId=some integer). If it changes, this function needs to be
     updated too.
     """
     return int(float(job_id)) == 0
