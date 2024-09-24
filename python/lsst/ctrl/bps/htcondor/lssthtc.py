@@ -1003,10 +1003,10 @@ class HTCDag(networkx.DiGraph):
                 "FINAL": self.graph["final_job"],
                 "SERVICE": self.graph["service_job"],
             }
-            for cmd, job in special_jobs.items():
+            for dagcmd, job in special_jobs.items():
                 if job is not None:
                     job.write_submit_file(submit_path, job_subdir)
-                    print(f"{cmd} {job.name} {job.subfile}", file=fh)
+                    print(f"{dagcmd} {job.name} {job.subfile}", file=fh)
                     if "pre" in job.dagcmds:
                         print(f"SCRIPT PRE {job.name} {job.dagcmds['pre']}", file=fh)
                     if "post" in job.dagcmds:
