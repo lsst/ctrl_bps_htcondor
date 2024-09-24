@@ -201,6 +201,11 @@ different workload manager, for example, `Slurm`_.  In such a case
 the workflow which will firstly create and then maintain `glideins`__ necessary
 for the execution of the workflow.
 
+This provisioning job is called ``provisioning_job.bash`` and is managed by
+HTCondor.  Be careful not to remove it by accident when using ``condor_rm`` or
+``kill`` command.  The job is run on a best-effort basis and will not be
+automatically restarted once deleted.
+
 To enable automatic provisioning of the resources, add the following settings to
 your BPS configuration:
 
