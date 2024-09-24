@@ -219,14 +219,14 @@ where ``<value>`` is the approximate time your workflow needs to complete,
 e.g., 3600, 10:00:00.
 
 This will instruct **ctrl_bps_htcondor** to include a service job that will run
-alongside the other, payload jobs in the workflow that should automatically
+alongside the other payload jobs in the workflow that should automatically
 create and maintain glideins required for the payload jobs to run.
 
-The service job managing the glideins will be automatically canceled once
-the workflow is completed.  However, the exisiting glideins will be left for
-HTCondor to shut them down once they will remain inactive for the period
-specified by ``provisioningMaxIdleTime`` (default value: 10 min., see below) or
-maximum wall time is reached.
+The service job managing the glideins will be automatically canceled once the
+workflow is completed.  However, the existing glideins will be left for
+HTCondor to shut them down once they remain inactive for the period specified
+by ``provisioningMaxIdleTime`` (default value: 10 min., see below) or maximum
+wall time is reached.
 
 If the automatic provisioning of the resources is enabled, the script that the
 service job is supposed to run in order to provide the required resources *must
@@ -278,11 +278,12 @@ will create a new file if it does not exist at the location defined by
      provisioningScriptConfigPath: "${HOME}/.lsst/condor-info.py"
 
 If you're using a custom provisioning script that does not require any
-external configuration, set ``provisioningConfigScript`` to an empty string.
+external configuration, set ``provisioningScriptConfig`` to an empty string.
 
-If the file already exists, it will be used instead. If you wish to recreate it
-after making any changes to ``provisioningScriptConfig``, you need to manually
-remove or rename the existing file.
+If the file already exists, it will be used as is (BPS will not update it with
+config settings). If you wish BPS to overwrite the file with the
+``provisioningScriptConfig`` values, you need to manually remove or rename the
+existing file.
 
 .. note::
 
