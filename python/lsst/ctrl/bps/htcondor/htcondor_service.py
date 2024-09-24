@@ -1324,13 +1324,15 @@ def _create_detailed_report_from_jobs(
             if job_label is None:
                 _LOG.warning("Service job with id '%s': missing label, no action taken", job_id)
             elif job_label == dag_ad.get("bps_provisioning_job", "MISS"):
-                if report.state == WmsStates.RUNNING:
-                    report.specific_info = WmsSpecificInfo()
-                    job_state = _htc_status_to_wms_state(job_ad).name
-                    report.specific_info.add_message(
-                        template="Provisioning job status: {status}",
-                        context={"status": job_state},
-                    )
+                report.specific_info = WmsSpecificInfo()
+                job_status = _htc_status_to_wms_state(job_ad)
+                if job_status == WmsStates.DELETED:
+                    if "Reason" in job_ad and "Removed by DAGMan" in job_ad["Reason"]:
+                        job_status = WmsStates.SUCCEEDED
+                report.specific_info.add_message(
+                    template="Provisioning job status: {status}",
+                    context={"status": job_status.name},
+                )
             else:
                 _LOG.warning(
                     "Service job with id '%s' (label '%s'): no handler, no action taken", job_id, job_label
