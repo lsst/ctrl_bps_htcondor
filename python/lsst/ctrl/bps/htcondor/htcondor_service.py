@@ -1560,7 +1560,7 @@ def _get_state_counts_from_jobs(
     ----------
     wms_workflow_id : `str`
         HTCondor job id.
-    jobs : `dict` [`str`, `Any`]
+    jobs : `dict [`dict` [`str`, `Any`]]
         HTCondor dag job information.
 
     Returns
@@ -1572,9 +1572,9 @@ def _get_state_counts_from_jobs(
         that are in that WMS state.
     """
     state_counts = dict.fromkeys(WmsStates, 0)
-    for job_id, job_info in jobs.items():
+    for job_id, job_ad in jobs.items():
         if job_id != wms_workflow_id and not is_service_job(job_id):
-            state_counts[_htc_status_to_wms_state(job_info)] += 1
+            state_counts[_htc_status_to_wms_state(job_ad)] += 1
     total_counted = sum(state_counts.values())
 
     if "NodesTotal" in jobs[wms_workflow_id]:
