@@ -88,14 +88,6 @@ class Provisioner:
             Raised if the configuration file cannot be created.
         """
         search_opts = self.search_opts | {"expandEnvVars": True}
-        _, script_config_content = self.config.search("provisioningScriptConfig", opt=search_opts)
-        if not script_config_content:
-            _LOG.info(
-                "Configuration for the provisioning script not provided; "
-                "assuming the provisioning script require no configuration file"
-            )
-            self.is_configured = True
-            return
 
         _, script_config_path = self.config.search("provisioningScriptConfigPath", opt=search_opts)
         script_config_path = Path(script_config_path)
@@ -106,27 +98,33 @@ class Provisioner:
                 script_config_path,
             )
         else:
-            _LOG.info(
-                "Configuration file for provisioning script '%s' not found; "
-                "creating a new one using the content specified by 'provisioningScriptConfig' setting",
-                script_config_path,
-            )
-
-            # If necessary, create directory that will hold the script's
-            # configuration file.
-            prefix = script_config_path.parent
-            try:
-                prefix.mkdir(parents=True, exist_ok=True)
-            except OSError as exc:
-                _LOG.error(
-                    "Cannot create configuration file for the provisioning script '%s': %s",
+            _, script_config_content = self.config.search("provisioningScriptConfig", opt=search_opts)
+            if script_config_content:
+                _LOG.info(
+                    "Configuration file for provisioning script '%s' not found; "
+                    "creating a new one using the content specified by 'provisioningScriptConfig' setting",
                     script_config_path,
-                    exc.strerror,
                 )
-                raise
 
-            script_config_path.write_text(script_config_content)
+                # If necessary, create directory that will hold the script's
+                # configuration file.
+                prefix = script_config_path.parent
+                try:
+                    prefix.mkdir(parents=True, exist_ok=True)
+                except OSError as exc:
+                    _LOG.error(
+                        "Cannot create configuration file for the provisioning script '%s': %s",
+                        script_config_path,
+                        exc.strerror,
+                    )
+                    raise
 
+                script_config_path.write_text(script_config_content)
+            else:
+                _LOG.info(
+                    "Configuration for the provisioning script not provided; "
+                    "assuming the provisioning script requires no configuration file"
+                )
         self.is_configured = True
 
     def prepare(self, filename: Path | str, prefix: Path | str = None) -> None:
