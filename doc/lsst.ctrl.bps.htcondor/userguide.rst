@@ -222,6 +222,33 @@ This will instruct **ctrl_bps_htcondor** to include a service job that will run
 alongside the other payload jobs in the workflow that should automatically
 create and maintain glideins required for the payload jobs to run.
 
+If you enable automatic provisioning of resources, you will see the status of
+the provisioning job in the output of the ``bps report --id <id>`` command.
+Look for the line starting with "Provisioning job status".  For example
+
+.. code-block:: bash
+   :emphasize-lines: 8
+
+    X   STATE   %S   ID  OPERATOR PROJECT CAMPAIGN PAYLOAD                  RUN
+   --- ------- --- ----- -------- ------- -------- ------- ---------------------------------------
+       RUNNING   0   1.0     jdoe     dev    quick  pcheck u_jdoe_pipelines_check_20240924T201447Z
+
+
+   Path: /home/jdoe/submit/u/jdoe/pipelines_check/20240924T201447Z
+   Global job id: node001#1.0#1727208891
+   Provisioning job status: RUNNING
+
+
+                     UNKNOWN MISFIT UNREADY READY PENDING RUNNING DELETED HELD SUCCEEDED FAILED PRUNED EXPECTED
+   ----------------- ------- ------ ------- ----- ------- ------- ------- ---- --------- ------ ------ --------
+   TOTAL                   0      0       4     0       1       0       0    0         0      0      0        5
+   ----------------- ------- ------ ------- ----- ------- ------- ------- ---- --------- ------ ------ --------
+   pipetaskInit            0      0       0     0       1       0       0    0         0      0      0        1
+   isr                     0      0       1     0       0       0       0    0         0      0      0        1
+   characterizeImage       0      0       1     0       0       0       0    0         0      0      0        1
+   calibrate               0      0       1     0       0       0       0    0         0      0      0        1
+   finalJob                0      0       1     0       0       0       0    0         0      0      0        1
+
 The service job managing the glideins will be automatically canceled once the
 workflow is completed.  However, the existing glideins will be left for
 HTCondor to shut them down once they remain inactive for the period specified
