@@ -148,8 +148,7 @@ class Provisioner:
         """
         if not self.is_configured:
             raise RuntimeError(
-                f"Cannot create provisioning script: configuration file might be missing. "
-                f"Run {type(self).__qualname__}.configure() to ensure"
+                f"Cannot create provisioning script: run {type(self).__qualname__}.configure() first"
             )
 
         self.script_name = Path(filename)
@@ -180,8 +179,8 @@ class Provisioner:
         """
         if not self.is_prepared:
             raise RuntimeError(
-                f"Cannot add provisioning job to the workflow: provisioning script was not created."
-                f"Run {type(self).__qualname__}.prepare() to create it."
+                f"Cannot add provisioning job to the workflow: "
+                f"run {type(self).__qualname__}.prepare() to create it"
             )
 
         name = self.script_name.stem
