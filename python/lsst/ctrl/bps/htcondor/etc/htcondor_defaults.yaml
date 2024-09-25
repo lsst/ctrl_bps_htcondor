@@ -4,3 +4,37 @@
 #
 #     https://s3df.slac.stanford.edu/public/doc/#/batch-compute
 memoryLimit: 491520
+
+# Define how to provision resources automatically.
+provisioning:
+  provisioningNodeCount: 10
+  provisioningMaxIdleTime: 900
+  provisioningCheckInterval: 600
+  provisioningQueue: "milano"
+  provisioningAccountingUser: "rubin:developers"
+  provisioningExtraOptions: ""
+  provisioningPlatform: "s3df"
+  provisioningScript: |
+    #!/bin/bash
+    set -e
+    set -x
+    while true; do
+        ${CTRL_EXECUTE_DIR}/bin/allocateNodes.py \
+            --account {provisioningAccountingUser} \
+            --auto \
+            --node-count {provisioningNodeCount} \
+            --maximum-wall-clock {provisioningMaxWallTime} \
+            --glidein-shutdown {provisioningMaxIdleTime} \
+            --queue {provisioningQueue} \
+            {provisioningExtraOptions} \
+            {provisioningPlatform}
+        sleep {provisioningCheckInterval}
+    done
+    exit 0
+  provisioningScriptConfig: |
+    config.platform["{provisioningPlatform}"].user.name="${USER}"
+    config.platform["{provisioningPlatform}"].user.home="${HOME}"
+  provisioningScriptConfigPath: "${HOME}/.lsst/condor-info.py"
+
+# By default, disable automatic provisioning of resources.
+provisionResources: false

@@ -37,6 +37,7 @@ import re
 from collections import defaultdict
 from enum import IntEnum, auto
 from pathlib import Path
+from typing import Any
 
 import htcondor
 from lsst.ctrl.bps import (
@@ -46,6 +47,7 @@ from lsst.ctrl.bps import (
     GenericWorkflowJob,
     WmsJobReport,
     WmsRunReport,
+    WmsSpecificInfo,
     WmsStates,
 )
 from lsst.ctrl.bps.bps_utils import chdir, create_count_summary
@@ -80,6 +82,7 @@ from .lssthtc import (
     summary_from_dag,
     write_dag_info,
 )
+from .provisioner import Provisioner
 
 
 class WmsIdType(IntEnum):
@@ -146,6 +149,13 @@ class HTCondorService(BaseWmsService):
                 out_prefix,
                 f"{self.__class__.__module__}.{self.__class__.__name__}",
             )
+
+            _, enable_provisioning = config.search("provisionResources")
+            if enable_provisioning:
+                provisioner = Provisioner(config)
+                provisioner.configure()
+                provisioner.prepare("provisioning_job.bash", prefix=out_prefix)
+                provisioner.provision(workflow.dag)
 
         with time_this(
             log=_LOG, level=logging.INFO, prefix=None, msg="Completed writing out HTCondor workflow"
@@ -1086,7 +1096,7 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
             # At the moment missing DAGMan log is pretty much a fatal error.
             # So empty the DAG info to finish early (see the if statement
             # below).
-            schedd_dag_info.clean()
+            schedd_dag_info.clear()
             messages.append(f"Cannot create the report for '{dag_id}': {exc}")
         else:
             if path_dag_id != dag_id:
@@ -1134,7 +1144,9 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
     return run_reports, message
 
 
-def _get_info_from_schedd(wms_workflow_id, hist, schedds):
+def _get_info_from_schedd(
+    wms_workflow_id: str, hist: float, schedds: dict[str, htcondor.Schedd]
+) -> dict[str, dict[str, dict[str, Any]]]:
     """Gather run information from HTCondor.
 
     Parameters
@@ -1174,7 +1186,7 @@ def _get_info_from_schedd(wms_workflow_id, hist, schedds):
     return schedd_dag_info
 
 
-def _get_info_from_path(wms_path):
+def _get_info_from_path(wms_path: str) -> tuple[str, dict[str, dict[str, Any]], str]:
     """Gather run information from a given run directory.
 
     Parameters
@@ -1253,7 +1265,9 @@ def _get_info_from_path(wms_path):
     return wms_workflow_id, jobs, message
 
 
-def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
+def _create_detailed_report_from_jobs(
+    wms_workflow_id: str, jobs: dict[str, dict[str, Any]]
+) -> dict[str, WmsRunReport]:
     """Gather run information to be used in generating summary reports.
 
     Parameters
@@ -1270,44 +1284,63 @@ def _create_detailed_report_from_jobs(wms_workflow_id, jobs):
         id and the value is a collection of report information for that run.
     """
     _LOG.debug("_create_detailed_report: id = %s, job = %s", wms_workflow_id, jobs[wms_workflow_id])
-    dag_job = jobs.pop(wms_workflow_id)
-    total_jobs, state_counts = _get_state_counts_from_dag_job(dag_job)
+    dag_ad = jobs.pop(wms_workflow_id)
+    total_jobs, state_counts = _get_state_counts_from_dag_job(dag_ad)
     report = WmsRunReport(
-        wms_id=f"{dag_job['ClusterId']}.{dag_job['ProcId']}",
-        global_wms_id=dag_job.get("GlobalJobId", "MISS"),
-        path=dag_job["Iwd"],
-        label=dag_job.get("bps_job_label", "MISS"),
-        run=dag_job.get("bps_run", "MISS"),
-        project=dag_job.get("bps_project", "MISS"),
-        campaign=dag_job.get("bps_campaign", "MISS"),
-        payload=dag_job.get("bps_payload", "MISS"),
-        operator=_get_owner(dag_job),
-        run_summary=_get_run_summary(dag_job),
-        state=_htc_status_to_wms_state(dag_job),
+        wms_id=f"{dag_ad['ClusterId']}.{dag_ad['ProcId']}",
+        global_wms_id=dag_ad.get("GlobalJobId", "MISS"),
+        path=dag_ad["Iwd"],
+        label=dag_ad.get("bps_job_label", "MISS"),
+        run=dag_ad.get("bps_run", "MISS"),
+        project=dag_ad.get("bps_project", "MISS"),
+        campaign=dag_ad.get("bps_campaign", "MISS"),
+        payload=dag_ad.get("bps_payload", "MISS"),
+        operator=_get_owner(dag_ad),
+        run_summary=_get_run_summary(dag_ad),
+        state=_htc_status_to_wms_state(dag_ad),
         jobs=[],
-        total_number_jobs=dag_job.get("total_jobs", total_jobs),
-        job_state_counts=dag_job.get("state_counts", state_counts),
+        total_number_jobs=dag_ad.get("total_jobs", total_jobs),
+        job_state_counts=dag_ad.get("state_counts", state_counts),
         exit_code_summary=_get_exit_code_summary(jobs),
     )
 
-    for job_id, job_info in jobs.items():
-        try:
-            job_report = WmsJobReport(
-                wms_id=job_id,
-                name=job_info.get("DAGNodeName", job_id),
-                label=job_info.get("bps_job_label", pegasus_name_to_label(job_info["DAGNodeName"])),
-                state=_htc_status_to_wms_state(job_info),
-            )
-            if job_report.label == "init":
-                job_report.label = "pipetaskInit"
-            report.jobs.append(job_report)
-        except KeyError as ex:
-            _LOG.error("Job missing key '%s': %s", str(ex), job_info)
-            raise
+    for job_id, job_ad in jobs.items():
+        if not is_service_job(job_id):
+            try:
+                job_report = WmsJobReport(
+                    wms_id=job_id,
+                    name=job_ad.get("DAGNodeName", job_id),
+                    label=job_ad.get("bps_job_label", pegasus_name_to_label(job_ad["DAGNodeName"])),
+                    state=_htc_status_to_wms_state(job_ad),
+                )
+                if job_report.label == "init":
+                    job_report.label = "pipetaskInit"
+                report.jobs.append(job_report)
+            except KeyError as ex:
+                _LOG.error("Job missing key '%s': %s", str(ex), job_ad)
+                raise
+        else:
+            job_label = job_ad.get("bps_job_label")
+            if job_label is None:
+                _LOG.warning("Service job with id '%s': missing label, no action taken", job_id)
+            elif job_label == dag_ad.get("bps_provisioning_job", "MISS"):
+                report.specific_info = WmsSpecificInfo()
+                job_status = _htc_status_to_wms_state(job_ad)
+                if job_status == WmsStates.DELETED:
+                    if "Reason" in job_ad and "Removed by DAGMan" in job_ad["Reason"]:
+                        job_status = WmsStates.SUCCEEDED
+                report.specific_info.add_message(
+                    template="Provisioning job status: {status}",
+                    context={"status": job_status.name},
+                )
+            else:
+                _LOG.warning(
+                    "Service job with id '%s' (label '%s'): no handler, no action taken", job_id, job_label
+                )
 
     # Add the removed entry to restore the original content of the dictionary.
     # The ordering of keys will be change permanently though.
-    jobs.update({wms_workflow_id: dag_job})
+    jobs.update({wms_workflow_id: dag_ad})
 
     run_reports = {report.wms_id: report}
     _LOG.debug("_create_detailed_report: run_reports = %s", run_reports)
@@ -1516,14 +1549,18 @@ def _get_exit_code_summary(jobs):
     return summary
 
 
-def _get_state_counts_from_jobs(wms_workflow_id, jobs):
+def _get_state_counts_from_jobs(
+    wms_workflow_id: str, jobs: dict[str, dict[str, Any]]
+) -> tuple[int, dict[WmsStates, int]]:
     """Count number of jobs per WMS state.
+
+    The workflow job and the service jobs are excluded from the count.
 
     Parameters
     ----------
     wms_workflow_id : `str`
         HTCondor job id.
-    jobs : `dict` [`str`, `Any`]
+    jobs : `dict [`dict` [`str`, `Any`]]
         HTCondor dag job information.
 
     Returns
@@ -1535,19 +1572,17 @@ def _get_state_counts_from_jobs(wms_workflow_id, jobs):
         that are in that WMS state.
     """
     state_counts = dict.fromkeys(WmsStates, 0)
-
-    for jid, jinfo in jobs.items():
-        if jid != wms_workflow_id:
-            state_counts[_htc_status_to_wms_state(jinfo)] += 1
-
+    for job_id, job_ad in jobs.items():
+        if job_id != wms_workflow_id and not is_service_job(job_id):
+            state_counts[_htc_status_to_wms_state(job_ad)] += 1
     total_counted = sum(state_counts.values())
+
     if "NodesTotal" in jobs[wms_workflow_id]:
         total_count = jobs[wms_workflow_id]["NodesTotal"]
     else:
         total_count = total_counted
 
     state_counts[WmsStates.UNREADY] += total_count - total_counted
-
     return total_count, state_counts
 
 
@@ -1727,11 +1762,11 @@ def _update_jobs(jobs1, jobs2):
     jobs2 : `dict` [`str`, `dict` [`str`, `Any`]]
         Additional HTCondor job information.
     """
-    for jid, jinfo in jobs2.items():
-        if jid in jobs1:
-            jobs1[jid].update(jinfo)
+    for job_id, job_ad in jobs2.items():
+        if job_id in jobs1:
+            jobs1[job_id].update(job_ad)
         else:
-            jobs1[jid] = jinfo
+            jobs1[job_id] = job_ad
 
 
 def _wms_id_type(wms_id):
@@ -2092,3 +2127,28 @@ def _gather_site_values(config, compute_site):
                 site_values["profile"][key] = val
 
     return site_values
+
+
+def is_service_job(job_id: str) -> bool:
+    """Determine if a job is a service one.
+
+    Parameters
+    ----------
+    job_id : str
+        HTCondor job id.
+
+    Returns
+    -------
+    is_service_job : `bool`
+        True if the job is a service one, false otherwise.
+
+    Notes
+    -----
+    At the moment, HTCondor does not provide a native way to distinguish
+    between payload and service jobs in the workflow. As a result, the current
+    implementation depends entirely on the logic that is used in
+    :py:func:`read_node_status()` (service jobs are given ids with ClusterId=0
+    and ProcId=some integer). If it changes, this function needs to be
+    updated too.
+    """
+    return int(float(job_id)) == 0

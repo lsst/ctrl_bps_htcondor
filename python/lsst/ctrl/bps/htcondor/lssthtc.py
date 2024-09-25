@@ -81,6 +81,7 @@ from collections.abc import MutableMapping
 from datetime import datetime, timedelta
 from enum import IntEnum
 from pathlib import Path
+from typing import Any
 
 import classad
 import htcondor
@@ -868,6 +869,7 @@ class HTCDag(networkx.DiGraph):
         self.graph["run_id"] = None
         self.graph["submit_path"] = None
         self.graph["final_job"] = None
+        self.graph["service_job"] = None
 
     def __str__(self):
         """Represent basic DAG info as string.
@@ -940,6 +942,19 @@ class HTCDag(networkx.DiGraph):
 
         self.graph["final_job"] = job
 
+    def add_service_job(self, job):
+        """Add an HTCJob for the SERVICE job in HTCDag.
+
+        Parameters
+        ----------
+        job : `HTCJob`
+            HTCJob to add to the HTCDag as a FINAL job.
+        """
+        # Add dag level attributes to each job
+        job.add_job_attrs(self.graph["attr"])
+
+        self.graph["service_job"] = job
+
     def del_job(self, job_name):
         """Delete the job from the DAG.
 
@@ -983,14 +998,19 @@ class HTCDag(networkx.DiGraph):
             for key, value in self.graph["attr"].items():
                 print(f'SET_JOB_ATTR {key}= "{htc_escape(value)}"', file=fh)
 
-            if self.graph["final_job"]:
-                job = self.graph["final_job"]
-                job.write_submit_file(submit_path, job_subdir)
-                print(f"FINAL {job.name} {job.subfile}", file=fh)
-                if "pre" in job.dagcmds:
-                    print(f"SCRIPT PRE {job.name} {job.dagcmds['pre']}", file=fh)
-                if "post" in job.dagcmds:
-                    print(f"SCRIPT POST {job.name} {job.dagcmds['post']}", file=fh)
+            # Add special nodes if any.
+            special_jobs = {
+                "FINAL": self.graph["final_job"],
+                "SERVICE": self.graph["service_job"],
+            }
+            for dagcmd, job in special_jobs.items():
+                if job is not None:
+                    job.write_submit_file(submit_path, job_subdir)
+                    print(f"{dagcmd} {job.name} {job.subfile}", file=fh)
+                    if "pre" in job.dagcmds:
+                        print(f"SCRIPT PRE {job.name} {job.dagcmds['pre']}", file=fh)
+                    if "post" in job.dagcmds:
+                        print(f"SCRIPT POST {job.name} {job.dagcmds['post']}", file=fh)
 
     def dump(self, fh):
         """Dump DAG info to output stream.
@@ -1238,12 +1258,12 @@ def summary_from_dag(dir_name):
     summary : `str`
         Semi-colon separated list of job labels and counts.
         (Same format as saved in dag classad).
-    job_name_to_pipetask : `dict` [`str`, `str`]
+    job_name_to_label : `dict` [`str`, `str`]
         Mapping of job names to job labels.
     """
     # Later code depends upon insertion order
     counts = defaultdict(int)
-    job_name_to_pipetask = {}
+    job_name_to_label = {}
     try:
         dag = next(Path(dir_name).glob("*.dag"))
         with open(dag) as fh:
@@ -1254,13 +1274,13 @@ def summary_from_dag(dir_name):
                         label = m.group(2)
                         if label == "init":
                             label = "pipetaskInit"
-                        job_name_to_pipetask[m.group(1)] = label
+                        job_name_to_label[m.group(1)] = label
                         counts[label] += 1
                     else:  # Check if Pegasus submission
                         m = re.match(r"JOB (\S+) (\S+)", line)
                         if m:
                             label = pegasus_name_to_label(m.group(1))
-                            job_name_to_pipetask[m.group(1)] = label
+                            job_name_to_label[m.group(1)] = label
                             counts[label] += 1
                         else:
                             _LOG.warning("Parse DAG: unmatched job line: %s", line)
@@ -1268,15 +1288,19 @@ def summary_from_dag(dir_name):
                     m = re.match(r"FINAL (\S+) jobs/([^/]+)/", line)
                     if m:
                         label = m.group(2)
-                        job_name_to_pipetask[m.group(1)] = label
+                        job_name_to_label[m.group(1)] = label
                         counts[label] += 1
-
+                elif line.startswith("SERVICE"):
+                    m = re.match(r"SERVICE (\S+) jobs/([^/]+)/", line)
+                    if m:
+                        label = m.group(2)
+                        job_name_to_label[m.group(1)] = label
     except (OSError, PermissionError, StopIteration):
         pass
 
     summary = ";".join([f"{name}:{counts[name]}" for name in counts])
-    _LOG.debug("summary_from_dag: %s %s", summary, job_name_to_pipetask)
-    return summary, job_name_to_pipetask
+    _LOG.debug("summary_from_dag: %s %s", summary, job_name_to_label)
+    return summary, job_name_to_label
 
 
 def pegasus_name_to_label(name):
@@ -1376,17 +1400,17 @@ def read_node_status(wms_path):
         file.
     """
     # Get jobid info from other places to fill in gaps in info from node_status
-    _, job_name_to_pipetask = summary_from_dag(wms_path)
+    _, job_name_to_label = summary_from_dag(wms_path)
     wms_workflow_id, loginfo = read_dag_log(wms_path)
     loginfo = read_dag_nodes_log(wms_path)
     _LOG.debug("loginfo = %s", loginfo)
     job_name_to_id = {}
-    for jid, jinfo in loginfo.items():
-        if "LogNotes" in jinfo:
-            m = re.match(r"DAG Node: ([^\s]+)", jinfo["LogNotes"])
+    for job_id, job_info in loginfo.items():
+        if "LogNotes" in job_info:
+            m = re.match(r"DAG Node: (\S+)", job_info["LogNotes"])
             if m:
-                job_name_to_id[m.group(1)] = jid
-                jinfo["DAGNodeName"] = m.group(1)
+                job_name_to_id[m.group(1)] = job_id
+                job_info["DAGNodeName"] = m.group(1)
 
     try:
         node_status = next(Path(wms_path).glob("*.node_status"))
@@ -1397,53 +1421,71 @@ def read_node_status(wms_path):
     fake_id = -1.0  # For nodes that do not yet have a job id, give fake one
     try:
         with open(node_status) as fh:
-            ads = classad.parseAds(fh)
-
-            for jclassad in ads:
-                if jclassad["Type"] == "DagStatus":
-                    # skip DAG summary
-                    pass
-                elif "Node" not in jclassad:
-                    if jclassad["Type"] != "StatusEnd":
-                        _LOG.debug("Key 'Node' not in classad: %s", jclassad)
-                    break
-                else:
-                    if jclassad["Node"] in job_name_to_pipetask:
-                        try:
-                            label = job_name_to_pipetask[jclassad["Node"]]
-                        except KeyError:
-                            _LOG.error("%s not in %s", jclassad["Node"], job_name_to_pipetask.keys())
-                            raise
-                    elif "_" in jclassad["Node"]:
-                        label = jclassad["Node"].split("_")[1]
-                    else:
-                        label = jclassad["Node"]
-
-                    # Make job info as if came from condor_q
-                    if jclassad["Node"] in job_name_to_id:
-                        job_id = str(job_name_to_id[jclassad["Node"]])
-                    else:
-                        job_id = str(fake_id)
-                        fake_id -= 1
-
-                    job = dict(jclassad)
-                    job["ClusterId"] = int(float(job_id))
-                    job["DAGManJobID"] = wms_workflow_id
-                    job["DAGNodeName"] = jclassad["Node"]
-                    job["bps_job_label"] = label
-
-                    jobs[job_id] = job
-                    try:
-                        jobs[job_id] |= loginfo[job_id]
-                    except KeyError:
+            for ad in classad.parseAds(fh):
+                match ad["Type"]:
+                    case "DagStatus":
+                        # Skip DAG summary.
                         pass
+                    case "NodeStatus":
+                        job_name = ad["Node"]
+                        if job_name in job_name_to_label:
+                            job_label = job_name_to_label[job_name]
+                        elif "_" in job_name:
+                            job_label = job_name.split("_")[1]
+                        else:
+                            job_label = job_name
+
+                        # Make job info as if came from condor_q.
+                        if job_name in job_name_to_id:
+                            job_id = str(job_name_to_id[job_name])
+                        else:
+                            job_id = str(fake_id)
+                            fake_id -= 1
+                        job = dict(ad)
+                        job["ClusterId"] = int(float(job_id))
+                        job["DAGManJobID"] = wms_workflow_id
+                        job["DAGNodeName"] = job_name
+                        job["bps_job_label"] = job_label
+
+                        # Include information retrieved from the event log
+                        # if available.
+                        jobs[job_id] = job
+                        try:
+                            jobs[job_id] |= loginfo[job_id]
+                        except KeyError:
+                            pass
+                    case "StatusEnd":
+                        # Skip node status file "epilog".
+                        pass
+                    case _:
+                        _LOG.debug(
+                            "Ignoring unknown classad type '%s' in the node status file '%s'",
+                            ad["Type"],
+                            wms_path,
+                        )
     except (OSError, PermissionError):
         pass
+    else:
+        # Assume that the jobs found in the event log, but *not* in the node
+        # status file are the service jobs as HTCondor does not include
+        # information about these jobs in the node status file at the moment.
+        #
+        # Note: To be able to easily identify the service jobs downstream,
+        # we reverse the ClusterId and ProcId in their HTCondor ids in internal
+        # use. For example, if HTCondor id of a service job is '1.0', we will
+        # use '0.1' instead.
+        service_jobs = {job_id: loginfo[job_id] for job_id in set(loginfo) - set(jobs)}
+        job_id_to_name = {
+            job_id: job_name for job_name, job_id in job_name_to_id.items() if job_id in service_jobs
+        }
+        for job_id, job_info in service_jobs.items():
+            job_info["bps_job_label"] = job_name_to_label[job_id_to_name[job_id]]
+            jobs[f"{job_info['ProcId']}.{job_info['ClusterId']}"] = job_info
 
     return jobs
 
 
-def read_dag_log(wms_path):
+def read_dag_log(wms_path: str) -> tuple[str, dict[str, Any]]:
     """Read job information from the DAGMan log file.
 
     Parameters
@@ -1579,13 +1621,11 @@ def write_dag_info(filename, dag_info):
     schedd_name = next(iter(dag_info))
     dag_id = next(iter(dag_info[schedd_name]))
     dag_ad = dag_info[schedd_name][dag_id]
+    ad = {"ClusterId": dag_ad["ClusterId"], "GlobalJobId": dag_ad["GlobalJobId"]}
+    ad.update({key: val for key, val in dag_ad.items() if key.startswith("bps")})
     try:
         with open(filename, "w") as fh:
-            info = {
-                schedd_name: {
-                    dag_id: {"ClusterId": dag_ad["ClusterId"], "GlobalJobId": dag_ad["GlobalJobId"]}
-                }
-            }
+            info = {schedd_name: {dag_id: ad}}
             json.dump(info, fh)
     except (KeyError, OSError, PermissionError) as exc:
         _LOG.debug("Persisting DAGMan job information failed: %s", exc)
