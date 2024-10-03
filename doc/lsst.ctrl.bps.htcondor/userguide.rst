@@ -252,7 +252,7 @@ Look for the line starting with "Provisioning job status".  For example
 The service job managing the glideins will be automatically canceled once the
 workflow is completed.  However, the existing glideins will be left for
 HTCondor to shut them down once they remain inactive for the period specified
-by ``provisioningMaxIdleTime`` (default value: 10 min., see below) or maximum
+by ``provisioningMaxIdleTime`` (default value: 15 min., see below) or maximum
 wall time is reached.
 
 If the automatic provisioning of the resources is enabled, the script that the
@@ -321,6 +321,94 @@ existing file.
 
 .. __: https://htcondor.readthedocs.io/en/latest/codes-other-values/glossary.html#term-Glidein
 
+.. _htc-plugin-releasing:
+
+Releasing held jobs
+-------------------
+
+Occasionally, when HTCondor encounters issues during a job's execution it
+places the job in the hold state. You can see what jobs you submitted are being
+currently held and why by using the command:
+
+.. code-block::
+
+   condor_q -held
+
+If any of your jobs are being held, it will display something similar to::
+
+    -- Schedd: sdfrome002.sdf.slac.stanford.edu : <172.24.33.226:21305?... @ 10/02/24 10:59:41
+    ID           OWNER  HELD_SINCE  HOLD_REASON
+    5485584.0    jdoe   9/23 11:04  Error from slot_jdoe_8693_1_1@sdfrome051.sdf.slac.stanford.edu: Failed to execute '/sdf/group/rubin/sw/conda/envs/lsst-scipipe-8.0.0/share/eups/Linux64/ctrl_mpexec/g1ce94f1343+74d41caebd/bin/pipetask' with arguments --long-log --log-level=VERBOSE run-qbb /repo/ops-rehearsal-3-prep /sdf/home/j/jdoe/u/pipelines/submit/u/jdoe/DM-43059/step3/20240301T190055Z/u_jdoe_step3_20240301T190055Z.qgraph --qgraph-node-id 6b5daf05-10fc-462e-82e0-cc618be83a12: (errno=2: 'No such file or directory')
+    5471792.0    jdoe   7/10 08:27  File '/sdf/group/rubin/sw/conda/envs/lsst-scipipe-8.0.0/bin/condor_dagman' is missing or not executable
+    7636239.0    jdoe   3/20 01:32  Job raised a signal 11. Handling signal as if job has gone over memory limit.
+    5497548.0    jdoe   3/6  00:14  Job raised a signal 9. Handling signal as if job has gone over memory limit.
+    12863358.0   jdoe   6/27 11:05  Error from slot_jdoe_32400_1_1@sdfrome009.sdf.slac.stanford.edu: Failed to open '/sdf/data/rubin/shared/jdoe/simulation/output/output.0' as standard output: No such file or directory (errno 2)
+    20590593.0   jdoe   6/23 13:03  Transfer output files failure at the execution point while sending files to access point sdfrome001. Details: reading from file /lscratch/jdoe/execute/dir_1460253/_condor_stdout: (errno 2) No such file or directory
+    12033406.0   jdoe   5/13 10:48  Cannot access initial working directory /sdf/data/rubin/user/jdoe/repo-main-logs/submit/u/jdoe/20240311T231829Z: No such file or directory
+
+.. note::
+
+   If you would like to display held jobs that were submitted for execution
+   by other users, use ``condor_q -held <username>`` instead where
+   ``<username>`` is the user account which held jobs you would like to check.
+   See `condor_q`_ man page for other supported options.
+
+The job that is in the hold state can be released from it with
+`condor_release`_ providing the issue that made HTCondor put it in this state
+has been resolved. For example, if your job with id 1234.0 was placed in the
+hold state because during the execution it exceeded 2048 MiB you requested for
+it during the submission, you can double the amount of memory it should request with
+
+.. code-block::
+
+   condor_qedit 1234.0 RequestMemory=4096
+
+and than release it from the hold state with
+
+.. code-block::
+
+   condor_release 1234.0
+
+When the job is released from the hold state HTCondor puts the job into the
+IDLE state and will rerun the job using the exact same command and environment
+as before.
+
+.. note::
+
+   Placing jobs in the hold state due to missing files or directories usually
+   happens when the gliedins expire or there are some filesystem issues.  After
+   creating new glideins with ``allocateNodes.py`` (see
+   :ref:`htc-plugin-provisioning` for future submissions) or the filesystem
+   issues have been resolved typically it should be safe to release the jobs
+   from the hold state.
+
+If multiple jobs were placed by HTCondor in the hold state and you only want to
+deal with a subset of currently held jobs, use ``-constraint <expression>``
+option that both `condor_qedit`_ and `condor_release`_ support where
+``<expression>`` can be an arbitrarily complex `HTCondor ClassAd`__ expression.
+For example
+
+.. code-block::
+
+   condor_qedit -constraint "JobStatus == 5 && HoldReasonCode == 3 && HoldReasonSubCode == 34" RequestMemory=4096
+   condor_release -constraint "JobStatus == 5 && HoldReasonCode == 3 && HoldReasonSubCode == 34"
+
+will only affect jobs that were placed in the hold state (``JobStatus`` is 5)
+for a specific reason, here, the memory usage exceeded memory limits
+(``HoldReasonCode`` is 3 *and* ``HoldReasonSubCode`` is 34).
+
+.. __: https://htcondor.readthedocs.io/en/latest/classads/index.html
+
+.. note::
+
+   By default, BPS will automatically retry jobs that failed due to the out of
+   memory error (see `Automatic memory scaling`__ section in **ctrl_bps**
+   documentation for more information regarding this topic) and the issues
+   illustrated by the above examples should only occur if automatic memory
+   scalling was explicitly disabled in the submit YAML file.
+
+.. __: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#automatic-memory-scaling
+
 .. _htc-plugin-troubleshooting:
 
 Troubleshooting
@@ -369,5 +457,7 @@ complete your run.
 .. _ctrl_bps: https://github.com/lsst/ctrl_bps
 .. _ctrl_execute: https://github.com/lsst/ctrl_execute
 .. _condor_q: https://htcondor.readthedocs.io/en/latest/man-pages/condor_q.html
+.. _condor_qedit: https://htcondor.readthedocs.io/en/latest/man-pages/condor_qedit.html
+.. _condor_release: https://htcondor.readthedocs.io/en/latest/man-pages/condor_release.html
 .. _condor_rm: https://htcondor.readthedocs.io/en/latest/man-pages/condor_rm.html
 .. _lsst_distrib: https://github.com/lsst/lsst_distrib.git
