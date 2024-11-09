@@ -959,11 +959,13 @@ def _replace_cmd_vars(arguments, gwjob):
     """
     try:
         arguments = arguments.format(**gwjob.cmdvals)
-    except (KeyError, TypeError):  # TypeError in case None instead of {}
-        _LOG.error(
-            "Could not replace command variables:\narguments: %s\ncmdvals: %s", arguments, gwjob.cmdvals
-        )
+    except KeyError:
+        _LOG.error("Could not replace command variables")
         raise
+    except TypeError:
+        _LOG.debug("Command variables not provided; assuming there are no command variables to replace")
+    finally:
+        _LOG.debug("arguments: %s\ncmdvals: %s", arguments, gwjob.cmdvals)
     return arguments
 
 
