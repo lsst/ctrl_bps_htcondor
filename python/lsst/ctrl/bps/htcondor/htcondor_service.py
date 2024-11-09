@@ -957,12 +957,12 @@ def _replace_cmd_vars(arguments, gwjob):
     arguments : `str`
         Given arguments string with placeholders replaced.
     """
+    replacements = gwjob.cmdvals if gwjob.cmdvals is not None else {}
     try:
-        arguments = arguments.format(**gwjob.cmdvals)
-    except (KeyError, TypeError):  # TypeError in case None instead of {}
-        _LOG.error(
-            "Could not replace command variables:\narguments: %s\ncmdvals: %s", arguments, gwjob.cmdvals
-        )
+        arguments = arguments.format(**replacements)
+    except KeyError as exc:
+        _LOG.error("Could not replace command variables: replacement for %s not provided", str(exc))
+        _LOG.debug("arguments: %s\ncmdvals: %s", arguments, replacements)
         raise
     return arguments
 
