@@ -43,7 +43,7 @@
 07/25/24 20:05:11       Node Name: one
 07/25/24 20:05:11            Noop: false
 07/25/24 20:05:11          NodeID: 0
-07/25/24 20:05:11     Node Status: STATUS_ERROR    
+07/25/24 20:05:11     Node Status: STATUS_ERROR
 07/25/24 20:05:11 Node return val: -1
 07/25/24 20:05:11           Error: Job submit failed
 07/25/24 20:05:11 Job Submit File: bad_submit2.sub

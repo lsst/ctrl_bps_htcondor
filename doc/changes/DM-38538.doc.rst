@@ -1,1 +1,0 @@
-Added a section describing how to release held jobs to the package documentation.

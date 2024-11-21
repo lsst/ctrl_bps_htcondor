@@ -18,10 +18,10 @@
 	0  -  Run Bytes Received By Job
 	0  -  Total Bytes Sent By Job
 	0  -  Total Bytes Received By Job
-	Partitionable Resources :    Usage  Request Allocated 
-	   Cpus                 :                 1         1 
-	   Disk (KB)            :       76        2    471265 
-	   Memory (MB)          :        3     2048      2048 
+	Partitionable Resources :    Usage  Request Allocated
+	   Cpus                 :                 1         1
+	   Disk (KB)            :       76        2    471265
+	   Memory (MB)          :        3     2048      2048
 
 	Job terminated of its own accord at 2024-07-27T00:35:37Z with exit-code 0.
 ...
@@ -45,10 +45,10 @@
 	0  -  Run Bytes Received By Job
 	11282  -  Total Bytes Sent By Job
 	0  -  Total Bytes Received By Job
-	Partitionable Resources :    Usage  Request Allocated 
-	   Cpus                 :                 1         1 
-	   Disk (KB)            :       88        2    471265 
-	   Memory (MB)          :     1088     2048      2048 
+	Partitionable Resources :    Usage  Request Allocated
+	   Cpus                 :                 1         1
+	   Disk (KB)            :       88        2    471265
+	   Memory (MB)          :     1088     2048      2048
 
 	Job terminated of its own accord at 2024-07-27T00:36:09Z with exit-code 0.
 ...
@@ -72,10 +72,10 @@
 	0  -  Run Bytes Received By Job
 	20819  -  Total Bytes Sent By Job
 	0  -  Total Bytes Received By Job
-	Partitionable Resources :    Usage  Request Allocated 
-	   Cpus                 :     1.00        1         1 
-	   Disk (KB)            :   103           2    471265 
-	   Memory (MB)          :   356        2048      2048 
+	Partitionable Resources :    Usage  Request Allocated
+	   Cpus                 :     1.00        1         1
+	   Disk (KB)            :   103           2    471265
+	   Memory (MB)          :   356        2048      2048
 
 	Job terminated of its own accord at 2024-07-27T00:37:51Z with exit-code 0.
 ...
@@ -99,10 +99,10 @@
 	0  -  Run Bytes Received By Job
 	11375  -  Total Bytes Sent By Job
 	0  -  Total Bytes Received By Job
-	Partitionable Resources :    Usage  Request Allocated 
-	   Cpus                 :                 1         1 
-	   Disk (KB)            :       88        2    471265 
-	   Memory (MB)          :      382     2048      2048 
+	Partitionable Resources :    Usage  Request Allocated
+	   Cpus                 :                 1         1
+	   Disk (KB)            :       88        2    471265
+	   Memory (MB)          :      382     2048      2048
 
 	Job terminated of its own accord at 2024-07-27T00:38:27Z with exit-code 0.
 ...
@@ -126,10 +126,10 @@
 	214  -  Run Bytes Received By Job
 	6733  -  Total Bytes Sent By Job
 	214  -  Total Bytes Received By Job
-	Partitionable Resources :    Usage  Request Allocated 
-	   Cpus                 :                 1         1 
-	   Disk (KB)            :       83        1    471265 
-	   Memory (MB)          :        0     2048      2048 
+	Partitionable Resources :    Usage  Request Allocated
+	   Cpus                 :                 1         1
+	   Disk (KB)            :       83        1    471265
+	   Memory (MB)          :        0     2048      2048
 
 	Job terminated of its own accord at 2024-07-27T00:38:36Z with exit-code 0.
 ...

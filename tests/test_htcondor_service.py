@@ -420,7 +420,7 @@ class GetStateCountsFromDagJobTestCase(unittest.TestCase):
 
 
 class GetInfoFromPathTestCase(unittest.TestCase):
-    """Test _get_info_from_path function"""
+    """Test _get_info_from_path function."""
 
     def test_tmpdir_abort(self):
         with temporaryDirectory() as tmp_dir:
@@ -472,7 +472,7 @@ class GetInfoFromPathTestCase(unittest.TestCase):
 
 
 class WmsIdToDirTestCase(unittest.TestCase):
-    """Test _wms_id_to_dir function"""
+    """Test _wms_id_to_dir function."""
 
     @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
     def testInvalidIdType(self, _wms_id_type_mock):
