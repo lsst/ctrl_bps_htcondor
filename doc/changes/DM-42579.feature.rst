@@ -1,1 +1,0 @@
-Added ability for the plugin to call ``allocateNodes.py`` during workflow execution in order to manage required computational resources automatically.
