@@ -1,3 +1,33 @@
+lsst-ctrl-bps-htcondor v28.0.0 (2024-11-21)
+===========================================
+
+New Features
+------------
+
+- Implemented basic ping method for HTCondor plugin that checks Schedd and Collector are running and user can authenticate to them.
+  It does not check that there are compute resources that can run the user's jobs. (`DM-35145 <https://rubinobs.atlassian.net/browse/DM-35145>`_)
+- Added ability for the plugin to call ``allocateNodes.py`` during workflow execution in order to manage required computational resources automatically. (`DM-42579 <https://rubinobs.atlassian.net/browse/DM-42579>`_)
+- Updated plugin to use ``retryUnlessExit`` values so WMS won't rerun some failures that will just fail every time. (`DM-44668 <https://rubinobs.atlassian.net/browse/DM-44668>`_)
+
+
+Bug Fixes
+---------
+
+- Fixed status when job held and released. (`DM-44107 <https://rubinobs.atlassian.net/browse/DM-44107>`_)
+- Fixed report listing auto-memory retry as failed when actually successful. (`DM-44668 <https://rubinobs.atlassian.net/browse/DM-44668>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Reported better error message when failed submission from ``/tmp``. (`DM-43932 <https://rubinobs.atlassian.net/browse/DM-43932>`_)
+- Provided a default value for the ``memoryLimit`` parameter so it will be set automatically for the users if this plugin is used. (`DM-44110 <https://rubinobs.atlassian.net/browse/DM-44110>`_)
+- Fixed held and deleted ``state_counts`` for reporting. (`DM-44457 <https://rubinobs.atlassian.net/browse/DM-44457>`_)
+- Updated plugin to allow spaces in job submit file path. (`DM-45654 <https://rubinobs.atlassian.net/browse/DM-45654>`_)
+- Updated ``bps restart`` to work with relative path as id.
+  Updated ``bps report --id <relpath>`` to display absolute path. (`DM-46046 <https://rubinobs.atlassian.net/browse/DM-46046>`_)
+- Added a section describing how to release held jobs to the package documentation. (`DM-38538 <https://rubinobs.atlassian.net/browse/DM-38538>`_)
+
 lsst-ctrl-bps-htcondor v27.0.0 (2024-06-04)
 ===========================================
 

@@ -1,1 +1,0 @@
-Provided a default value for the ``memoryLimit`` parameter so it will be set automatically for the users if this plugin is used.
