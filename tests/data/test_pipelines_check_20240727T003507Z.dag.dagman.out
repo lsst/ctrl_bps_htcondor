@@ -1,7 +1,7 @@
 07/26/24 19:35:18 Result of reading /etc/issue:  \S
- 
+
 07/26/24 19:35:18 Result of reading /etc/redhat-release:  AlmaLinux release 9.4 (Seafoam Ocelot)
- 
+
 07/26/24 19:35:18 Using IDs: 20 processors, 10 CPUs, 10 HTs
 07/26/24 19:35:18 Enumerating interfaces: lo 127.0.0.1 up
 07/26/24 19:35:18 Enumerating interfaces: enp11s0 10.0.0.33 up
@@ -22,7 +22,7 @@
 07/26/24 19:35:18 ** Log last touched time unavailable (No such file or directory)
 07/26/24 19:35:18 ******************************************************
 07/26/24 19:35:18 Using config source: /work/lsst_stack/w_2024_30/conda/envs/lsst-scipipe-8.0.0/etc/condor/condor_config
-07/26/24 19:35:18 Using local config sources: 
+07/26/24 19:35:18 Using local config sources:
 07/26/24 19:35:18    /etc/condor/condor_config
 07/26/24 19:35:18    /etc/condor/config.d/00-htcondor-9.0.config
 07/26/24 19:35:18    /etc/condor/config.d/00-minicondor
@@ -77,7 +77,7 @@
 07/26/24 19:35:18 DAGMAN_MAX_JOB_HOLDS setting: 100
 07/26/24 19:35:18 DAGMAN_HOLD_CLAIM_TIME setting: 20
 07/26/24 19:35:18 ALL_DEBUG setting: D_FULLDEBUG
-07/26/24 19:35:18 DAGMAN_DEBUG setting: 
+07/26/24 19:35:18 DAGMAN_DEBUG setting:
 07/26/24 19:35:18 DAGMAN_SUPPRESS_JOB_LOGS setting: False
 07/26/24 19:35:18 DAGMAN_REMOVE_NODE_JOBS setting: True
 07/26/24 19:35:18 DAGMAN will adjust edges after parsing

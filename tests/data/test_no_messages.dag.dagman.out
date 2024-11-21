@@ -1,7 +1,7 @@
 07/23/24 17:24:38 Result of reading /etc/issue:  \S
- 
+
 07/23/24 17:24:38 Result of reading /etc/redhat-release:  AlmaLinux release 9.4 (Seafoam Ocelot)
- 
+
 07/23/24 17:24:38 Using IDs: 20 processors, 10 CPUs, 10 HTs
 07/23/24 17:24:38 Enumerating interfaces: lo 127.0.0.1 up
 07/23/24 17:24:38 Enumerating interfaces: enp11s0 10.0.0.33 up
@@ -22,7 +22,7 @@
 07/23/24 17:24:38 ** Log last touched time unavailable (No such file or directory)
 07/23/24 17:24:38 ******************************************************
 07/23/24 17:24:38 Using config source: /work/lsst_stack/w_2024_29/conda/envs/lsst-scipipe-8.0.0/etc/condor/condor_config
-07/23/24 17:24:38 Using local config sources: 
+07/23/24 17:24:38 Using local config sources:
 07/23/24 17:24:38    /etc/condor/condor_config
 07/23/24 17:24:38    /etc/condor/config.d/00-htcondor-9.0.config
 07/23/24 17:24:38    /etc/condor/config.d/00-minicondor
@@ -77,7 +77,7 @@
 07/23/24 17:24:38 DAGMAN_MAX_JOB_HOLDS setting: 100
 07/23/24 17:24:38 DAGMAN_HOLD_CLAIM_TIME setting: 20
 07/23/24 17:24:38 ALL_DEBUG setting: D_FULLDEBUG
-07/23/24 17:24:38 DAGMAN_DEBUG setting: 
+07/23/24 17:24:38 DAGMAN_DEBUG setting:
 07/23/24 17:24:38 DAGMAN_SUPPRESS_JOB_LOGS setting: False
 07/23/24 17:24:38 DAGMAN_REMOVE_NODE_JOBS setting: True
 07/23/24 17:24:38 DAGMAN will adjust edges after parsing
@@ -289,7 +289,7 @@
 07/23/24 17:25:45       Node Name: pipetaskInit
 07/23/24 17:25:45            Noop: false
 07/23/24 17:25:45          NodeID: 0
-07/23/24 17:25:45     Node Status: STATUS_ERROR    
+07/23/24 17:25:45     Node Status: STATUS_ERROR
 07/23/24 17:25:45 Node return val: -1002
 07/23/24 17:25:45           Error: HTCondor reported ULOG_JOB_ABORTED event for job proc (1101.0.0)
 07/23/24 17:25:45 Job Submit File: jobs/pipetaskInit/pipetaskInit.sub
@@ -399,7 +399,7 @@
 07/23/24 17:25:58       Node Name: pipetaskInit
 07/23/24 17:25:58            Noop: false
 07/23/24 17:25:58          NodeID: 0
-07/23/24 17:25:58     Node Status: STATUS_ERROR    
+07/23/24 17:25:58     Node Status: STATUS_ERROR
 07/23/24 17:25:58 Node return val: -1002
 07/23/24 17:25:58           Error: HTCondor reported ULOG_JOB_ABORTED event for job proc (1101.0.0)
 07/23/24 17:25:58 Job Submit File: jobs/pipetaskInit/pipetaskInit.sub
@@ -409,13 +409,13 @@
 07/23/24 17:25:58       Node Name: finalJob
 07/23/24 17:25:58            Noop: false
 07/23/24 17:25:58          NodeID: 4
-07/23/24 17:25:58     Node Status: STATUS_ERROR    
+07/23/24 17:25:58     Node Status: STATUS_ERROR
 07/23/24 17:25:58 Node return val: 2
 07/23/24 17:25:58           Error: Job failed due to DAGMAN error 0 and POST Script failed with status 2
 07/23/24 17:25:58 Job Submit File: jobs/finalJob/finalJob.sub
 07/23/24 17:25:58     POST Script: /work/mgower/gen3work/summary-report-held-44457/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/final_post.sh finalJob $DAG_STATUS $RETURN
 07/23/24 17:25:58  HTCondor Job ID: (1102.0.0)
-07/23/24 17:25:58 PARENTS:  WAITING: 0 CHILDREN: 
+07/23/24 17:25:58 PARENTS:  WAITING: 0 CHILDREN:
 07/23/24 17:25:58 ---------------------------------------	<END>
 07/23/24 17:25:58 Aborting DAG...
 07/23/24 17:25:58 Writing Rescue DAG to /work/mgower/gen3work/summary-report-held-44457/submit/u/mgower/pipelines_check/20240723T222426Z/u_mgower_pipelines_check_20240723T222426Z.dag.rescue001...
