@@ -1,1 +1,0 @@
-Implemented basic ping method for HTCondor plugin that checks Schedd and Collector are running and user can authenticate to them.  It does not check that there are compute resources that can run the user's jobs.
