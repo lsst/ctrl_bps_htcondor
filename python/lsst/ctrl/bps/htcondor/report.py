@@ -572,9 +572,9 @@ def _get_exit_code_summary(jobs):
     """
     summary = {}
     for job_id, job_ad in jobs.items():
-        job_label = job_ad["bps_job_label"]
-        summary.setdefault(job_label, [])
         try:
+            job_label = job_ad["bps_job_label"]
+            summary.setdefault(job_label, [])
             exit_code = 0
             job_status = job_ad["JobStatus"]
             match job_status:

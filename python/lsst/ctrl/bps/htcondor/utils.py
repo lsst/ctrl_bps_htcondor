@@ -34,6 +34,7 @@ __all__ = [
     "_wms_id_to_dir",
     "_locate_schedds",
     "is_service_job",
+    "_update_dicts",
 ]
 
 
@@ -248,3 +249,22 @@ def is_service_job(job_id: str) -> bool:
     updated too.
     """
     return int(float(job_id)) == 0
+
+
+def _update_dicts(dict1, dict2):
+    """Update dict1 with info in dict2.
+
+    (Basically an update for nested dictionaries.)
+
+    Parameters
+    ----------
+    dict1 : `dict` [`str`, `dict` [`str`, `Any`]]
+        HTCondor job information to be updated.
+    dict2 : `dict` [`str`, `dict` [`str`, `Any`]]
+        Additional HTCondor job information.
+    """
+    for key, value in dict2.items():
+        if key in dict1 and isinstance(dict, dict1[key]) and isinstance(dict, value):
+            _update_dicts(dict1[key], value)
+        else:
+            dict1[key] = value

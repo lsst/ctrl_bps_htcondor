@@ -31,14 +31,20 @@
 import logging
 import os
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import htcondor
-from lsst.ctrl.bps import GenericWorkflow
+from lsst.ctrl.bps import (
+    BpsConfig,
+    GenericWorkflow,
+    GenericWorkflowGroup,
+    GenericWorkflowJob,
+    GenericWorkflowNodeType,
+)
 from lsst.ctrl.bps.bps_utils import create_count_summary
 
-from .lssthtc import HTCJob, condor_status, htc_escape
+from .lssthtc import HTCDag, HTCJob, condor_status, htc_escape
 
 DEFAULT_HTC_EXEC_PATT = ".*worker.*"
 """Default pattern for searching execute machines in an HTCondor pool."""
@@ -74,8 +80,8 @@ def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefi
     if gwjob.tags:
         curvals.update(gwjob.tags)
 
-    subdir = subdir_template.format_map(curvals)
-    htc_job.subfile = Path("jobs") / subdir / f"{gwjob.name}.sub"
+    # MMG subdir = subdir_template.format_map(curvals)
+    # MMG htc_job.subfile = Path("jobs") / subdir / f"{gwjob.name}.sub"
 
     htc_job_cmds = {
         "universe": "vanilla",
@@ -96,7 +102,7 @@ def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefi
 
     # job stdout, stderr, htcondor user log.
     for key in ("output", "error", "log"):
-        htc_job_cmds[key] = htc_job.subfile.with_suffix(f".$(Cluster).{key[:3]}")
+        htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).{key[:3]}"
         _LOG.debug("HTCondor %s = %s", key, htc_job_cmds[key])
 
     htc_job_cmds.update(
@@ -662,3 +668,174 @@ def _gather_site_values(config, compute_site):
                 site_values["profile"][key] = val
 
     return site_values
+
+
+def _generic_workflow_to_htcondor_dag(
+    config: BpsConfig, generic_workflow: GenericWorkflow, out_prefix: str
+) -> HTCDag:
+    """Convert a GenericWorkflow to a HTCDag.
+
+    Parameters
+    ----------
+    config : `lsst.ctrl.bps.BpsConfig`
+        Workflow configuration.
+    generic_workflow : `lsst.ctrl.bps.GenericWorkflow`
+        The GenericWorkflow to convert.
+    out_prefix : `str`
+        Location prefix where the HTCondor files will be written.
+
+    Returns
+    -------
+    dag : `lsst.ctrl.bps.htcondor.HTCDag`
+        The HTCDag representation of the given GenericWorkflow.
+    """
+    dag = HTCDag(name=generic_workflow.name)
+
+    _LOG.debug("htcondor dag attribs %s", generic_workflow.run_attrs)
+    dag.add_attribs(generic_workflow.run_attrs)
+    dag.add_attribs(
+        {
+            "bps_run_quanta": create_count_summary(generic_workflow.quanta_counts),
+            "bps_job_summary": create_count_summary(generic_workflow.job_counts),
+        }
+    )
+
+    _, tmp_template = config.search("subDirTemplate", opt={"replaceVars": False, "default": ""})
+    if isinstance(tmp_template, str):
+        subdir_template = defaultdict(lambda: tmp_template)
+    else:
+        subdir_template = tmp_template
+
+    # Create all DAG jobs
+    site_values = {}  # cache compute site specific values to reduce config lookups
+    workflow_job_counts: Counter[str] = Counter()
+    for job_name in generic_workflow:
+        gwjob = generic_workflow.get_job(job_name)
+        if gwjob.node_type == GenericWorkflowNodeType.PAYLOAD:
+            if gwjob.compute_site not in site_values:
+                site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
+            htc_job = _create_job(
+                subdir_template[gwjob.label],
+                site_values[gwjob.compute_site],
+                generic_workflow,
+                gwjob,
+                out_prefix,
+            )
+            workflow_job_counts["payload"] += 1
+        elif gwjob.node_type == GenericWorkflowNodeType.NOOP:
+            htc_job = HTCJob(f"wms_{gwjob.name}", label=gwjob.label)
+            htc_job.add_job_attrs({"bps_job_name": gwjob.name, "bps_job_label": gwjob.label})
+            htc_job.add_dag_cmds({"noop": True})
+            workflow_job_counts["noop"] += 1
+        elif gwjob.node_type == GenericWorkflowNodeType.GROUP:
+            htc_job = _group_to_subdag(config, gwjob, out_prefix)
+            workflow_job_counts["subdag"] += 1
+        else:
+            raise RuntimeError(f"Unsupported generic workflow node type {gwjob.node_type} ({gwjob.name})")
+        _LOG.debug("Calling adding job %s %s", htc_job.name, htc_job.label)
+        dag.add_job(htc_job)
+
+    # Add job dependencies to the DAG (be careful with wms_ jobs)
+    for job_name in generic_workflow:
+        gwjob = generic_workflow.get_job(job_name)
+        parent_name = (
+            f"wms_{gwjob.name}" if gwjob.node_type != GenericWorkflowNodeType.PAYLOAD else gwjob.name
+        )
+        successor_jobs = [generic_workflow.get_job(j) for j in generic_workflow.successors(job_name)]
+        children_names = []
+        for sjob in successor_jobs:
+            if sjob.node_type != GenericWorkflowNodeType.GROUP or sjob.label != gwjob.label:
+                if sjob.node_type != GenericWorkflowNodeType.PAYLOAD:
+                    children_names.append(f"wms_{sjob.name}")
+                else:
+                    children_names.append(sjob.name)
+
+        if gwjob.node_type == GenericWorkflowNodeType.GROUP and not gwjob.blocking:
+            # Since subdag will always succeed, need to add a special
+            # job that fails if group failed to block payload children.
+            check_job = _create_check_job(f"wms_{gwjob.name}", gwjob.label)
+            dag.add_job(check_job)
+            dag.add_job_relationships([f"wms_{gwjob.name}"], [check_job.name])
+            parent_name = check_job.name
+
+        dag.add_job_relationships([parent_name], children_names)
+
+    # If final job exists in generic workflow, create DAG final job
+    final = generic_workflow.get_final()
+    if final and isinstance(final, GenericWorkflowJob):
+        if final.compute_site and final.compute_site not in site_values:
+            site_values[final.compute_site] = _gather_site_values(config, final.compute_site)
+        final_htjob = _create_job(
+            subdir_template[final.label],
+            site_values[final.compute_site],
+            generic_workflow,
+            final,
+            out_prefix,
+        )
+        if "post" not in final_htjob.dagcmds:
+            final_htjob.dagcmds["post"] = (
+                f"{os.path.dirname(__file__)}/final_post.sh {final.name} $DAG_STATUS $RETURN"
+            )
+        dag.add_final_job(final_htjob)
+        workflow_job_counts["payload"] += 1
+    elif final and isinstance(final, GenericWorkflow):
+        raise NotImplementedError("HTCondor plugin does not support a workflow as the final job")
+    elif final:
+        raise TypeError(f"Invalid type for GenericWorkflow.get_final() results ({type(final)})")
+
+    dag.add_attribs({"workflow_job_summary": create_count_summary(workflow_job_counts)})
+    return dag
+
+
+def _group_to_subdag(
+    config: BpsConfig, generic_workflow_group: GenericWorkflowGroup, out_prefix: str
+) -> HTCJob:
+    """Convert a generic workflow group to an HTCondor dag.
+
+    Parameters
+    ----------
+    config : `lsst.ctrl.bps.BpsConfig`
+        Workflow configuration.
+    generic_workflow_group : `lsst.ctrl.bps.GenericWorkflowGroup`
+        The generic workflow group to convert.
+    out_prefix : `str`
+        Location prefix to be used when creating jobs.
+
+    Returns
+    -------
+    htc_job : `lsst.ctrl.bps.htcondor.HTCJob`
+        Job for running the HTCondor dag.
+    """
+    jobname = f"wms_{generic_workflow_group.name}"
+    htc_job = HTCJob(name=jobname, label=generic_workflow_group.label)
+    htc_job.add_dag_cmds({"dir": f"subdags/{jobname}"})
+    htc_job.subdag = _generic_workflow_to_htcondor_dag(config, generic_workflow_group, out_prefix)
+    if not generic_workflow_group.blocking:
+        htc_job.dagcmds["post"] = {
+            "defer": "",
+            "executable": f"{os.path.dirname(__file__)}/subdag_post.sh",
+            "arguments": f"{jobname} $RETURN",
+        }
+    return htc_job
+
+
+def _create_check_job(group_job_name: str, job_label: str) -> HTCJob:
+    """Create a job to check status of a group job.
+
+    Parameters
+    ----------
+    group_job_name : `str`
+        Name of the group job.
+    job_label : `str`
+        Label to use for the check status job.
+
+    Returns
+    -------
+    htc_job : `lsst.ctrl.bps.htcondor.HTCJob`
+        Job description for the job to check group job status.
+    """
+    htc_job = HTCJob(name=f"wms_check_status_{group_job_name}", label=job_label)
+    htc_job.subfile = "${CTRL_BPS_HTCONDOR_DIR}/python/lsst/ctrl/bps/htcondor/check_group_status.sub"
+    htc_job.add_dag_cmds({"dir": f"subdags/{group_job_name}", "vars": {"group_job_name": group_job_name}})
+
+    return htc_job
