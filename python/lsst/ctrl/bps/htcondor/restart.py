@@ -36,6 +36,7 @@ from pathlib import Path
 from lsst.ctrl.bps.bps_utils import chdir
 
 from .lssthtc import (
+    _update_rescue_file,
     condor_q,
     htc_backup_files,
     htc_create_submit_from_file,
@@ -115,7 +116,9 @@ def restart(wms_workflow_id):
         )
 
     _LOG.info("Backing up select HTCondor files from previous run attempt")
-    htc_backup_files(wms_path, subdir="backups")
+    rescue_file = htc_backup_files(wms_path, subdir="backups")
+    if (wms_path / "subdags").exists():
+        _update_rescue_file(rescue_file)
 
     # For workflow portability, internal paths are all relative. Hence
     # the DAG needs to be resubmitted to HTCondor from inside the submit
