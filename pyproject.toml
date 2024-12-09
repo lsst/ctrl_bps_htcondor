@@ -45,6 +45,9 @@ where = ["python"]
 zip-safe = true
 license-files = ["COPYRIGHT", "LICENSE", "bsd_license.txt", "gpl-v3.0.txt"]
 
+[tool.setuptools.package-data]
+"lsst.ctrl.bps.htcondor" = ["etc/*.yaml", "final_post.sh"]
+
 [tool.setuptools.dynamic]
 version = { attr = "lsst_versions.get_lsst_version" }
 
