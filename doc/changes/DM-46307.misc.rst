@@ -1,0 +1,1 @@
+Modified the function responsible for replacing placeholders in command line arguments so it gracefully handles the case when there are no placeholders to replace.
