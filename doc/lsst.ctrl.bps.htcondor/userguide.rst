@@ -64,9 +64,36 @@ The plugin supports all settings described in `ctrl_bps documentation`__
 
 .. Describe any plugin specific aspects of defining a submission below if any.
 
+Job Environment
+^^^^^^^^^^^^^^^
+
+By default, the htcondor jobs copy the environment from the shell in which
+`bps submit` was executed.  To set or override an environment variable via
+submission yaml, use an `environment` section.  Other yaml values and pre-existing
+environment variables can be used.  Some examples:
+
+.. code-block:: YAML
+
+   environment:
+     one: 1
+     two: "2"
+     three: "spacey 'quoted' value"
+     MYPATH: "${CTRL_BPS_DIR}/tests"
+     DAF_BUTLER_CACHE_DIRECTORY: "/tmp/mgower/daf_cache/{run_number}"
+
+.. note::
+
+   The `environment` section has to be at the root level.  There is no
+   way to change the environment inside another level (e.g., per site,
+   per cluster, per pipeline task)
+
+
+Glideins
+^^^^^^^^
+
 `HTCondor`_ is able to to send jobs to run on a remote compute site, even when
 that compute site is running a non-HTCondor system, by sending "pilot jobs", or
-**gliedins**, to remote batch systems.
+**glideins**, to remote batch systems.
 
 Nodes for HTCondor's glideins can be allocated with help of `ctrl_execute`_.
 Once you allocated the nodes, you can specify the site where there are

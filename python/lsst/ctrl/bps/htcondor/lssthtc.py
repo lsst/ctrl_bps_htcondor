@@ -424,8 +424,8 @@ def htc_write_condor_file(filename, job_name, job, job_attrs):
     with open(filename, "w") as fh:
         for key, value in job.items():
             if value is not None:
-                if key in HTC_QUOTE_KEYS:
-                    print(f'{key}="{htc_escape(value)}"', file=fh)
+                if key in HTC_QUOTE_KEYS:  # Assumes internal quotes are already escaped correctly
+                    print(f'{key}="{value}"', file=fh)
                 else:
                     print(f"{key}={value}", file=fh)
         for key in ["output", "error", "log"]:
