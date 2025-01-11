@@ -355,7 +355,7 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
 
     def setUp(self):
         self.gw_exec = GenericWorkflowExec("test_exec", "/dummy/dir/pipetask")
-        self.cached_vals = {"profile": {}}
+        self.cached_vals = {"profile": {}, "bpsUseShared": True}
 
     def testRetryUnlessNone(self):
         gwjob = GenericWorkflowJob("retryUnless", executable=self.gw_exec)
@@ -381,6 +381,36 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             _ = _translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertIn("retryUnlessExit", str(cm.exception))
+
+    def testEnvironmentBasic(self):
+        gwjob = GenericWorkflowJob("jobEnvironment", executable=self.gw_exec)
+        gwjob.environment = {"TEST_INT": 1, "TEST_STR": "TWO"}
+        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        self.assertEqual(htc_commands["environment"], "TEST_INT=1 TEST_STR='TWO'")
+
+    def testEnvironmentSpaces(self):
+        gwjob = GenericWorkflowJob("jobEnvironment", executable=self.gw_exec)
+        gwjob.environment = {"TEST_SPACES": "spacey value"}
+        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        self.assertEqual(htc_commands["environment"], "TEST_SPACES='spacey value'")
+
+    def testEnvironmentSingleQuotes(self):
+        gwjob = GenericWorkflowJob("jobEnvironment", executable=self.gw_exec)
+        gwjob.environment = {"TEST_SINGLE_QUOTES": "spacey 'quoted' value"}
+        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        self.assertEqual(htc_commands["environment"], "TEST_SINGLE_QUOTES='spacey ''quoted'' value'")
+
+    def testEnvironmentDoubleQuotes(self):
+        gwjob = GenericWorkflowJob("jobEnvironment", executable=self.gw_exec)
+        gwjob.environment = {"TEST_DOUBLE_QUOTES": 'spacey "double" value'}
+        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        self.assertEqual(htc_commands["environment"], """TEST_DOUBLE_QUOTES='spacey ""double"" value'""")
+
+    def testEnvironmentWithEnvVars(self):
+        gwjob = GenericWorkflowJob("jobEnvironment", executable=self.gw_exec)
+        gwjob.environment = {"TEST_ENV_VAR": "<ENV:CTRL_BPS_DIR>/tests"}
+        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        self.assertEqual(htc_commands["environment"], "TEST_ENV_VAR='$ENV(CTRL_BPS_DIR)/tests'")
 
 
 class GetStateCountsFromDagJobTestCase(unittest.TestCase):

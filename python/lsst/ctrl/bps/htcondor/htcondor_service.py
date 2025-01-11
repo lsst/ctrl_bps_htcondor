@@ -828,6 +828,20 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
         arguments = _fix_env_var_syntax(arguments)
         jobcmds["arguments"] = arguments
 
+    if gwjob.environment:
+        env_str = ""
+        for name, value in gwjob.environment.items():
+            if isinstance(value, str):
+                value2 = _replace_cmd_vars(value, gwjob)
+                value2 = _fix_env_var_syntax(value2)
+                value2 = htc_escape(value2)
+                env_str += f"{name}='{value2}' "  # Add single quotes to allow internal spaces
+            else:
+                env_str += f"{name}={value} "
+
+        # Process above added one trailing space
+        jobcmds["environment"] = env_str.rstrip()
+
     # Add extra "pass-thru" job commands
     if gwjob.profile:
         for key, val in gwjob.profile.items():
