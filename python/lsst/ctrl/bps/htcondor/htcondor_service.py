@@ -25,8 +25,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Interface between generic workflow to HTCondor workflow system.
-"""
+"""Interface between generic workflow to HTCondor workflow system."""
 
 __all__ = ["HTCondorService", "HTCondorWorkflow"]
 
