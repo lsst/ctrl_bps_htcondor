@@ -39,6 +39,8 @@ from pathlib import Path
 from typing import Any
 
 import htcondor
+from packaging import version
+
 from lsst.ctrl.bps import (
     BaseWmsService,
     BaseWmsWorkflow,
@@ -52,7 +54,6 @@ from lsst.ctrl.bps import (
 from lsst.ctrl.bps.bps_utils import chdir, create_count_summary
 from lsst.daf.butler import Config
 from lsst.utils.timer import time_this
-from packaging import version
 
 from .htcondor_config import HTC_DEFAULTS_URI
 from .lssthtc import (
