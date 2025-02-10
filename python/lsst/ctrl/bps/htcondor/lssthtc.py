@@ -688,7 +688,7 @@ def htc_create_submit_from_file(submit_file):
         for line in fh:
             line = line.strip()
             if not line.startswith("#") and not line == "queue":
-                (key, val) = re.split(r"\s*=\s*", line, 1)
+                (key, val) = re.split(r"\s*=\s*", line, maxsplit=1)
                 descriptors[key] = val
 
     # Avoid UserWarning: the line 'copy_to_spool = False' was

@@ -373,7 +373,7 @@ class HTCondorService(BaseWmsService):
 
         # Prune child jobs where DAG job is in queue (i.e., aren't orphans).
         job_ids = []
-        for schedd_name, job_info in results.items():
+        for job_info in results.values():
             for job_id, job_ad in job_info.items():
                 _LOG.debug("job_id=%s DAGManJobId=%s", job_id, job_ad.get("DAGManJobId", "None"))
                 if "DAGManJobId" not in job_ad:
