@@ -34,38 +34,38 @@ level.  LSST workflows are more complicated.
 """
 
 __all__ = [
+    "MISSING_ID",
     "DagStatus",
+    "HTCDag",
+    "HTCJob",
     "JobStatus",
     "NodeStatus",
     "RestrictedDict",
-    "HTCJob",
-    "HTCDag",
+    "condor_history",
+    "condor_q",
+    "condor_search",
+    "condor_status",
     "htc_backup_files",
     "htc_check_dagman_output",
     "htc_create_submit_from_cmd",
     "htc_create_submit_from_dag",
     "htc_create_submit_from_file",
     "htc_escape",
-    "htc_write_attribs",
-    "htc_write_condor_file",
     "htc_query_history",
     "htc_query_present",
-    "htc_version",
     "htc_submit_dag",
-    "condor_history",
-    "condor_q",
-    "condor_search",
-    "condor_status",
-    "update_job_info",
-    "MISSING_ID",
-    "summary_from_dag",
+    "htc_version",
+    "htc_write_attribs",
+    "htc_write_condor_file",
+    "pegasus_name_to_label",
     "read_dag_info",
     "read_dag_log",
     "read_dag_nodes_log",
     "read_dag_status",
     "read_node_status",
+    "summary_from_dag",
+    "update_job_info",
     "write_dag_info",
-    "pegasus_name_to_label",
 ]
 
 
@@ -688,7 +688,7 @@ def htc_create_submit_from_file(submit_file):
         for line in fh:
             line = line.strip()
             if not line.startswith("#") and not line == "queue":
-                (key, val) = re.split(r"\s*=\s*", line, 1)
+                (key, val) = re.split(r"\s*=\s*", line, maxsplit=1)
                 descriptors[key] = val
 
     # Avoid UserWarning: the line 'copy_to_spool = False' was
@@ -1028,7 +1028,7 @@ class HTCDag(networkx.DiGraph):
         for edge in self.edges():
             print(f"PARENT {edge[0]} CHILD {edge[1]}", file=fh)
         if self.graph["final_job"]:
-            print(f'FINAL {self.graph["final_job"].name}:', file=fh)
+            print(f"FINAL {self.graph['final_job'].name}:", file=fh)
             self.graph["final_job"].dump(fh)
 
     def write_dot(self, filename):

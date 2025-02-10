@@ -96,6 +96,7 @@ target-version = ["py311"]
 [tool.isort]
 profile = "black"
 line_length = 110
+known_first_party = ["lsst"]
 
 [tool.lsst_versions]
 write_to = "python/lsst/ctrl/bps/htcondor/version.py"
@@ -145,6 +146,9 @@ select = [
     "D",  # pydocstyle
     "UP",  # pyupgrade
     "C4",
+    "I",  # isort
+    "RUF022",  # sort __all__
+    "B",  # bugbear
 ]
 extend-select = [
     "RUF100", # Warn about unused noqa
@@ -155,6 +159,15 @@ max-doc-length = 79
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
+
+[tool.ruff.lint.isort]
+known-first-party = ["lsst"]
+# Without this ruff introspection comes to the wrong conclusion.
+known-third-party = ["htcondor"]
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 79
 
 [tool.numpydoc_validation]
 checks = [

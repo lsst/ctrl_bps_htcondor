@@ -34,6 +34,7 @@ import unittest
 from shutil import copy2
 
 import htcondor
+
 from lsst.ctrl.bps.htcondor import lssthtc
 from lsst.utils.tests import temporaryDirectory
 

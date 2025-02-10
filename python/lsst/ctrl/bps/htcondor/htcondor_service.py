@@ -39,6 +39,8 @@ from pathlib import Path
 from typing import Any
 
 import htcondor
+from packaging import version
+
 from lsst.ctrl.bps import (
     BaseWmsService,
     BaseWmsWorkflow,
@@ -52,7 +54,6 @@ from lsst.ctrl.bps import (
 from lsst.ctrl.bps.bps_utils import chdir, create_count_summary
 from lsst.daf.butler import Config
 from lsst.utils.timer import time_this
-from packaging import version
 
 from .htcondor_config import HTC_DEFAULTS_URI
 from .lssthtc import (
@@ -372,7 +373,7 @@ class HTCondorService(BaseWmsService):
 
         # Prune child jobs where DAG job is in queue (i.e., aren't orphans).
         job_ids = []
-        for schedd_name, job_info in results.items():
+        for job_info in results.values():
             for job_id, job_ad in job_info.items():
                 _LOG.debug("job_id=%s DAGManJobId=%s", job_id, job_ad.get("DAGManJobId", "None"))
                 if "DAGManJobId" not in job_ad:
@@ -759,7 +760,7 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
             jobcmds["retry_until"] = f"{gwjob.retry_unless_exit}"
         elif isinstance(gwjob.retry_unless_exit, list):
             jobcmds["retry_until"] = (
-                f'member(ExitCode, {{{",".join([str(x) for x in gwjob.retry_unless_exit])}}})'
+                f"member(ExitCode, {{{','.join([str(x) for x in gwjob.retry_unless_exit])}}})"
             )
         else:
             raise ValueError("retryUnlessExit must be an integer or a list of integers.")
@@ -2133,11 +2134,11 @@ def _gather_site_values(config, compute_site):
 
     key = f".site.{compute_site}.profile.condor"
     if key in config:
-        for key, val in config[key].items():
-            if key.startswith("+"):
-                site_values["attrs"][key[1:]] = val
+        for subkey, val in config[key].items():
+            if subkey.startswith("+"):
+                site_values["attrs"][subkey[1:]] = val
             else:
-                site_values["profile"][key] = val
+                site_values["profile"][subkey] = val
 
     return site_values
 
