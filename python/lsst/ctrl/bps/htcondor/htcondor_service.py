@@ -2134,11 +2134,11 @@ def _gather_site_values(config, compute_site):
 
     key = f".site.{compute_site}.profile.condor"
     if key in config:
-        for key, val in config[key].items():
-            if key.startswith("+"):
-                site_values["attrs"][key[1:]] = val
+        for subkey, val in config[key].items():
+            if subkey.startswith("+"):
+                site_values["attrs"][subkey[1:]] = val
             else:
-                site_values["profile"][key] = val
+                site_values["profile"][subkey] = val
 
     return site_values
 
