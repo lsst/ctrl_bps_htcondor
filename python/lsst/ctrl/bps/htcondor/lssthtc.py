@@ -1028,7 +1028,7 @@ class HTCDag(networkx.DiGraph):
         for edge in self.edges():
             print(f"PARENT {edge[0]} CHILD {edge[1]}", file=fh)
         if self.graph["final_job"]:
-            print(f'FINAL {self.graph["final_job"].name}:', file=fh)
+            print(f"FINAL {self.graph['final_job'].name}:", file=fh)
             self.graph["final_job"].dump(fh)
 
     def write_dot(self, filename):

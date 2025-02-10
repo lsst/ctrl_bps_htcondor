@@ -164,6 +164,10 @@ known-first-party = ["lsst"]
 # Without this ruff introspection comes to the wrong conclusion.
 known-third-party = ["htcondor"]
 
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 79
+
 [tool.numpydoc_validation]
 checks = [
     "all",  # All except the rules listed below.
