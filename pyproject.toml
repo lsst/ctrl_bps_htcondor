@@ -146,6 +146,7 @@ select = [
     "D",  # pydocstyle
     "UP",  # pyupgrade
     "C4",
+    "I",  # isort
 ]
 extend-select = [
     "RUF100", # Warn about unused noqa
@@ -156,6 +157,11 @@ max-doc-length = 79
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
+
+[tool.ruff.lint.isort]
+known-first-party = ["lsst"]
+# Without this ruff introspection comes to the wrong conclusion.
+known-third-party = ["htcondor"]
 
 [tool.numpydoc_validation]
 checks = [
