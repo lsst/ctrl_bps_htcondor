@@ -63,7 +63,8 @@ __all__ = [
     "read_dag_nodes_log",
     "read_dag_status",
     "read_node_status",
-    "summary_from_dag",
+    "summarize_dag",
+    "update_job_info",
     "update_job_info",
     "write_dag_info",
 ]
@@ -1245,7 +1246,7 @@ def update_job_info(job_info, other_info):
     return job_info
 
 
-def summary_from_dag(dir_name):
+def summarize_dag(dir_name: str) -> tuple[str, dict[str, str], dict[str, str]]:
     """Build bps_run_summary string from dag file.
 
     Parameters
@@ -1256,51 +1257,64 @@ def summary_from_dag(dir_name):
     Returns
     -------
     summary : `str`
-        Semi-colon separated list of job labels and counts.
+        Semi-colon separated list of job labels and counts
         (Same format as saved in dag classad).
     job_name_to_label : `dict` [`str`, `str`]
         Mapping of job names to job labels.
+    job_name_to_type : `dict` [`str`, `str`]
+        Mapping of job names to job types
+        (e.g., payload, final, service).
     """
     # Later code depends upon insertion order
-    counts = defaultdict(int)
+    counts: defaultdict[str, int] = defaultdict(int)  # counts of payload jobs per label
     job_name_to_label = {}
+    job_name_to_type = {}
     try:
         dag = next(Path(dir_name).glob("*.dag"))
         with open(dag) as fh:
             for line in fh:
+                job_name = ""
                 if line.startswith("JOB"):
-                    m = re.match(r'JOB (\S+) "jobs/([^/]+)/', line)
+                    m = re.match(r'JOB (\S+) "?jobs/([^/]+)/', line)
                     if m:
+                        job_name = m.group(1)
                         label = m.group(2)
                         if label == "init":
                             label = "pipetaskInit"
-                        job_name_to_label[m.group(1)] = label
                         counts[label] += 1
                     else:  # Check if Pegasus submission
                         m = re.match(r"JOB (\S+) (\S+)", line)
                         if m:
+                            job_name = m.group(1)
                             label = pegasus_name_to_label(m.group(1))
-                            job_name_to_label[m.group(1)] = label
                             counts[label] += 1
                         else:
                             _LOG.warning("Parse DAG: unmatched job line: %s", line)
+                    job_type = "payload"
                 elif line.startswith("FINAL"):
                     m = re.match(r"FINAL (\S+) jobs/([^/]+)/", line)
                     if m:
+                        job_name = m.group(1)
                         label = m.group(2)
-                        job_name_to_label[m.group(1)] = label
-                        counts[label] += 1
+                        counts[label] += 1  # final counts a payload job.
+                        job_type = "final"
                 elif line.startswith("SERVICE"):
                     m = re.match(r"SERVICE (\S+) jobs/([^/]+)/", line)
                     if m:
+                        job_name = m.group(1)
                         label = m.group(2)
-                        job_name_to_label[m.group(1)] = label
+                        job_type = "service"
+
+                if job_name:
+                    job_name_to_label[job_name] = label
+                    job_name_to_type[job_name] = job_type
+
     except (OSError, PermissionError, StopIteration):
         pass
 
     summary = ";".join([f"{name}:{counts[name]}" for name in counts])
-    _LOG.debug("summary_from_dag: %s %s", summary, job_name_to_label)
-    return summary, job_name_to_label
+    _LOG.debug("summarize_dag: %s %s %s", summary, job_name_to_label, job_name_to_type)
+    return summary, job_name_to_label, job_name_to_type
 
 
 def pegasus_name_to_label(name):
@@ -1400,7 +1414,7 @@ def read_node_status(wms_path):
         file.
     """
     # Get jobid info from other places to fill in gaps in info from node_status
-    _, job_name_to_label = summary_from_dag(wms_path)
+    _, job_name_to_label, job_name_to_type = summarize_dag(wms_path)
     wms_workflow_id, loginfo = read_dag_log(wms_path)
     loginfo = read_dag_nodes_log(wms_path)
     _LOG.debug("loginfo = %s", loginfo)
@@ -1409,17 +1423,17 @@ def read_node_status(wms_path):
         if "LogNotes" in job_info:
             m = re.match(r"DAG Node: (\S+)", job_info["LogNotes"])
             if m:
-                job_name_to_id[m.group(1)] = job_id
-                job_info["DAGNodeName"] = m.group(1)
+                job_name = m.group(1)
+                job_name_to_id[job_name] = job_id
+                job_info["DAGNodeName"] = job_name
+                job_info["bps_job_type"] = job_name_to_type[job_name]
+                job_info["bps_job_label"] = job_name_to_label[job_name]
 
-    try:
-        node_status = next(Path(wms_path).glob("*.node_status"))
-    except StopIteration:
-        return loginfo
-
-    jobs = {}
+    jobs = loginfo
     fake_id = -1.0  # For nodes that do not yet have a job id, give fake one
     try:
+        node_status = next(Path(wms_path).glob("*.node_status"))
+
         with open(node_status) as fh:
             for ad in classad.parseAds(fh):
                 match ad["Type"]:
@@ -1438,22 +1452,19 @@ def read_node_status(wms_path):
                         # Make job info as if came from condor_q.
                         if job_name in job_name_to_id:
                             job_id = str(job_name_to_id[job_name])
+                            job = jobs[job_id]
                         else:
                             job_id = str(fake_id)
+                            job_name_to_id[job_name] = job_id
+                            job = dict(ad)
+                            jobs[job_id] = job
                             fake_id -= 1
-                        job = dict(ad)
                         job["ClusterId"] = int(float(job_id))
                         job["DAGManJobID"] = wms_workflow_id
                         job["DAGNodeName"] = job_name
                         job["bps_job_label"] = job_label
+                        job["bps_job_type"] = job_name_to_type[job_name]
 
-                        # Include information retrieved from the event log
-                        # if available.
-                        jobs[job_id] = job
-                        try:
-                            jobs[job_id] |= loginfo[job_id]
-                        except KeyError:
-                            pass
                     case "StatusEnd":
                         # Skip node status file "epilog".
                         pass
@@ -1463,24 +1474,22 @@ def read_node_status(wms_path):
                             ad["Type"],
                             wms_path,
                         )
-    except (OSError, PermissionError):
+    except (StopIteration, OSError, PermissionError):
         pass
-    else:
-        # Assume that the jobs found in the event log, but *not* in the node
-        # status file are the service jobs as HTCondor does not include
-        # information about these jobs in the node status file at the moment.
-        #
-        # Note: To be able to easily identify the service jobs downstream,
-        # we reverse the ClusterId and ProcId in their HTCondor ids in internal
-        # use. For example, if HTCondor id of a service job is '1.0', we will
-        # use '0.1' instead.
-        service_jobs = {job_id: loginfo[job_id] for job_id in set(loginfo) - set(jobs)}
-        job_id_to_name = {
-            job_id: job_name for job_name, job_id in job_name_to_id.items() if job_id in service_jobs
-        }
-        for job_id, job_info in service_jobs.items():
-            job_info["bps_job_label"] = job_name_to_label[job_id_to_name[job_id]]
-            jobs[f"{job_info['ProcId']}.{job_info['ClusterId']}"] = job_info
+
+    # Check for missing jobs (e.g., submission failure or not submitted yet)
+    # Use dag info to create job placeholders
+    for name in set(job_name_to_label) - set(job_name_to_id):
+        job = {}
+        job["ClusterId"] = int(float(fake_id))
+        job["ProcId"] = 0
+        job["DAGManJobID"] = wms_workflow_id
+        job["DAGNodeName"] = name
+        job["bps_job_label"] = job_name_to_label[name]
+        job["bps_job_type"] = job_name_to_type[name]
+        job["NodeStatus"] = NodeStatus.NOT_READY
+        jobs[f"{job['ClusterId']}.{job['ProcId']}"] = job
+        fake_id -= 1
 
     return jobs
 

@@ -1,0 +1,60 @@
+[
+  Type = "DagStatus";
+  DagFiles = {
+    "/work/testuser/submit/u/testuser/tiny/20250225T160151Z/u_testuser_tiny_20250225T160151Z.dag"
+  };
+  Timestamp = 1740499442; /* "Tue Feb 25 10:04:02 2025" */
+  DagStatus = 3; /* "STATUS_SUBMITTED ()" */
+  NodesTotal = 4;
+  NodesDone = 1;
+  NodesPre = 0;
+  NodesQueued = 1;
+  NodesPost = 0;
+  NodesReady = 0;
+  NodesUnready = 2;
+  NodesFutile = 0;
+  NodesFailed = 0;
+  JobProcsHeld = 0;
+  JobProcsIdle = 0; /* includes held */
+]
+[
+  Type = "NodeStatus";
+  Node = "pipetaskInit";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "ca27ea57-c014-44c1-838a-78c06bc3ec1b_label1_val1_val2";
+  NodeStatus = 3; /* "STATUS_SUBMITTED" */
+  StatusDetails = "not_idle";
+  RetryCount = 0;
+  JobProcsQueued = 1;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "dbf919fa-5453-4b05-8806-ad6390fda0a3_label2_val1_val2";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "finalJob";
+  NodeStatus = 0; /* "STATUS_NOT_READY" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "StatusEnd";
+  EndTime = 1740499442; /* "Tue Feb 25 10:04:02 2025" */
+  NextUpdate = 1740499502; /* "Tue Feb 25 10:05:02 2025" */
+]

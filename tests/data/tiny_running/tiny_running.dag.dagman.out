@@ -1,0 +1,168 @@
+02/25/25 10:03:01 ******************************************************
+02/25/25 10:03:01 ** condor_scheduniv_exec.9248.0 (CONDOR_DAGMAN) STARTING UP
+02/25/25 10:03:01 ** /work/lsst_stack/w_2025_08/conda/envs/lsst-scipipe-10.0.0/bin/condor_dagman
+02/25/25 10:03:01 ** SubsystemInfo: name=DAGMAN type=DAGMAN(9) class=CLIENT(2)
+02/25/25 10:03:01 ** Configuration: subsystem:DAGMAN local:<NONE> class:CLIENT
+02/25/25 10:03:01 ** $CondorVersion: 24.0.4 2025-02-10 $
+02/25/25 10:03:01 ** $CondorPlatform: X86_64-AlmaLinux_9.5 $
+02/25/25 10:03:01 ** PID = 15068 RealUID = 27031
+02/25/25 10:03:01 ** Log last touched time unavailable (No such file or directory)
+02/25/25 10:03:01 ******************************************************
+02/25/25 10:03:01 Using config source: /work/lsst_stack/w_2025_08/conda/envs/lsst-scipipe-10.0.0/etc/condor/condor_config
+02/25/25 10:03:01 Using local config sources: 
+02/25/25 10:03:01    /etc/condor/condor_config
+02/25/25 10:03:01    /etc/condor/config.d/00-minicondor
+02/25/25 10:03:01    /etc/condor/config.d/00-security
+02/25/25 10:03:01    /etc/condor/config.d/10-stash-plugin.conf
+02/25/25 10:03:01    /etc/condor/config.d/99-lsst
+02/25/25 10:03:01    /etc/condor/condor_config.local
+02/25/25 10:03:01    /home/testuser/.condor/user_config
+02/25/25 10:03:01 config Macros = 98, Sorted = 98, StringBytes = 3185, TablesBytes = 3616
+02/25/25 10:03:01 CLASSAD_CACHING is ENABLED
+02/25/25 10:03:01 Daemon Log is logging: D_ALWAYS D_ERROR D_STATUS
+02/25/25 10:03:01 DaemonCore: No command port requested.
+02/25/25 10:03:01 DAGMAN_USE_STRICT setting: 1
+02/25/25 10:03:01 DAGMAN_VERBOSITY setting: 3
+02/25/25 10:03:01 DAGMAN_DEBUG_CACHE_SIZE setting: 5242880
+02/25/25 10:03:01 DAGMAN_DEBUG_CACHE_ENABLE setting: False
+02/25/25 10:03:01 DAGMAN_SUBMIT_DELAY setting: 0
+02/25/25 10:03:01 DAGMAN_MAX_SUBMIT_ATTEMPTS setting: 6
+02/25/25 10:03:01 DAGMAN_STARTUP_CYCLE_DETECT setting: False
+02/25/25 10:03:01 DAGMAN_MAX_SUBMITS_PER_INTERVAL setting: 100
+02/25/25 10:03:01 DAGMAN_AGGRESSIVE_SUBMIT setting: False
+02/25/25 10:03:01 DAGMAN_USER_LOG_SCAN_INTERVAL setting: 1
+02/25/25 10:03:01 DAGMAN_QUEUE_UPDATE_INTERVAL setting: 30
+02/25/25 10:03:01 DAGMAN_DEFAULT_PRIORITY setting: 0
+02/25/25 10:03:01 DAGMAN_SUPPRESS_NOTIFICATION setting: False
+02/25/25 10:03:01 allow_events (DAGMAN_ALLOW_EVENTS) setting: 114
+02/25/25 10:03:01 DAGMAN_RETRY_SUBMIT_FIRST setting: True
+02/25/25 10:03:01 DAGMAN_RETRY_NODE_FIRST setting: False
+02/25/25 10:03:01 DAGMAN_MAX_JOBS_IDLE setting: 1000
+02/25/25 10:03:01 DAGMAN_MAX_JOBS_SUBMITTED setting: 0
+02/25/25 10:03:01 DAGMAN_MAX_PRE_SCRIPTS setting: 20
+02/25/25 10:03:01 DAGMAN_MAX_POST_SCRIPTS setting: 20
+02/25/25 10:03:01 DAGMAN_MAX_HOLD_SCRIPTS setting: 20
+02/25/25 10:03:01 DAGMAN_MUNGE_NODE_NAMES setting: True
+02/25/25 10:03:01 DAGMAN_PROHIBIT_MULTI_JOBS setting: False
+02/25/25 10:03:01 DAGMAN_SUBMIT_DEPTH_FIRST setting: False
+02/25/25 10:03:01 DAGMAN_ALWAYS_RUN_POST setting: False
+02/25/25 10:03:01 DAGMAN_CONDOR_SUBMIT_EXE setting: /work/lsst_stack/w_2025_08/conda/envs/lsst-scipipe-10.0.0/bin/condor_submit
+02/25/25 10:03:01 DAGMAN_CONDOR_RM_EXE setting: /work/lsst_stack/w_2025_08/conda/envs/lsst-scipipe-10.0.0/bin/condor_rm
+02/25/25 10:03:01 DAGMAN_USE_DIRECT_SUBMIT setting: True
+02/25/25 10:03:01 DAGMAN_PRODUCE_JOB_CREDENTIALS setting: True
+02/25/25 10:03:01 DAGMAN_DEFAULT_APPEND_VARS setting: False
+02/25/25 10:03:01 DAGMAN_INHERIT_ATTRS_PREFIX setting: 
+02/25/25 10:03:01 DAGMAN_INHERIT_ATTRS setting: 
+02/25/25 10:03:01 DAGMAN_ABORT_DUPLICATES setting: True
+02/25/25 10:03:01 DAGMAN_ABORT_ON_SCARY_SUBMIT setting: True
+02/25/25 10:03:01 DAGMAN_PENDING_REPORT_INTERVAL setting: 60
+02/25/25 10:03:01 DAGMAN_CHECK_QUEUE_INTERVAL setting: 28800
+02/25/25 10:03:01 DAGMAN_AUTO_RESCUE setting: True
+02/25/25 10:03:01 DAGMAN_MAX_RESCUE_NUM setting: 100
+02/25/25 10:03:01 DAGMAN_WRITE_PARTIAL_RESCUE setting: True
+02/25/25 10:03:01 DAGMAN_DEFAULT_NODE_LOG setting: @(DAG_DIR)/@(DAG_FILE).nodes.log
+02/25/25 10:03:01 DAGMAN_GENERATE_SUBDAG_SUBMITS setting: True
+02/25/25 10:03:01 DAGMAN_MAX_JOB_HOLDS setting: 100
+02/25/25 10:03:01 DAGMAN_HOLD_CLAIM_TIME setting: 20
+02/25/25 10:03:01 ALL_DEBUG setting: D_FULLDEBUG
+02/25/25 10:03:01 DAGMAN_SUPPRESS_JOB_LOGS setting: False
+02/25/25 10:03:01 DAGMAN_REMOVE_NODE_JOBS setting: True
+02/25/25 10:03:01 DAGMAN_REMOVE_JOBS_AFTER_LIMIT_CHANGE setting: False
+02/25/25 10:03:01 DAGMAN will adjust edges after parsing
+02/25/25 10:03:01 argv[0] == "condor_scheduniv_exec.9248.0"
+02/25/25 10:03:01 argv[1] == "-Lockfile"
+02/25/25 10:03:01 argv[2] == "/work/testuser/submit/u/testuser/tiny/20250225T160151Z/u_testuser_tiny_20250225T160151Z.dag.lock"
+02/25/25 10:03:01 argv[3] == "-Dag"
+02/25/25 10:03:01 argv[4] == "/work/testuser/submit/u/testuser/tiny/20250225T160151Z/u_testuser_tiny_20250225T160151Z.dag"
+02/25/25 10:03:01 argv[5] == "-MaxIdle"
+02/25/25 10:03:01 argv[6] == "1000"
+02/25/25 10:03:01 argv[7] == "-CsdVersion"
+02/25/25 10:03:01 argv[8] == "$CondorVersion: 24.0.4 2025-02-10 $"
+02/25/25 10:03:01 argv[9] == "-dagman"
+02/25/25 10:03:01 argv[10] == "/work/lsst_stack/w_2025_08/conda/envs/lsst-scipipe-10.0.0/bin/condor_dagman"
+02/25/25 10:03:01 argv[11] == "-AutoRescue"
+02/25/25 10:03:01 argv[12] == "1"
+02/25/25 10:03:01 argv[13] == "-DoRescueFrom"
+02/25/25 10:03:01 argv[14] == "0"
+02/25/25 10:03:01 Workflow batch-id: <9248.0>
+02/25/25 10:03:01 Workflow batch-name: <u_testuser_tiny_20250225T160151Z.dag+9248>
+02/25/25 10:03:01 Workflow accounting_group: <>
+02/25/25 10:03:01 Workflow accounting_group_user: <>
+02/25/25 10:03:01 Warning: failed to get attribute DAGNodeName
+02/25/25 10:03:01 DAGMAN_LOG_ON_NFS_IS_ERROR setting: False
+02/25/25 10:03:01 Default node log file is: </work/testuser/submit/u/testuser/tiny/20250225T160151Z/u_testuser_tiny_20250225T160151Z.dag.nodes.log>
+02/25/25 10:03:01 DAG Lockfile will be written to /work/testuser/submit/u/testuser/tiny/20250225T160151Z/u_testuser_tiny_20250225T160151Z.dag.lock
+02/25/25 10:03:01 DAG Input file is /work/testuser/submit/u/testuser/tiny/20250225T160151Z/u_testuser_tiny_20250225T160151Z.dag
+02/25/25 10:03:01 Parsing 1 dagfiles
+02/25/25 10:03:01 Parsing /work/testuser/submit/u/testuser/tiny/20250225T160151Z/u_testuser_tiny_20250225T160151Z.dag ...
+02/25/25 10:03:01 Adjusting edges
+02/25/25 10:03:01 Dag contains 4 total nodes
+02/25/25 10:03:01 Bootstrapping...
+02/25/25 10:03:01 Number of pre-completed nodes: 0
+02/25/25 10:03:01 MultiLogFiles: truncating log file /work/testuser/submit/u/testuser/tiny/20250225T160151Z/u_testuser_tiny_20250225T160151Z.dag.nodes.log
+02/25/25 10:03:01 Starting service node provisioningJob...
+02/25/25 10:03:01 DAG status: 0 (DAG_STATUS_OK)
+02/25/25 10:03:01 Of 4 nodes total:
+02/25/25 10:03:01  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+02/25/25 10:03:01   ===     ===      ===     ===     ===        ===      ===      ===
+02/25/25 10:03:01     0       0        0       0       1          3        0        0
+02/25/25 10:03:01 0 job proc(s) currently held
+02/25/25 10:03:01 DAGMan Runtime Statistics: [EventCycleTimeCount = 0.0; EventCycleTimeSum = 0.0; LogProcessCycleTimeCount = 0.0; LogProcessCycleTimeSum = 0.0; SleepCycleTimeCount = 0.0; SleepCycleTimeSum = 0.0; SubmitCycleTimeCount = 0.0; SubmitCycleTimeSum = 0.0; ]
+02/25/25 10:03:01 Registering condor_event_timer...
+02/25/25 10:03:02 Submitting HTCondor Node provisioningJob job(s)...
+02/25/25 10:03:02 Submitting node provisioningJob from file jobs/provisioningJob/provisioningJob.sub using direct job submission
+02/25/25 10:03:02 	assigned HTCondor ID (9249.0.0)
+02/25/25 10:03:02 Submitting HTCondor Node pipetaskInit job(s)...
+02/25/25 10:03:02 Submitting node pipetaskInit from file jobs/pipetaskInit/pipetaskInit.sub using direct job submission
+02/25/25 10:03:02 	assigned HTCondor ID (9250.0.0)
+02/25/25 10:03:02 Just submitted 2 jobs this cycle...
+02/25/25 10:03:02 DAG status: 0 (DAG_STATUS_OK)
+02/25/25 10:03:02 Of 4 nodes total:
+02/25/25 10:03:02  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+02/25/25 10:03:02   ===     ===      ===     ===     ===        ===      ===      ===
+02/25/25 10:03:02     0       0        1       0       0          3        0        0
+02/25/25 10:03:02 0 job proc(s) currently held
+02/25/25 10:03:02 DAGMan Runtime Statistics: [EventCycleTimeCount = 0.0; EventCycleTimeSum = 0.0; LogProcessCycleTimeCount = 0.0; LogProcessCycleTimeSum = 0.0; SleepCycleTimeCount = 0.0; SleepCycleTimeSum = 0.0; SubmitCycleTimeAvg = 0.1724209785461426; SubmitCycleTimeCount = 1.0; SubmitCycleTimeMax = 0.1724209785461426; SubmitCycleTimeMin = 0.1724209785461426; SubmitCycleTimeStd = 0.1724209785461426; SubmitCycleTimeSum = 0.1724209785461426; ]
+02/25/25 10:03:03 Currently monitoring 1 HTCondor log file(s)
+02/25/25 10:03:03 Reassigning the id of job provisioningJob from (9249.0.0) to (9249.0.0)
+02/25/25 10:03:03 Event: ULOG_SUBMIT for HTCondor Node provisioningJob (9249.0.0) {02/25/25 10:03:02}
+02/25/25 10:03:03 Number of idle job procs: 1
+02/25/25 10:03:03 Reassigning the id of job pipetaskInit from (9250.0.0) to (9250.0.0)
+02/25/25 10:03:03 Event: ULOG_SUBMIT for HTCondor Node pipetaskInit (9250.0.0) {02/25/25 10:03:02}
+02/25/25 10:03:03 Number of idle job procs: 2
+02/25/25 10:03:08 Currently monitoring 1 HTCondor log file(s)
+02/25/25 10:03:08 Event: ULOG_EXECUTE for HTCondor Node provisioningJob (9249.0.0) {02/25/25 10:03:08}
+02/25/25 10:03:08 Number of idle job procs: 1
+02/25/25 10:03:12 Currently monitoring 1 HTCondor log file(s)
+02/25/25 10:03:12 Event: ULOG_EXECUTE for HTCondor Node pipetaskInit (9250.0.0) {02/25/25 10:03:12}
+02/25/25 10:03:12 Number of idle job procs: 0
+02/25/25 10:03:26 Currently monitoring 1 HTCondor log file(s)
+02/25/25 10:03:26 Event: ULOG_JOB_TERMINATED for HTCondor Node pipetaskInit (9250.0.0) {02/25/25 10:03:26}
+02/25/25 10:03:26 Number of idle job procs: 0
+02/25/25 10:03:26 Node pipetaskInit job proc (9250.0.0) completed successfully.
+02/25/25 10:03:26 Node pipetaskInit job completed
+02/25/25 10:03:26 DAG status: 0 (DAG_STATUS_OK)
+02/25/25 10:03:26 Of 4 nodes total:
+02/25/25 10:03:26  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+02/25/25 10:03:26   ===     ===      ===     ===     ===        ===      ===      ===
+02/25/25 10:03:26     1       0        0       0       1          2        0        0
+02/25/25 10:03:26 0 job proc(s) currently held
+02/25/25 10:03:26 DAGMan Runtime Statistics: [EventCycleTimeAvg = 0.007261514663696289; EventCycleTimeCount = 24.0; EventCycleTimeMax = 0.1727619171142578; EventCycleTimeMin = 1.9073486328125E-05; EventCycleTimeStd = 0.03525156490816845; EventCycleTimeSum = 0.1742763519287109; LogProcessCycleTimeAvg = 0.0002812743186950684; LogProcessCycleTimeCount = 4.0; LogProcessCycleTimeMax = 0.0003252029418945312; LogProcessCycleTimeMin = 0.0002429485321044922; LogProcessCycleTimeStd = 4.006253973721482E-05; LogProcessCycleTimeSum = 0.001125097274780273; SleepCycleTimeAvg = 1.000992685556412; SleepCycleTimeCount = 24.0; SleepCycleTimeMax = 1.001121997833252; SleepCycleTimeMin = 1.000223875045776; SleepCycleTimeStd = 0.0002134073896281548; SleepCycleTimeSum = 24.02382445335388; SubmitCycleTimeAvg = 0.006900444030761719; SubmitCycleTimeCount = 25.0; SubmitCycleTimeMax = 0.1724209785461426; SubmitCycleTimeMin = 2.86102294921875E-06; SubmitCycleTimeStd = 0.03448344471009052; SubmitCycleTimeSum = 0.172511100769043; ]
+02/25/25 10:03:27 Submitting HTCondor Node ca27ea57-c014-44c1-838a-78c06bc3ec1b_label1_val1_val2 job(s)...
+02/25/25 10:03:27 Submitting node ca27ea57-c014-44c1-838a-78c06bc3ec1b_label1_val1_val2 from file jobs/label1/val1/ca27ea57-c014-44c1-838a-78c06bc3ec1b_label1_val1_val2.sub using direct job submission
+02/25/25 10:03:27 	assigned HTCondor ID (9251.0.0)
+02/25/25 10:03:27 Just submitted 1 job this cycle...
+02/25/25 10:03:27 DAG status: 0 (DAG_STATUS_OK)
+02/25/25 10:03:27 Of 4 nodes total:
+02/25/25 10:03:27  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+02/25/25 10:03:27   ===     ===      ===     ===     ===        ===      ===      ===
+02/25/25 10:03:27     1       0        1       0       0          2        0        0
+02/25/25 10:03:27 0 job proc(s) currently held
+02/25/25 10:03:27 DAGMan Runtime Statistics: [EventCycleTimeAvg = 0.006990776062011718; EventCycleTimeCount = 25.0; EventCycleTimeMax = 0.1727619171142578; EventCycleTimeMin = 1.9073486328125E-05; EventCycleTimeStd = 0.03453588392840239; EventCycleTimeSum = 0.174769401550293; LogProcessCycleTimeAvg = 0.0002812743186950684; LogProcessCycleTimeCount = 4.0; LogProcessCycleTimeMax = 0.0003252029418945312; LogProcessCycleTimeMin = 0.0002429485321044922; LogProcessCycleTimeStd = 4.006253973721482E-05; LogProcessCycleTimeSum = 0.001125097274780273; SleepCycleTimeAvg = 1.000996417999268; SleepCycleTimeCount = 25.0; SleepCycleTimeMax = 1.001121997833252; SleepCycleTimeMin = 1.000223875045776; SleepCycleTimeStd = 0.0002097459868836666; SleepCycleTimeSum = 25.02491044998169; SubmitCycleTimeAvg = 0.008469077257009653; SubmitCycleTimeCount = 26.0; SubmitCycleTimeMax = 0.1724209785461426; SubmitCycleTimeMin = 2.86102294921875E-06; SubmitCycleTimeStd = 0.03472059195739079; SubmitCycleTimeSum = 0.220196008682251; ]
+02/25/25 10:03:28 Currently monitoring 1 HTCondor log file(s)
+02/25/25 10:03:28 Reassigning the id of job ca27ea57-c014-44c1-838a-78c06bc3ec1b_label1_val1_val2 from (9251.0.0) to (9251.0.0)
+02/25/25 10:03:28 Event: ULOG_SUBMIT for HTCondor Node ca27ea57-c014-44c1-838a-78c06bc3ec1b_label1_val1_val2 (9251.0.0) {02/25/25 10:03:27}
+02/25/25 10:03:28 Number of idle job procs: 1
+02/25/25 10:03:29 Currently monitoring 1 HTCondor log file(s)
+02/25/25 10:03:29 Event: ULOG_EXECUTE for HTCondor Node ca27ea57-c014-44c1-838a-78c06bc3ec1b_label1_val1_val2 (9251.0.0) {02/25/25 10:03:29}
+02/25/25 10:03:29 Number of idle job procs: 0
