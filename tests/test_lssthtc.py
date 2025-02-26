@@ -31,7 +31,7 @@ import os
 import pathlib
 import tempfile
 import unittest
-from shutil import copy2
+from shutil import copy2, rmtree
 
 import htcondor
 
@@ -197,22 +197,23 @@ class HtcCheckDagmanOutputTestCase(unittest.TestCase):
             self.assertEqual("", results)
 
 
-class SummaryFromDagTestCase(unittest.TestCase):
-    """Test summary_from_dag function."""
+class SummarizeDagTestCase(unittest.TestCase):
+    """Test summarize_dag function."""
 
     def test_no_dag_file(self):
         with temporaryDirectory() as tmp_dir:
-            summary, job_name_to_pipetask = lssthtc.summary_from_dag(tmp_dir)
+            summary, job_name_to_pipetask, job_name_to_type = lssthtc.summarize_dag(tmp_dir)
             self.assertFalse(len(job_name_to_pipetask))
+            self.assertFalse(len(job_name_to_type))
             self.assertFalse(summary)
 
     def test_success(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/good.dag", tmp_dir)
-            summary, job_name_to_pipetask = lssthtc.summary_from_dag(tmp_dir)
+            summary, job_name_to_label, job_name_to_type = lssthtc.summarize_dag(tmp_dir)
             self.assertEqual(summary, "pipetaskInit:1;label1:1;label2:1;label3:1;finalJob:1")
             self.assertEqual(
-                job_name_to_pipetask,
+                job_name_to_label,
                 {
                     "pipetaskInit": "pipetaskInit",
                     "0682f8f9-12f0-40a5-971e-8b30c7231e5c_label1_val1_val2": "label1",
@@ -221,6 +222,98 @@ class SummaryFromDagTestCase(unittest.TestCase):
                     "finalJob": "finalJob",
                 },
             )
+            self.assertEqual(
+                job_name_to_type,
+                {
+                    "pipetaskInit": "payload",
+                    "0682f8f9-12f0-40a5-971e-8b30c7231e5c_label1_val1_val2": "payload",
+                    "d0305e2d-f164-4a85-bd24-06afe6c84ed9_label2_val1_val2": "payload",
+                    "2806ecc9-1bba-4362-8fff-ab4e6abb9f83_label3_val1_val2": "payload",
+                    "finalJob": "final",
+                },
+            )
+
+    def test_service(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_problems/tiny_problems.dag", tmp_dir)
+            summary, job_name_to_label, job_name_to_type = lssthtc.summarize_dag(tmp_dir)
+            self.assertEqual(summary, "pipetaskInit:1;label1:2;label2:2;finalJob:1")
+            self.assertEqual(
+                job_name_to_label,
+                {
+                    "pipetaskInit": "pipetaskInit",
+                    "4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a": "label1",
+                    "057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b": "label1",
+                    "696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a": "label2",
+                    "40040b97-606d-4997-98d3-e0493055fe7e_label2_val1_val2b": "label2",
+                    "finalJob": "finalJob",
+                    "provisioningJob": "provisioningJob",
+                },
+            )
+            self.assertEqual(
+                job_name_to_type,
+                {
+                    "pipetaskInit": "payload",
+                    "4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a": "payload",
+                    "057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b": "payload",
+                    "696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a": "payload",
+                    "40040b97-606d-4997-98d3-e0493055fe7e_label2_val1_val2b": "payload",
+                    "finalJob": "final",
+                    "provisioningJob": "service",
+                },
+            )
+
+
+class ReadDagNodesLogTestCase(unittest.TestCase):
+    """Test read_dag_nodes_log function."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        rmtree(self.tmpdir, ignore_errors=True)
+
+    def testFileMissing(self):
+        with self.assertRaisesRegex(FileNotFoundError, "DAGMan node log not found in"):
+            _, _ = lssthtc.read_dag_nodes_log(self.tmpdir)
+
+
+class ReadNodeStatusTestCase(unittest.TestCase):
+    """Test read_node_status function."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        rmtree(self.tmpdir, ignore_errors=True)
+
+    def testServiceJobNotSubmitted(self):
+        # tiny_prov_no_submit files have successful workflow
+        # but provisioningJob could not submit.
+        copy2(f"{TESTDIR}/data/tiny_prov_no_submit/tiny_prov_no_submit.dag.nodes.log", self.tmpdir)
+        copy2(f"{TESTDIR}/data/tiny_prov_no_submit/tiny_prov_no_submit.dag.dagman.log", self.tmpdir)
+        copy2(f"{TESTDIR}/data/tiny_prov_no_submit/tiny_prov_no_submit.node_status", self.tmpdir)
+        copy2(f"{TESTDIR}/data/tiny_prov_no_submit/tiny_prov_no_submit.dag", self.tmpdir)
+
+        jobs = lssthtc.read_node_status(self.tmpdir)
+        found = [id_ for id_ in jobs if jobs[id_].get("bps_job_type", "MISS") == "service"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(jobs[found[0]]["DAGNodeName"], "provisioningJob")
+        self.assertEqual(jobs[found[0]]["NodeStatus"], lssthtc.NodeStatus.NOT_READY)
+
+    def testMissingStatusFile(self):
+        copy2(f"{TESTDIR}/data/tiny_problems/tiny_problems.dag.nodes.log", self.tmpdir)
+        copy2(f"{TESTDIR}/data/tiny_problems/tiny_problems.dag.dagman.log", self.tmpdir)
+        copy2(f"{TESTDIR}/data/tiny_problems/tiny_problems.dag", self.tmpdir)
+
+        jobs = lssthtc.read_node_status(self.tmpdir)
+        self.assertEqual(len(jobs), 7)
+        self.assertEqual(jobs["9230.0"]["DAGNodeName"], "pipetaskInit")
+        self.assertEqual(jobs["9230.0"]["bps_job_type"], "payload")
+        self.assertEqual(jobs["9230.0"]["JobStatus"], lssthtc.JobStatus.COMPLETED)
+        found = [id_ for id_ in jobs if jobs[id_].get("bps_job_type", "MISS") == "service"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(jobs[found[0]]["DAGNodeName"], "provisioningJob")
 
 
 if __name__ == "__main__":

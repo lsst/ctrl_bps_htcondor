@@ -1,0 +1,26 @@
+JOB pipetaskInit "jobs/pipetaskInit/pipetaskInit.sub"
+JOB 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a "jobs/label1/val1/4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a.sub"
+JOB 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b "jobs/label1/val1/057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b.sub"
+JOB 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a "jobs/label2/val1/696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a.sub"
+JOB 40040b97-606d-4997-98d3-e0493055fe7e_label2_val1_val2b "jobs/label2/val1/40040b97-606d-4997-98d3-e0493055fe7e_label2_val1_val2b.sub"
+PARENT pipetaskInit CHILD 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a
+PARENT pipetaskInit CHILD 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b
+PARENT 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a CHILD 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a
+PARENT 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b CHILD 40040b97-606d-4997-98d3-e0493055fe7e_label2_val1_val2b
+DOT u_testuser_tiny_20250213T175935Z.dot
+NODE_STATUS_FILE u_testuser_tiny_20250213T175935Z.node_status
+SET_JOB_ATTR bps_isjob= "True"
+SET_JOB_ATTR bps_project= "dev"
+SET_JOB_ATTR bps_campaign= "tiny"
+SET_JOB_ATTR bps_run= "u_testuser_tiny_20250213T175935Z"
+SET_JOB_ATTR bps_operator= "testuser"
+SET_JOB_ATTR bps_payload= "tiny"
+SET_JOB_ATTR bps_runsite= "testpool"
+SET_JOB_ATTR bps_wms_service= "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorService"
+SET_JOB_ATTR bps_wms_workflow= "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorWorkflow"
+SET_JOB_ATTR bps_run_quanta= "label1:2;label2:2"
+SET_JOB_ATTR bps_job_summary= "pipetaskInit:1;label1:2;label2:2;finalJob:1"
+SET_JOB_ATTR bps_provisioning_job= "provisioningJob"
+FINAL finalJob jobs/finalJob/finalJob.sub
+SCRIPT POST finalJob /work/testuser/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/final_post.sh finalJob $DAG_STATUS $RETURN
+SERVICE provisioningJob jobs/provisioningJob/provisioningJob.sub

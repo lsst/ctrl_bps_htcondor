@@ -1,0 +1,47 @@
+000 (9249.000.000) 2025-02-25 10:03:02 Job submitted from host: <10.0.0.33:9618?addrs=10.0.0.33-9618+[2601-248-8500-b50--d234]-9618&alias=test02&noUDP&sock=schedd_1764_8927>
+    DAG Node: provisioningJob
+...
+000 (9250.000.000) 2025-02-25 10:03:02 Job submitted from host: <10.0.0.33:9618?addrs=10.0.0.33-9618+[2601-248-8500-b50--d234]-9618&alias=test02&noUDP&sock=schedd_1764_8927>
+    DAG Node: pipetaskInit
+...
+001 (9249.000.000) 2025-02-25 10:03:08 Job executing on host: <10.0.0.33:9618?addrs=10.0.0.33-9618+[2601-248-8500-b50--d234]-9618&alias=test02&noUDP&sock=starter_2454_d09d_2>
+...
+001 (9250.000.000) 2025-02-25 10:03:12 Job executing on host: <10.0.0.33:9618?addrs=10.0.0.33-9618+[2601-248-8500-b50--d234]-9618&alias=test02&noUDP&sock=startd_1764_8927>
+	SlotName: slot1_1@test02
+	CondorScratchDir = "/var/lib/condor/execute/dir_15083"
+	Cpus = 1
+	Disk = 2048
+	GPUs = 0
+	Memory = 2048
+...
+005 (9250.000.000) 2025-02-25 10:03:26 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:07, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:07, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+	Partitionable Resources :    Usage  Request Allocated 
+	   Cpus                 :        0        1         1 
+	   Disk (KB)            :       84        1      2048 
+	   GPUs                 :                           0 
+	   Memory (MB)          :        0     2048      2048 
+	   TimeExecute (s)      :       14                    
+	   TimeSlotBusy (s)     :       14                    
+
+	Job terminated of its own accord at 2025-02-25T16:03:26Z with exit-code 0.
+...
+000 (9251.000.000) 2025-02-25 10:03:27 Job submitted from host: <10.0.0.33:9618?addrs=10.0.0.33-9618+[2601-248-8500-b50--d234]-9618&alias=test02&noUDP&sock=schedd_1764_8927>
+    DAG Node: ca27ea57-c014-44c1-838a-78c06bc3ec1b_label1_val1_val2
+...
+001 (9251.000.000) 2025-02-25 10:03:29 Job executing on host: <10.0.0.33:9618?addrs=10.0.0.33-9618+[2601-248-8500-b50--d234]-9618&alias=test02&noUDP&sock=startd_1764_8927>
+	SlotName: slot1_1@test02
+	CondorScratchDir = "/var/lib/condor/execute/dir_15125"
+	Cpus = 1
+	Disk = 2048
+	GPUs = 0
+	Memory = 2048
+...

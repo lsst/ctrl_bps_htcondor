@@ -31,24 +31,28 @@ import logging
 import os
 import unittest
 from pathlib import Path
-from shutil import copy2
+from shutil import copy2, copytree
 
 import htcondor
 
-from lsst.ctrl.bps import BpsConfig, GenericWorkflowExec, GenericWorkflowJob, WmsStates
+from lsst.ctrl.bps import BpsConfig, GenericWorkflowExec, GenericWorkflowJob, WmsSpecificInfo, WmsStates
 from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
 from lsst.ctrl.bps.htcondor.htcondor_service import (
     HTCondorService,
     JobStatus,
     NodeStatus,
     WmsIdType,
+    _add_service_job_specific_info,
+    _create_detailed_report_from_jobs,
     _get_exit_code_summary,
     _get_info_from_path,
+    _get_run_summary,
     _get_state_counts_from_dag_job,
     _htc_node_status_to_wms_state,
     _htc_status_to_wms_state,
     _translate_job_cmds,
     _wms_id_to_dir,
+    is_service_job,
 )
 from lsst.ctrl.bps.htcondor.lssthtc import MISSING_ID
 from lsst.utils.tests import temporaryDirectory
@@ -532,3 +536,491 @@ class WmsIdToDirTestCase(unittest.TestCase):
             self.assertEqual(id_type, WmsIdType.PATH)
             self.assertEqual(abs_path.resolve(), wms_path)
             os.chdir(orig_dir)
+
+
+class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
+    """Test _add_service_job_specific_info function.
+
+    Note: The job_ad's are hardcoded in these tests.  The
+    values in the dictionaries come from plugin code as
+    well as HTCondor.  Changes in either of those codes
+    that produce data for the job_ad can break this
+    function without breaking these unit tests.
+
+    Also, since hold status/messages stick around, testing
+    various cases with and without job being held just to
+    ensure get right status in both cases.
+    """
+
+    def testNotSubmitted(self):
+        # Service job not submitted yet or can't be submitted.
+        # (Typically an plugin bug.)
+        # At this function level, can't tell if not submitted
+        # yet or problem so it never will.
+        job_ad = {
+            "ClusterId": -64,
+            "DAGManJobID": "8997.0",
+            "DAGNodeName": "provisioningJob",
+            "NodeStatus": NodeStatus.NOT_READY,
+            "ProcId": 0,
+            "bps_job_label": "service_provisioningJob",
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context, {"job_name": "provisioningJob", "status": "UNREADY", "status_details": ""}
+        )
+
+    def testRunning(self):
+        # DAG hasn't completed (Running or held),
+        # Service job is running.
+        job_ad = {
+            "ClusterId": 8523,
+            "ProcId": 0,
+            "DAGNodeName": "provisioningJob",
+            "JobStatus": JobStatus.RUNNING,
+        }
+
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context, {"job_name": "provisioningJob", "status": "RUNNING", "status_details": ""}
+        )
+
+    def testDied(self):
+        # DAG hasn't completed (Running or held),
+        # Service job failed (completed non-zero exit code)
+        job_ad = {
+            "ClusterId": 8761,
+            "ProcId": 0,
+            "DAGNodeName": "provisioningJob",
+            "JobStatus": JobStatus.COMPLETED,
+            "ExitCode": 4,
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context, {"job_name": "provisioningJob", "status": "FAILED", "status_details": ""}
+        )
+
+    def testDeleted(self):
+        # Deleted by user (never held)
+        job_ad = {
+            "ClusterId": 9086,
+            "DAGNodeName": "provisioningJob",
+            "JobStatus": JobStatus.REMOVED,
+            "ProcId": 0,
+            "Reason": "via condor_rm (by user mgower)",
+            "job_evicted_time": "2025-02-11T11:35:04",
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context, {"job_name": "provisioningJob", "status": "DELETED", "status_details": ""}
+        )
+
+    def testSucceedEarly(self):
+        # DAG hasn't completed (Running or held),
+        # Service job completed with exit code 0
+        job_ad = {
+            "ClusterId": 8761,
+            "ProcId": 0,
+            "DAGNodeName": "provisioningJob",
+            "JobStatus": JobStatus.COMPLETED,
+            "ExitCode": 0,
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context,
+            {
+                "job_name": "provisioningJob",
+                "status": "SUCCEEDED",
+                "status_details": "(Note: Finished before workflow.)",
+            },
+        )
+
+    def testSucceedOldRemoveMessage(self):
+        # DAG completed, job was in running state when removed.
+        job_ad = {
+            "ClusterId": 8761,
+            "ProcId": 0,
+            "DAGNodeName": "provisioningJob",
+            "JobStatus": JobStatus.REMOVED,
+            "Reason": "Removed by DAGMan (by user mgower)",
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context, {"job_name": "provisioningJob", "status": "SUCCEEDED", "status_details": ""}
+        )
+
+    def testSucceed(self):
+        # DAG completed, job was in running state when removed.
+        job_ad = {
+            "ClusterId": 8761,
+            "ProcId": 0,
+            "DAGNodeName": "provisioningJob",
+            "JobStatus": JobStatus.REMOVED,
+            "Reason": (
+                "removed because <OtherJobRemoveRequirements = DAGManJobId =?= 8556>"
+                " fired when job (8556.0) was removed"
+            ),
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context, {"job_name": "provisioningJob", "status": "SUCCEEDED", "status_details": ""}
+        )
+
+    def testUserHeldWhileRunning(self):
+        # DAG hasn't completed (Running or held),
+        # user put at least service job on hold
+        job_ad = {
+            "ClusterId": 8523,
+            "ProcId": 0,
+            "DAGNodeName": "provisioningJob",
+            "JobStatus": JobStatus.HELD,
+            "HoldReason": "via condor_hold (by user mgower)",
+            "HoldReasonCode": 1,
+            "HoldReasonSubCode": 0,
+        }
+
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context,
+            {
+                "job_name": "provisioningJob",
+                "status": "HELD",
+                "status_details": "(via condor_hold (by user mgower))",
+            },
+        )
+
+    def testHeldByHTC(self):
+        # Job put on hold by HTCondor, removed when DAG ends
+        job_ad = {
+            "ClusterId": 8693,
+            "DAGNodeName": "provisioningJob",
+            "HoldReason": "Failed to execute",
+            "HoldReasonCode": 6,
+            "HoldReasonSubCode": 2,
+            "JobStatus": JobStatus.REMOVED,
+            "ProcId": 0,
+            "Reason": "Removed by DAGMan (by user mgower)",
+            "job_held_time": "2025-02-07T12:50:07",
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context,
+            {
+                "job_name": "provisioningJob",
+                "status": "DELETED",
+                "status_details": "(Job was held for the following reason: Failed to execute)",
+            },
+        )
+
+    def testHeldReleasedRunning(self):
+        # DAG hasn't completed (Running or held),
+        # Since held info will be in job_ad, make sure knows released.
+        job_ad = {
+            "ClusterId": 8625,
+            "DAGNodeName": "provisioningJob",
+            "HoldReason": "via condor_hold (by user mgower)",
+            "HoldReasonCode": 1,
+            "HoldReasonSubCode": 0,
+            "JobStatus": JobStatus.RUNNING,
+            "LogNotes": "DAG Node: provisioningJob",
+            "ProcId": 0,
+            "job_held_time": "2025-02-07T12:33:34",
+            "job_released_time": "2025-02-07T12:33:47",
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context, {"job_name": "provisioningJob", "status": "RUNNING", "status_details": ""}
+        )
+
+    def testHeldReleasedDied(self):
+        # Since held info will be in job_ad,
+        # make sure knows status after released.
+        job_ad = {
+            "ClusterId": 9120,
+            "DAGNodeName": "provisioningJob",
+            "ExitBySignal": False,
+            "ExitCode": 4,
+            "HoldReason": "via condor_hold (by user mgower)",
+            "HoldReasonCode": 1,
+            "HoldReasonSubCode": 0,
+            "JobStatus": JobStatus.COMPLETED,
+            "ProcId": 0,
+            "Reason": "via condor_release (by user mgower)",
+            "ReturnValue": 4,
+            "TerminatedNormally": True,
+            "job_held_time": "2025-02-11T11:46:40",
+            "job_released_time": "2025-02-11T11:46:47",
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context, {"job_name": "provisioningJob", "status": "FAILED", "status_details": ""}
+        )
+
+    def testHeldReleasedSuccessEarly(self):
+        # Since held info will be in job_ad,
+        # make sure knows status after released.
+        job_ad = {
+            "ClusterId": 9154,
+            "DAGNodeName": "provisioningJob",
+            "ExitBySignal": False,
+            "ExitCode": 0,
+            "HoldReason": "via condor_hold (by user mgower)",
+            "HoldReasonCode": 1,
+            "HoldReasonSubCode": 0,
+            "JobStatus": JobStatus.COMPLETED,
+            "ProcId": 0,
+            "Reason": "via condor_release (by user mgower)",
+            "TerminatedNormally": True,
+            "job_held_time": "2025-02-11T11:55:20",
+            "job_released_time": "2025-02-11T11:55:25",
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context,
+            {
+                "job_name": "provisioningJob",
+                "status": "SUCCEEDED",
+                "status_details": "(Note: Finished before workflow.)",
+            },
+        )
+
+    def testHeldReleasedSuccess(self):
+        # DAG has completed.
+        # Since held info will be in job_ad,
+        # make sure knows status after released.
+        job_ad = {
+            "ClusterId": 8625,
+            "DAGNodeName": "provisioningJob",
+            "HoldReason": "via condor_hold (by user mgower)",
+            "HoldReasonCode": 1,
+            "HoldReasonSubCode": 0,
+            "JobStatus": JobStatus.REMOVED,
+            "ProcId": 0,
+            "Reason": "removed because <OtherJobRemoveRequirements = DAGManJobId =?= "
+            "8624> fired when job (8624.0) was removed",
+            "job_held_time": "2025-02-07T12:33:34",
+            "job_released_time": "2025-02-07T12:33:47",
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context, {"job_name": "provisioningJob", "status": "SUCCEEDED", "status_details": ""}
+        )
+
+    def testHeldReleasedDeleted(self):
+        # Since held info will be in job_ad,
+        # make sure knows status after released.
+        job_ad = {
+            "ClusterId": 9086,
+            "DAGNodeName": "provisioningJob",
+            "HoldReason": "via condor_hold (by user mgower)",
+            "HoldReasonCode": 1,
+            "HoldReasonSubCode": 0,
+            "JobStatus": JobStatus.REMOVED,
+            "ProcId": 0,
+            "Reason": "via condor_rm (by user mgower)",
+            "job_evicted_time": "2025-02-11T11:35:04",
+            "job_held_time": "2025-02-11T11:35:04",
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context, {"job_name": "provisioningJob", "status": "DELETED", "status_details": ""}
+        )
+
+    def testHeldReleasedHeld(self):
+        # Since release info will be in job_ad,
+        # make sure knows held after release.
+        job_ad = {
+            "ClusterId": 8659,
+            "DAGNodeName": "provisioningJob",
+            "HoldReason": "via condor_hold (by user mgower)",
+            "HoldReasonCode": 1,
+            "HoldReasonSubCode": 0,
+            "JobStatus": JobStatus.REMOVED,
+            "ProcId": 0,
+            "Reason": "Removed by DAGMan (by user mgower)",
+            "TerminatedNormally": False,
+            "job_held_time": "2025-02-07T12:36:15",
+            "job_released_time": "2025-02-07T12:36:07",
+        }
+        results = WmsSpecificInfo()
+        _add_service_job_specific_info(job_ad, results)
+        self.assertEqual(
+            results.context,
+            {
+                "job_name": "provisioningJob",
+                "status": "DELETED",
+                "status_details": "(Job was held for the following reason: via condor_hold (by user mgower))",
+            },
+        )
+
+
+class GetRunSummaryTestCase(unittest.TestCase):
+    """Test _get_run_summary function."""
+
+    def testJobSummaryInJobAd(self):
+        summary = "pipetaskInit:1;label1:2;label2:2;finalJob:1"
+        job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "bps_job_summary": summary}
+        results = _get_run_summary(job_ad)
+        self.assertEqual(results, summary)
+
+    def testRunSummaryInJobAd(self):
+        summary = "pipetaskInit:1;label1:2;label2:2;finalJob:1"
+        job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "bps_run_summary": summary}
+        results = _get_run_summary(job_ad)
+        self.assertEqual(results, summary)
+
+    def testSummaryFromDag(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/good.dag", tmp_dir)
+            job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "Iwd": tmp_dir}
+            results = _get_run_summary(job_ad)
+            self.assertEqual(results, "pipetaskInit:1;label1:1;label2:1;label3:1;finalJob:1")
+
+    def testSummaryNoDag(self):
+        with self.assertLogs(logger=logger, level="WARNING") as cm:
+            with temporaryDirectory() as tmp_dir:
+                job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "Iwd": tmp_dir}
+                results = _get_run_summary(job_ad)
+                self.assertEqual(results, "")
+            self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
+            self.assertIn("Could not get run summary for htcondor job", cm.output[0])
+
+
+class IsServiceJobTestCase(unittest.TestCase):
+    """Test is_service_job function."""
+
+    def testNotServiceJob(self):
+        job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "bps_job_type": "payload"}
+        self.assertFalse(is_service_job(job_ad))
+
+    def testIsServiceJob(self):
+        job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "bps_job_type": "service"}
+        self.assertTrue(is_service_job(job_ad))
+
+    def testMissingBpsType(self):
+        job_ad = {
+            "ClusterId": 8659,
+            "DAGNodeName": "testJob",
+        }
+        self.assertFalse(is_service_job(job_ad))
+
+
+class CreateDetailedReportFromJobsTestCase(unittest.TestCase):
+    """Test _create_detailed_report_from_jobs function."""
+
+    def testTinySuccess(self):
+        with temporaryDirectory() as tmp_dir:
+            test_submit_dir = os.path.join(tmp_dir, "tiny_success")
+            copytree(f"{TESTDIR}/data/tiny_success", test_submit_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(test_submit_dir)
+            run_reports = _create_detailed_report_from_jobs(wms_workflow_id, jobs)
+            self.assertEqual(len(run_reports), 1)
+            report = run_reports[wms_workflow_id]
+            self.assertEqual(report.wms_id, wms_workflow_id)
+            self.assertEqual(report.state, WmsStates.SUCCEEDED)
+            self.assertTrue(os.path.samefile(report.path, test_submit_dir))
+            self.assertEqual(report.run_summary, "pipetaskInit:1;label1:1;label2:1;finalJob:1")
+            self.assertEqual(
+                report.job_state_counts,
+                {
+                    WmsStates.UNKNOWN: 0,
+                    WmsStates.MISFIT: 0,
+                    WmsStates.UNREADY: 0,
+                    WmsStates.READY: 0,
+                    WmsStates.PENDING: 0,
+                    WmsStates.RUNNING: 0,
+                    WmsStates.DELETED: 0,
+                    WmsStates.HELD: 0,
+                    WmsStates.SUCCEEDED: 4,
+                    WmsStates.FAILED: 0,
+                    WmsStates.PRUNED: 0,
+                },
+            )
+            self.assertEqual(
+                report.specific_info.context,
+                {"job_name": "provisioningJob", "status": "SUCCEEDED", "status_details": ""},
+            )
+
+    def testTinyProblems(self):
+        with temporaryDirectory() as tmp_dir:
+            test_submit_dir = os.path.join(tmp_dir, "tiny_problems")
+            copytree(f"{TESTDIR}/data/tiny_problems", test_submit_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(test_submit_dir)
+            run_reports = _create_detailed_report_from_jobs(wms_workflow_id, jobs)
+            self.assertEqual(len(run_reports), 1)
+            report = run_reports[wms_workflow_id]
+            self.assertEqual(report.wms_id, wms_workflow_id)
+            self.assertEqual(report.state, WmsStates.FAILED)
+            self.assertTrue(os.path.samefile(report.path, test_submit_dir))
+            self.assertEqual(report.run_summary, "pipetaskInit:1;label1:2;label2:2;finalJob:1")
+            self.assertEqual(
+                report.job_state_counts,
+                {
+                    WmsStates.UNKNOWN: 0,
+                    WmsStates.MISFIT: 0,
+                    WmsStates.UNREADY: 0,
+                    WmsStates.READY: 0,
+                    WmsStates.PENDING: 0,
+                    WmsStates.RUNNING: 0,
+                    WmsStates.DELETED: 0,
+                    WmsStates.HELD: 0,
+                    WmsStates.SUCCEEDED: 4,
+                    WmsStates.FAILED: 1,
+                    WmsStates.PRUNED: 1,
+                },
+            )
+            self.assertEqual(
+                run_reports[wms_workflow_id].specific_info.context,
+                {"job_name": "provisioningJob", "status": "SUCCEEDED", "status_details": ""},
+            )
+
+    def testTinyRunning(self):
+        with temporaryDirectory() as tmp_dir:
+            test_submit_dir = os.path.join(tmp_dir, "tiny_running")
+            copytree(f"{TESTDIR}/data/tiny_running", test_submit_dir)
+            wms_workflow_id, jobs, message = _get_info_from_path(test_submit_dir)
+            run_reports = _create_detailed_report_from_jobs(wms_workflow_id, jobs)
+            self.assertEqual(len(run_reports), 1)
+            report = run_reports[wms_workflow_id]
+            self.assertEqual(report.wms_id, wms_workflow_id)
+            self.assertEqual(report.state, WmsStates.RUNNING)
+            self.assertTrue(os.path.samefile(report.path, test_submit_dir))
+            self.assertEqual(report.run_summary, "pipetaskInit:1;label1:1;label2:1;finalJob:1")
+            self.assertEqual(
+                report.job_state_counts,
+                {
+                    WmsStates.UNKNOWN: 0,
+                    WmsStates.MISFIT: 0,
+                    WmsStates.UNREADY: 2,
+                    WmsStates.READY: 0,
+                    WmsStates.PENDING: 0,
+                    WmsStates.RUNNING: 1,
+                    WmsStates.DELETED: 0,
+                    WmsStates.HELD: 0,
+                    WmsStates.SUCCEEDED: 1,
+                    WmsStates.FAILED: 0,
+                    WmsStates.PRUNED: 0,
+                },
+            )
+            self.assertEqual(
+                report.specific_info.context,
+                {"job_name": "provisioningJob", "status": "RUNNING", "status_details": ""},
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

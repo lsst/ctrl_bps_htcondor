@@ -1,0 +1,78 @@
+[
+  Type = "DagStatus";
+  DagFiles = {
+    "/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag"
+  };
+  Timestamp = 1739469648; /* "Thu Feb 13 12:00:48 2025" */
+  DagStatus = 6; /* "STATUS_ERROR (failed)" */
+  NodesTotal = 6;
+  NodesDone = 3;
+  NodesPre = 0;
+  NodesQueued = 0;
+  NodesPost = 0;
+  NodesReady = 0;
+  NodesUnready = 0;
+  NodesFutile = 1;
+  NodesFailed = 2;
+  JobProcsHeld = 0;
+  JobProcsIdle = 0; /* includes held */
+]
+[
+  Type = "NodeStatus";
+  Node = "pipetaskInit";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b";
+  NodeStatus = 6; /* "STATUS_ERROR" */
+  StatusDetails = "Job proc (9231.0.0) failed with status 1";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "40040b97-606d-4997-98d3-e0493055fe7e_label2_val1_val2b";
+  NodeStatus = 7; /* "STATUS_FUTILE" */
+  StatusDetails = "Had an ancestor node fail";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "finalJob";
+  NodeStatus = 6; /* "STATUS_ERROR" */
+  StatusDetails = "Job failed due to DAGMAN error 0 and POST Script failed with status 2";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "StatusEnd";
+  EndTime = 1739469648; /* "Thu Feb 13 12:00:48 2025" */
+  NextUpdate = 0; /* "none" */
+]

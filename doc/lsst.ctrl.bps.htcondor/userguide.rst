@@ -148,6 +148,17 @@ from files.  So, the detailed report can distinguish between failed and
 deleted jobs, and thus will show ``D`` in the flag column for a running
 workflow if there is a deleted job.
 
+Rarely, a detailed report may warn about job submission issues.  For example:
+
+.. code-block:: bash
+
+   Warn: Job submission issues (last: 01/30/25 10:36:57)
+
+A job submission issue could be intermittent or not.  It may cause
+problems with the status or counts in the reports.  To get more information
+about the submission issue, look in the ``*.dag.dagman.out`` file for
+errors, in particular lines containing ``submit attempt failed``.
+
 Occasionally, some jobs are put on hold by HTCondor.  To see the reason why
 jobs are being held, use
 
@@ -276,11 +287,26 @@ Look for the line starting with "Provisioning job status".  For example
    calibrate               0      0       1     0       0       0       0    0         0      0      0        1
    finalJob                0      0       1     0       0       0       0    0         0      0      0        1
 
+If the provisioning job status is UNREADY, check the end of the report to see
+if there is a warning about submission issues.  There may be a temporary problem.
+Check the ``*.dag.dagman.out`` in run submit directory for errors, in
+particular for ``ERROR: submit attempt failed``.
+
+If the provisioning job status is HELD, the hold reason will appear in parentheses.
+
 The service job managing the glideins will be automatically canceled once the
 workflow is completed.  However, the existing glideins will be left for
 HTCondor to shut them down once they remain inactive for the period specified
 by ``provisioningMaxIdleTime`` (default value: 15 min., see below) or maximum
 wall time is reached.
+
+The provisioning job is expected to run as long as the workflow.  If the job
+dies, the job status will be `FAILED`.  If the job just completed successfully,
+the job status will be `SUCCEEDED` with a message saying it ended early (which
+may or may not cause a problem since existing glideins could remain running).
+To get more information about either of these cases, check the job output
+and error files in the `jobs/provisioningJob` subdirectory.
+
 
 If the automatic provisioning of the resources is enabled, the script that the
 service job is supposed to run in order to provide the required resources *must

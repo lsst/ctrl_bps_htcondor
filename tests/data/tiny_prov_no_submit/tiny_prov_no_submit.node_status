@@ -1,0 +1,60 @@
+[
+  Type = "DagStatus";
+  DagFiles = {
+    "/work/testuser/submit/u/testuser/tiny/20250212T200412Z/u_testuser_tiny_20250212T200412Z.dag"
+  };
+  Timestamp = 1739390818; /* "Wed Feb 12 14:06:58 2025" */
+  DagStatus = 6; /* "STATUS_ERROR (failed)" */
+  NodesTotal = 4;
+  NodesDone = 3;
+  NodesPre = 0;
+  NodesQueued = 0;
+  NodesPost = 0;
+  NodesReady = 0;
+  NodesUnready = 0;
+  NodesFutile = 0;
+  NodesFailed = 1;
+  JobProcsHeld = 0;
+  JobProcsIdle = 0; /* includes held */
+]
+[
+  Type = "NodeStatus";
+  Node = "pipetaskInit";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "78475da3-6922-4c9c-8395-ff355196c10f_label1_val1_val2";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "98070426-9528-48d7-a995-444a72bdb6d0_label2_val1_val2";
+  NodeStatus = 5; /* "STATUS_DONE" */
+  StatusDetails = "";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "NodeStatus";
+  Node = "finalJob";
+  NodeStatus = 6; /* "STATUS_ERROR" */
+  StatusDetails = "Job failed due to DAGMAN error 0 and POST Script failed with status 2";
+  RetryCount = 0;
+  JobProcsQueued = 0;
+  JobProcsHeld = 0;
+]
+[
+  Type = "StatusEnd";
+  EndTime = 1739390818; /* "Wed Feb 12 14:06:58 2025" */
+  NextUpdate = 0; /* "none" */
+]

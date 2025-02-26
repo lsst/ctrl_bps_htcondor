@@ -1,0 +1,22 @@
+JOB pipetaskInit "jobs/pipetaskInit/pipetaskInit.sub"
+JOB 78475da3-6922-4c9c-8395-ff355196c10f_label1_val1_val2 "jobs/label1/val1/78475da3-6922-4c9c-8395-ff355196c10f_label1_val1_val2.sub"
+JOB 98070426-9528-48d7-a995-444a72bdb6d0_label2_val1_val2 "jobs/label2/val1/98070426-9528-48d7-a995-444a72bdb6d0_label2_val1_val2.sub"
+PARENT pipetaskInit CHILD 78475da3-6922-4c9c-8395-ff355196c10f_label1_val1_val2
+PARENT 78475da3-6922-4c9c-8395-ff355196c10f_label1_val1_val2 CHILD 98070426-9528-48d7-a995-444a72bdb6d0_label2_val1_val2
+DOT u_testuser_tiny_20250212T200412Z.dot
+NODE_STATUS_FILE u_testuser_tiny_20250212T200412Z.node_status
+SET_JOB_ATTR bps_isjob= "True"
+SET_JOB_ATTR bps_project= "dev"
+SET_JOB_ATTR bps_campaign= "quick"
+SET_JOB_ATTR bps_run= "u_testuser_tiny_20250212T200412Z"
+SET_JOB_ATTR bps_operator= "testuser"
+SET_JOB_ATTR bps_payload= "tiny"
+SET_JOB_ATTR bps_runsite= "testpool"
+SET_JOB_ATTR bps_wms_service= "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorService"
+SET_JOB_ATTR bps_wms_workflow= "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorWorkflow"
+SET_JOB_ATTR bps_run_quanta= "label1:1;label2:1"
+SET_JOB_ATTR bps_job_summary= "pipetaskInit:1;label1:1;label2:1;finalJob:1"
+SET_JOB_ATTR bps_provisioning_job= "provisioningJob"
+FINAL finalJob jobs/finalJob/finalJob.sub
+SCRIPT POST finalJob /work/testuser/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/final_post.sh finalJob $DAG_STATUS $RETURN
+SERVICE provisioningJob jobs/provisioningJob/provisioningJob.sub
