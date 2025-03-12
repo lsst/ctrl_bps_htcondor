@@ -155,7 +155,7 @@ class NodeStatus(IntEnum):
     FUTILE = 7
 
 
-HTC_QUOTE_KEYS = {"environment"}
+HTC_QUOTE_KEYS = {"environment", "transfer_output_remaps"}
 HTC_VALID_JOB_KEYS = {
     "universe",
     "executable",
@@ -173,6 +173,7 @@ HTC_VALID_JOB_KEYS = {
     "transfer_executable",
     "transfer_input_files",
     "transfer_output_files",
+    "transfer_output_remaps",
     "request_cpus",
     "request_memory",
     "request_disk",
