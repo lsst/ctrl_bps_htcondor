@@ -35,26 +35,18 @@ from shutil import copy2, copytree
 
 import htcondor
 
-from lsst.ctrl.bps import BpsConfig, GenericWorkflowExec, GenericWorkflowJob, WmsSpecificInfo, WmsStates
-from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
-from lsst.ctrl.bps.htcondor.htcondor_service import (
-    HTCondorService,
-    JobStatus,
-    NodeStatus,
-    WmsIdType,
-    _add_service_job_specific_info,
-    _create_detailed_report_from_jobs,
-    _get_exit_code_summary,
-    _get_info_from_path,
-    _get_run_summary,
-    _get_state_counts_from_dag_job,
-    _htc_node_status_to_wms_state,
-    _htc_status_to_wms_state,
-    _translate_job_cmds,
-    _wms_id_to_dir,
-    is_service_job,
+from lsst.ctrl.bps import (
+    BPS_DEFAULTS,
+    BPS_SEARCH_ORDER,
+    BpsConfig,
+    GenericWorkflowExec,
+    GenericWorkflowJob,
+    WmsSpecificInfo,
+    WmsStates,
 )
-from lsst.ctrl.bps.htcondor.lssthtc import MISSING_ID
+from lsst.ctrl.bps.htcondor import htcondor_service, lssthtc
+from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
+from lsst.ctrl.bps.tests.gw_test_utils import make_3_label_workflow_groups_sort
 from lsst.utils.tests import temporaryDirectory
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
@@ -90,7 +82,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
 
     def setUp(self):
         config = BpsConfig({}, wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService")
-        self.service = HTCondorService(config)
+        self.service = htcondor_service.HTCondorService(config)
 
     def tearDown(self):
         pass
@@ -180,7 +172,7 @@ class GetExitCodeSummaryTestCase(unittest.TestCase):
         pass
 
     def testMainScenario(self):
-        actual = _get_exit_code_summary(self.jobs)
+        actual = htcondor_service._get_exit_code_summary(self.jobs)
         expected = {"foo": [], "bar": [1], "baz": [11, 42], "qux": []}
         self.assertEqual(actual, expected)
 
@@ -192,7 +184,7 @@ class GetExitCodeSummaryTestCase(unittest.TestCase):
             }
         }
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
-            _get_exit_code_summary(jobs)
+            htcondor_service._get_exit_code_summary(jobs)
         self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
         self.assertIn("Unknown", cm.output[0])
         self.assertIn("JobStatus", cm.output[0])
@@ -206,7 +198,7 @@ class GetExitCodeSummaryTestCase(unittest.TestCase):
             }
         }
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
-            _get_exit_code_summary(jobs)
+            htcondor_service._get_exit_code_summary(jobs)
         self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
         self.assertIn("Attribute", cm.output[0])
         self.assertIn("not found", cm.output[0])
@@ -222,82 +214,82 @@ class HtcNodeStatusToWmsStateTestCase(unittest.TestCase):
         pass
 
     def testNotReady(self):
-        job = {"NodeStatus": NodeStatus.NOT_READY}
-        result = _htc_node_status_to_wms_state(job)
+        job = {"NodeStatus": htcondor_service.NodeStatus.NOT_READY}
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.UNREADY)
 
     def testReady(self):
-        job = {"NodeStatus": NodeStatus.READY}
-        result = _htc_node_status_to_wms_state(job)
+        job = {"NodeStatus": htcondor_service.NodeStatus.READY}
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.READY)
 
     def testPrerun(self):
-        job = {"NodeStatus": NodeStatus.PRERUN}
-        result = _htc_node_status_to_wms_state(job)
+        job = {"NodeStatus": htcondor_service.NodeStatus.PRERUN}
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.MISFIT)
 
     def testSubmittedHeld(self):
         job = {
-            "NodeStatus": NodeStatus.SUBMITTED,
+            "NodeStatus": htcondor_service.NodeStatus.SUBMITTED,
             "JobProcsHeld": 1,
             "StatusDetails": "",
             "JobProcsQueued": 0,
         }
-        result = _htc_node_status_to_wms_state(job)
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.HELD)
 
     def testSubmittedRunning(self):
         job = {
-            "NodeStatus": NodeStatus.SUBMITTED,
+            "NodeStatus": htcondor_service.NodeStatus.SUBMITTED,
             "JobProcsHeld": 0,
             "StatusDetails": "not_idle",
             "JobProcsQueued": 0,
         }
-        result = _htc_node_status_to_wms_state(job)
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.RUNNING)
 
     def testSubmittedPending(self):
         job = {
-            "NodeStatus": NodeStatus.SUBMITTED,
+            "NodeStatus": htcondor_service.NodeStatus.SUBMITTED,
             "JobProcsHeld": 0,
             "StatusDetails": "",
             "JobProcsQueued": 1,
         }
-        result = _htc_node_status_to_wms_state(job)
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.PENDING)
 
     def testPostrun(self):
-        job = {"NodeStatus": NodeStatus.POSTRUN}
-        result = _htc_node_status_to_wms_state(job)
+        job = {"NodeStatus": htcondor_service.NodeStatus.POSTRUN}
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.MISFIT)
 
     def testDone(self):
-        job = {"NodeStatus": NodeStatus.DONE}
-        result = _htc_node_status_to_wms_state(job)
+        job = {"NodeStatus": htcondor_service.NodeStatus.DONE}
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.SUCCEEDED)
 
     def testErrorDagmanSuccess(self):
-        job = {"NodeStatus": NodeStatus.ERROR, "StatusDetails": "DAGMAN error 0"}
-        result = _htc_node_status_to_wms_state(job)
+        job = {"NodeStatus": htcondor_service.NodeStatus.ERROR, "StatusDetails": "DAGMAN error 0"}
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.SUCCEEDED)
 
     def testErrorDagmanFailure(self):
-        job = {"NodeStatus": NodeStatus.ERROR, "StatusDetails": "DAGMAN error 1"}
-        result = _htc_node_status_to_wms_state(job)
+        job = {"NodeStatus": htcondor_service.NodeStatus.ERROR, "StatusDetails": "DAGMAN error 1"}
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.FAILED)
 
     def testFutile(self):
-        job = {"NodeStatus": NodeStatus.FUTILE}
-        result = _htc_node_status_to_wms_state(job)
+        job = {"NodeStatus": htcondor_service.NodeStatus.FUTILE}
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.PRUNED)
 
     def testDeletedJob(self):
         job = {
-            "NodeStatus": NodeStatus.ERROR,
+            "NodeStatus": htcondor_service.NodeStatus.ERROR,
             "StatusDetails": "HTCondor reported ULOG_JOB_ABORTED event for job proc (1.0.0)",
             "JobProcsQueued": 0,
         }
-        result = _htc_node_status_to_wms_state(job)
+        result = htcondor_service._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.DELETED)
 
 
@@ -310,25 +302,25 @@ class HtcStatusToWmsStateTestCase(unittest.TestCase):
             "JobStatus": htcondor.JobStatus.IDLE,
             "bps_job_label": "foo",
         }
-        result = _htc_status_to_wms_state(job)
+        result = htcondor_service._htc_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.PENDING)
 
     def testNodeStatus(self):
         # Hold/Release test case
         job = {
             "ClusterId": 1,
-            "JobStatus": 0,
-            "NodeStatus": NodeStatus.SUBMITTED,
+            "JobStatus": None,
+            "NodeStatus": htcondor_service.NodeStatus.SUBMITTED,
             "JobProcsHeld": 0,
             "StatusDetails": "",
             "JobProcsQueued": 1,
         }
-        result = _htc_status_to_wms_state(job)
+        result = htcondor_service._htc_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.PENDING)
 
     def testNeitherStatus(self):
         job = {"ClusterId": 1}
-        result = _htc_status_to_wms_state(job)
+        result = htcondor_service._htc_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.MISFIT)
 
     def testRetrySuccess(self):
@@ -347,11 +339,11 @@ class HtcStatusToWmsStateTestCase(unittest.TestCase):
                 "ExitBySignal": False,
                 "ExitCode": 0,
             },
-            "JobStatus": JobStatus.COMPLETED,
+            "JobStatus": htcondor.JobStatus.COMPLETED,
             "ExitBySignal": False,
             "ExitCode": 0,
         }
-        result = _htc_status_to_wms_state(job)
+        result = htcondor_service._htc_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.SUCCEEDED)
 
 
@@ -365,56 +357,56 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
     def testRetryUnlessNone(self):
         gwjob = GenericWorkflowJob("retryUnless", "label1", executable=self.gw_exec)
         gwjob.retry_unless_exit = None
-        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertNotIn("retry_until", htc_commands)
 
     def testRetryUnlessInt(self):
         gwjob = GenericWorkflowJob("retryUnlessInt", "label1", executable=self.gw_exec)
         gwjob.retry_unless_exit = 3
-        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(int(htc_commands["retry_until"]), gwjob.retry_unless_exit)
 
     def testRetryUnlessList(self):
         gwjob = GenericWorkflowJob("retryUnlessList", "label1", executable=self.gw_exec)
         gwjob.retry_unless_exit = [1, 2]
-        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["retry_until"], "member(ExitCode, {1,2})")
 
     def testRetryUnlessBad(self):
         gwjob = GenericWorkflowJob("retryUnlessBad", "label1", executable=self.gw_exec)
         gwjob.retry_unless_exit = "1,2,3"
         with self.assertRaises(ValueError) as cm:
-            _ = _translate_job_cmds(self.cached_vals, None, gwjob)
+            _ = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertIn("retryUnlessExit", str(cm.exception))
 
     def testEnvironmentBasic(self):
         gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_INT": 1, "TEST_STR": "TWO"}
-        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], "TEST_INT=1 TEST_STR='TWO'")
 
     def testEnvironmentSpaces(self):
         gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_SPACES": "spacey value"}
-        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], "TEST_SPACES='spacey value'")
 
     def testEnvironmentSingleQuotes(self):
         gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_SINGLE_QUOTES": "spacey 'quoted' value"}
-        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], "TEST_SINGLE_QUOTES='spacey ''quoted'' value'")
 
     def testEnvironmentDoubleQuotes(self):
         gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_DOUBLE_QUOTES": 'spacey "double" value'}
-        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], """TEST_DOUBLE_QUOTES='spacey ""double"" value'""")
 
     def testEnvironmentWithEnvVars(self):
         gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_ENV_VAR": "<ENV:CTRL_BPS_DIR>/tests"}
-        htc_commands = _translate_job_cmds(self.cached_vals, None, gwjob)
+        htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], "TEST_ENV_VAR='$ENV(CTRL_BPS_DIR)/tests'")
 
 
@@ -449,7 +441,7 @@ class GetStateCountsFromDagJobTestCase(unittest.TestCase):
             WmsStates.MISFIT: 0,
         }
 
-        total, result = _get_state_counts_from_dag_job(job)
+        total, result = htcondor_service._get_state_counts_from_dag_job(job)
         self.assertEqual(total, 22)
         self.assertEqual(result, truth)
 
@@ -460,16 +452,16 @@ class GetInfoFromPathTestCase(unittest.TestCase):
     def test_tmpdir_abort(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/test_tmpdir_abort.dag.dagman.out", tmp_dir)
-            wms_workflow_id, jobs, message = _get_info_from_path(tmp_dir)
-            self.assertEqual(wms_workflow_id, MISSING_ID)
+            wms_workflow_id, jobs, message = htcondor_service._get_info_from_path(tmp_dir)
+            self.assertEqual(wms_workflow_id, lssthtc.MISSING_ID)
             self.assertEqual(jobs, {})
             self.assertIn("Cannot submit from /tmp", message)
 
     def test_no_dagman_messages(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/test_no_messages.dag.dagman.out", tmp_dir)
-            wms_workflow_id, jobs, message = _get_info_from_path(tmp_dir)
-            self.assertEqual(wms_workflow_id, MISSING_ID)
+            wms_workflow_id, jobs, message = htcondor_service._get_info_from_path(tmp_dir)
+            self.assertEqual(wms_workflow_id, lssthtc.MISSING_ID)
             self.assertEqual(jobs, {})
             self.assertIn("Could not find HTCondor files", message)
 
@@ -481,7 +473,7 @@ class GetInfoFromPathTestCase(unittest.TestCase):
             copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.nodes.log", tmp_dir)
             copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.node_status", tmp_dir)
             copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.info.json", tmp_dir)
-            wms_workflow_id, jobs, message = _get_info_from_path(tmp_dir)
+            wms_workflow_id, jobs, message = htcondor_service._get_info_from_path(tmp_dir)
             self.assertEqual(wms_workflow_id, "1163.0")
             self.assertEqual(len(jobs), 6)  # dag, pipetaskInit, 3 science, finalJob
             self.assertEqual(message, "")
@@ -498,7 +490,7 @@ class GetInfoFromPathTestCase(unittest.TestCase):
             copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.dag.nodes.log", abs_path)
             copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.node_status", abs_path)
             copy2(f"{TESTDIR}/data/test_pipelines_check_20240727T003507Z.info.json", abs_path)
-            wms_workflow_id, jobs, message = _get_info_from_path("subdir")
+            wms_workflow_id, jobs, message = htcondor_service._get_info_from_path("subdir")
             self.assertEqual(wms_workflow_id, "1163.0")
             self.assertEqual(len(jobs), 6)  # dag, pipetaskInit, 3 science, finalJob
             self.assertEqual(message, "")
@@ -511,29 +503,29 @@ class WmsIdToDirTestCase(unittest.TestCase):
 
     @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
     def testInvalidIdType(self, _wms_id_type_mock):
-        _wms_id_type_mock.return_value = WmsIdType.UNKNOWN
+        _wms_id_type_mock.return_value = htcondor_service.WmsIdType.UNKNOWN
         with self.assertRaises(TypeError) as cm:
-            _, _ = _wms_id_to_dir("not_used")
+            _, _ = htcondor_service._wms_id_to_dir("not_used")
         self.assertIn("Invalid job id type", str(cm.exception))
 
     @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
     def testAbsPathId(self, mock_wms_id_type):
-        mock_wms_id_type.return_value = WmsIdType.PATH
+        mock_wms_id_type.return_value = htcondor_service.WmsIdType.PATH
         with temporaryDirectory() as tmp_dir:
-            wms_path, id_type = _wms_id_to_dir(tmp_dir)
-            self.assertEqual(id_type, WmsIdType.PATH)
+            wms_path, id_type = htcondor_service._wms_id_to_dir(tmp_dir)
+            self.assertEqual(id_type, htcondor_service.WmsIdType.PATH)
             self.assertEqual(Path(tmp_dir).resolve(), wms_path)
 
     @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
     def testRelPathId(self, _wms_id_type_mock):
-        _wms_id_type_mock.return_value = WmsIdType.PATH
+        _wms_id_type_mock.return_value = htcondor_service.WmsIdType.PATH
         orig_dir = Path.cwd()
         with temporaryDirectory() as tmp_dir:
             os.chdir(tmp_dir)
             abs_path = Path(tmp_dir) / "newdir"
             abs_path.mkdir()
-            wms_path, id_type = _wms_id_to_dir("newdir")
-            self.assertEqual(id_type, WmsIdType.PATH)
+            wms_path, id_type = htcondor_service._wms_id_to_dir("newdir")
+            self.assertEqual(id_type, htcondor_service.WmsIdType.PATH)
             self.assertEqual(abs_path.resolve(), wms_path)
             os.chdir(orig_dir)
 
@@ -561,12 +553,12 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": -64,
             "DAGManJobID": "8997.0",
             "DAGNodeName": "provisioningJob",
-            "NodeStatus": NodeStatus.NOT_READY,
+            "NodeStatus": htcondor_service.NodeStatus.NOT_READY,
             "ProcId": 0,
             "bps_job_label": "service_provisioningJob",
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context, {"job_name": "provisioningJob", "status": "UNREADY", "status_details": ""}
         )
@@ -578,11 +570,11 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8523,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": JobStatus.RUNNING,
+            "JobStatus": htcondor.JobStatus.RUNNING,
         }
 
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context, {"job_name": "provisioningJob", "status": "RUNNING", "status_details": ""}
         )
@@ -594,11 +586,11 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8761,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": JobStatus.COMPLETED,
+            "JobStatus": htcondor.JobStatus.COMPLETED,
             "ExitCode": 4,
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context, {"job_name": "provisioningJob", "status": "FAILED", "status_details": ""}
         )
@@ -608,13 +600,13 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
         job_ad = {
             "ClusterId": 9086,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": JobStatus.REMOVED,
+            "JobStatus": htcondor.JobStatus.REMOVED,
             "ProcId": 0,
             "Reason": "via condor_rm (by user mgower)",
             "job_evicted_time": "2025-02-11T11:35:04",
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context, {"job_name": "provisioningJob", "status": "DELETED", "status_details": ""}
         )
@@ -626,11 +618,11 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8761,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": JobStatus.COMPLETED,
+            "JobStatus": htcondor.JobStatus.COMPLETED,
             "ExitCode": 0,
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context,
             {
@@ -646,11 +638,11 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8761,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": JobStatus.REMOVED,
+            "JobStatus": htcondor.JobStatus.REMOVED,
             "Reason": "Removed by DAGMan (by user mgower)",
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context, {"job_name": "provisioningJob", "status": "SUCCEEDED", "status_details": ""}
         )
@@ -661,14 +653,14 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8761,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": JobStatus.REMOVED,
+            "JobStatus": htcondor.JobStatus.REMOVED,
             "Reason": (
                 "removed because <OtherJobRemoveRequirements = DAGManJobId =?= 8556>"
                 " fired when job (8556.0) was removed"
             ),
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context, {"job_name": "provisioningJob", "status": "SUCCEEDED", "status_details": ""}
         )
@@ -680,14 +672,14 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8523,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": JobStatus.HELD,
+            "JobStatus": htcondor.JobStatus.HELD,
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
         }
 
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context,
             {
@@ -705,13 +697,13 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "Failed to execute",
             "HoldReasonCode": 6,
             "HoldReasonSubCode": 2,
-            "JobStatus": JobStatus.REMOVED,
+            "JobStatus": htcondor.JobStatus.REMOVED,
             "ProcId": 0,
             "Reason": "Removed by DAGMan (by user mgower)",
             "job_held_time": "2025-02-07T12:50:07",
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context,
             {
@@ -730,14 +722,14 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": JobStatus.RUNNING,
+            "JobStatus": htcondor.JobStatus.RUNNING,
             "LogNotes": "DAG Node: provisioningJob",
             "ProcId": 0,
             "job_held_time": "2025-02-07T12:33:34",
             "job_released_time": "2025-02-07T12:33:47",
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context, {"job_name": "provisioningJob", "status": "RUNNING", "status_details": ""}
         )
@@ -753,7 +745,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": JobStatus.COMPLETED,
+            "JobStatus": htcondor.JobStatus.COMPLETED,
             "ProcId": 0,
             "Reason": "via condor_release (by user mgower)",
             "ReturnValue": 4,
@@ -762,7 +754,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "job_released_time": "2025-02-11T11:46:47",
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context, {"job_name": "provisioningJob", "status": "FAILED", "status_details": ""}
         )
@@ -778,7 +770,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": JobStatus.COMPLETED,
+            "JobStatus": htcondor.JobStatus.COMPLETED,
             "ProcId": 0,
             "Reason": "via condor_release (by user mgower)",
             "TerminatedNormally": True,
@@ -786,7 +778,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "job_released_time": "2025-02-11T11:55:25",
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context,
             {
@@ -806,7 +798,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": JobStatus.REMOVED,
+            "JobStatus": htcondor.JobStatus.REMOVED,
             "ProcId": 0,
             "Reason": "removed because <OtherJobRemoveRequirements = DAGManJobId =?= "
             "8624> fired when job (8624.0) was removed",
@@ -814,7 +806,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "job_released_time": "2025-02-07T12:33:47",
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context, {"job_name": "provisioningJob", "status": "SUCCEEDED", "status_details": ""}
         )
@@ -828,14 +820,14 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": JobStatus.REMOVED,
+            "JobStatus": htcondor.JobStatus.REMOVED,
             "ProcId": 0,
             "Reason": "via condor_rm (by user mgower)",
             "job_evicted_time": "2025-02-11T11:35:04",
             "job_held_time": "2025-02-11T11:35:04",
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context, {"job_name": "provisioningJob", "status": "DELETED", "status_details": ""}
         )
@@ -849,7 +841,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": JobStatus.REMOVED,
+            "JobStatus": htcondor.JobStatus.REMOVED,
             "ProcId": 0,
             "Reason": "Removed by DAGMan (by user mgower)",
             "TerminatedNormally": False,
@@ -857,7 +849,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "job_released_time": "2025-02-07T12:36:07",
         }
         results = WmsSpecificInfo()
-        _add_service_job_specific_info(job_ad, results)
+        htcondor_service._add_service_job_specific_info(job_ad, results)
         self.assertEqual(
             results.context,
             {
@@ -874,27 +866,27 @@ class GetRunSummaryTestCase(unittest.TestCase):
     def testJobSummaryInJobAd(self):
         summary = "pipetaskInit:1;label1:2;label2:2;finalJob:1"
         job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "bps_job_summary": summary}
-        results = _get_run_summary(job_ad)
+        results = htcondor_service._get_run_summary(job_ad)
         self.assertEqual(results, summary)
 
     def testRunSummaryInJobAd(self):
         summary = "pipetaskInit:1;label1:2;label2:2;finalJob:1"
         job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "bps_run_summary": summary}
-        results = _get_run_summary(job_ad)
+        results = htcondor_service._get_run_summary(job_ad)
         self.assertEqual(results, summary)
 
     def testSummaryFromDag(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/good.dag", tmp_dir)
             job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "Iwd": tmp_dir}
-            results = _get_run_summary(job_ad)
+            results = htcondor_service._get_run_summary(job_ad)
             self.assertEqual(results, "pipetaskInit:1;label1:1;label2:1;label3:1;finalJob:1")
 
     def testSummaryNoDag(self):
         with self.assertLogs(logger=logger, level="WARNING") as cm:
             with temporaryDirectory() as tmp_dir:
                 job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "Iwd": tmp_dir}
-                results = _get_run_summary(job_ad)
+                results = htcondor_service._get_run_summary(job_ad)
                 self.assertEqual(results, "")
             self.assertIn("lsst.ctrl.bps.htcondor", cm.records[0].name)
             self.assertIn("Could not get run summary for htcondor job", cm.output[0])
@@ -904,19 +896,19 @@ class IsServiceJobTestCase(unittest.TestCase):
     """Test is_service_job function."""
 
     def testNotServiceJob(self):
-        job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "bps_job_type": "payload"}
-        self.assertFalse(is_service_job(job_ad))
+        job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "wms_node_type": lssthtc.WmsNodeType.PAYLOAD}
+        self.assertFalse(htcondor_service.is_service_job(job_ad))
 
     def testIsServiceJob(self):
-        job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "bps_job_type": "service"}
-        self.assertTrue(is_service_job(job_ad))
+        job_ad = {"ClusterId": 8659, "DAGNodeName": "testJob", "wms_node_type": lssthtc.WmsNodeType.SERVICE}
+        self.assertTrue(htcondor_service.is_service_job(job_ad))
 
     def testMissingBpsType(self):
         job_ad = {
             "ClusterId": 8659,
             "DAGNodeName": "testJob",
         }
-        self.assertFalse(is_service_job(job_ad))
+        self.assertFalse(htcondor_service.is_service_job(job_ad))
 
 
 class CreateDetailedReportFromJobsTestCase(unittest.TestCase):
@@ -926,8 +918,8 @@ class CreateDetailedReportFromJobsTestCase(unittest.TestCase):
         with temporaryDirectory() as tmp_dir:
             test_submit_dir = os.path.join(tmp_dir, "tiny_success")
             copytree(f"{TESTDIR}/data/tiny_success", test_submit_dir)
-            wms_workflow_id, jobs, message = _get_info_from_path(test_submit_dir)
-            run_reports = _create_detailed_report_from_jobs(wms_workflow_id, jobs)
+            wms_workflow_id, jobs, message = htcondor_service._get_info_from_path(test_submit_dir)
+            run_reports = htcondor_service._create_detailed_report_from_jobs(wms_workflow_id, jobs)
             self.assertEqual(len(run_reports), 1)
             report = run_reports[wms_workflow_id]
             self.assertEqual(report.wms_id, wms_workflow_id)
@@ -959,8 +951,8 @@ class CreateDetailedReportFromJobsTestCase(unittest.TestCase):
         with temporaryDirectory() as tmp_dir:
             test_submit_dir = os.path.join(tmp_dir, "tiny_problems")
             copytree(f"{TESTDIR}/data/tiny_problems", test_submit_dir)
-            wms_workflow_id, jobs, message = _get_info_from_path(test_submit_dir)
-            run_reports = _create_detailed_report_from_jobs(wms_workflow_id, jobs)
+            wms_workflow_id, jobs, message = htcondor_service._get_info_from_path(test_submit_dir)
+            run_reports = htcondor_service._create_detailed_report_from_jobs(wms_workflow_id, jobs)
             self.assertEqual(len(run_reports), 1)
             report = run_reports[wms_workflow_id]
             self.assertEqual(report.wms_id, wms_workflow_id)
@@ -992,8 +984,8 @@ class CreateDetailedReportFromJobsTestCase(unittest.TestCase):
         with temporaryDirectory() as tmp_dir:
             test_submit_dir = os.path.join(tmp_dir, "tiny_running")
             copytree(f"{TESTDIR}/data/tiny_running", test_submit_dir)
-            wms_workflow_id, jobs, message = _get_info_from_path(test_submit_dir)
-            run_reports = _create_detailed_report_from_jobs(wms_workflow_id, jobs)
+            wms_workflow_id, jobs, message = htcondor_service._get_info_from_path(test_submit_dir)
+            run_reports = htcondor_service._create_detailed_report_from_jobs(wms_workflow_id, jobs)
             self.assertEqual(len(run_reports), 1)
             report = run_reports[wms_workflow_id]
             self.assertEqual(report.wms_id, wms_workflow_id)
@@ -1025,8 +1017,8 @@ class CreateDetailedReportFromJobsTestCase(unittest.TestCase):
         with temporaryDirectory() as tmp_dir:
             test_submit_dir = os.path.join(tmp_dir, "noop_running_1")
             copytree(f"{TESTDIR}/data/noop_running_1", test_submit_dir)
-            wms_workflow_id, jobs, message = _get_info_from_path(test_submit_dir)
-            run_reports = _create_detailed_report_from_jobs(wms_workflow_id, jobs)
+            wms_workflow_id, jobs, message = htcondor_service._get_info_from_path(test_submit_dir)
+            run_reports = htcondor_service._create_detailed_report_from_jobs(wms_workflow_id, jobs)
             self.assertEqual(len(run_reports), 1)
             report = run_reports[wms_workflow_id]
             self.assertEqual(report.wms_id, wms_workflow_id)
@@ -1059,8 +1051,8 @@ class CreateDetailedReportFromJobsTestCase(unittest.TestCase):
         with temporaryDirectory() as tmp_dir:
             test_submit_dir = os.path.join(tmp_dir, "noop_failed_1")
             copytree(f"{TESTDIR}/data/noop_failed_1", test_submit_dir)
-            wms_workflow_id, jobs, message = _get_info_from_path(test_submit_dir)
-            run_reports = _create_detailed_report_from_jobs(wms_workflow_id, jobs)
+            wms_workflow_id, jobs, message = htcondor_service._get_info_from_path(test_submit_dir)
+            run_reports = htcondor_service._create_detailed_report_from_jobs(wms_workflow_id, jobs)
             self.assertEqual(len(run_reports), 1)
             report = run_reports[wms_workflow_id]
             self.assertEqual(report.wms_id, wms_workflow_id)
@@ -1100,6 +1092,54 @@ class CreateDetailedReportFromJobsTestCase(unittest.TestCase):
                     "finalJob": [],
                 },
             )
+
+
+class GroupToSubdagTestCase(unittest.TestCase):
+    """Test _group_to_subdag function."""
+
+    def testBlocking(self):
+        gw = make_3_label_workflow_groups_sort("test1", True)
+        gwjob = gw.get_job("group_order1_10001")
+
+        htc_job = htcondor_service._group_to_subdag(BpsConfig({}), gwjob, "the_prefix")
+        self.assertEqual(len(htc_job.subdag), len(gwjob))
+
+
+class GatherSiteValuesTestCase(unittest.TestCase):
+    """Test _gather_site_values function."""
+
+    def testAllThere(self):
+        config = BpsConfig(
+            {},
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+        )
+        compute_site = "notThere"
+        results = htcondor_service._gather_site_values(config, compute_site)
+        self.assertEqual(results["memoryLimit"], BPS_DEFAULTS["memoryLimit"])
+
+    def testNotSpecified(self):
+        config = BpsConfig(
+            {},
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        compute_site = "notThere"
+        results = htcondor_service._gather_site_values(config, compute_site)
+        self.assertEqual(results["memoryLimit"], BPS_DEFAULTS["memoryLimit"])
+
+
+class CreateCheckJobTestCase(unittest.TestCase):
+    """Test _create_check_job function."""
+
+    def testSuccess(self):
+        group_job_name = "group_order1_val1a"
+        job_label = "order1"
+        job = htcondor_service._create_check_job(group_job_name, job_label)
+        self.assertIn(group_job_name, job.name)
+        self.assertEqual(job.label, job_label)
+        self.assertIn("check_group_status.sub", job.subfile)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,12 @@
+# Rescue DAG file, created after running
+#   the group_order1_val1b.dag DAG file
+# Created 3/10/2025 16:07:34 UTC
+# Rescue DAG version: 2.0.1 (partial)
+#
+# Total number of Nodes: 4
+# Nodes premarked DONE: 2
+# Nodes that failed: 1
+#   label2_val1b_val2b,<ENDLIST>
+
+DONE label2_val1b_val2a
+DONE label4_val1b_val2a

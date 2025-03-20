@@ -30,9 +30,10 @@ import io
 import logging
 import os
 import pathlib
+import sys
 import tempfile
 import unittest
-from shutil import copy2, rmtree
+from shutil import copy2, copytree, ignore_patterns, rmtree
 
 import htcondor
 
@@ -226,11 +227,11 @@ class SummarizeDagTestCase(unittest.TestCase):
             self.assertEqual(
                 job_name_to_type,
                 {
-                    "pipetaskInit": "payload",
-                    "0682f8f9-12f0-40a5-971e-8b30c7231e5c_label1_val1_val2": "payload",
-                    "d0305e2d-f164-4a85-bd24-06afe6c84ed9_label2_val1_val2": "payload",
-                    "2806ecc9-1bba-4362-8fff-ab4e6abb9f83_label3_val1_val2": "payload",
-                    "finalJob": "final",
+                    "pipetaskInit": lssthtc.WmsNodeType.PAYLOAD,
+                    "0682f8f9-12f0-40a5-971e-8b30c7231e5c_label1_val1_val2": lssthtc.WmsNodeType.PAYLOAD,
+                    "d0305e2d-f164-4a85-bd24-06afe6c84ed9_label2_val1_val2": lssthtc.WmsNodeType.PAYLOAD,
+                    "2806ecc9-1bba-4362-8fff-ab4e6abb9f83_label3_val1_val2": lssthtc.WmsNodeType.PAYLOAD,
+                    "finalJob": lssthtc.WmsNodeType.FINAL,
                 },
             )
 
@@ -243,10 +244,10 @@ class SummarizeDagTestCase(unittest.TestCase):
                 job_name_to_label,
                 {
                     "pipetaskInit": "pipetaskInit",
-                    "4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a": "label1",
-                    "057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b": "label1",
-                    "696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a": "label2",
-                    "40040b97-606d-4997-98d3-e0493055fe7e_label2_val1_val2b": "label2",
+                    "057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b": "label1",
+                    "4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a": "label1",
+                    "40040b97-606d-4997-98d3-e0493055fe7e_label2_val1a_val2b": "label2",
+                    "696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a": "label2",
                     "finalJob": "finalJob",
                     "provisioningJob": "provisioningJob",
                 },
@@ -254,13 +255,13 @@ class SummarizeDagTestCase(unittest.TestCase):
             self.assertEqual(
                 job_name_to_type,
                 {
-                    "pipetaskInit": "payload",
-                    "4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a": "payload",
-                    "057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b": "payload",
-                    "696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a": "payload",
-                    "40040b97-606d-4997-98d3-e0493055fe7e_label2_val1_val2b": "payload",
-                    "finalJob": "final",
-                    "provisioningJob": "service",
+                    "pipetaskInit": lssthtc.WmsNodeType.PAYLOAD,
+                    "057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "40040b97-606d-4997-98d3-e0493055fe7e_label2_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "finalJob": lssthtc.WmsNodeType.FINAL,
+                    "provisioningJob": lssthtc.WmsNodeType.SERVICE,
                 },
             )
 
@@ -307,47 +308,147 @@ class SummarizeDagTestCase(unittest.TestCase):
                     "label5_val1c_val2b": "label5",
                     "finalJob": "finalJob",
                     "pipetaskInit": "pipetaskInit",
-                    "wms_noop_order1_val1a": "noop",
-                    "wms_noop_order1_val1b": "noop",
+                    "wms_noop_order1_val1a": "order1",
+                    "wms_noop_order1_val1b": "order1",
                 },
             )
             self.assertEqual(
                 job_name_to_type,
                 {
-                    "label1_val1a_val2a": "payload",
-                    "label1_val1a_val2b": "payload",
-                    "label1_val1b_val2a": "payload",
-                    "label1_val1b_val2b": "payload",
-                    "label1_val1c_val2a": "payload",
-                    "label1_val1c_val2b": "payload",
-                    "label2_val1a_val2a": "payload",
-                    "label2_val1a_val2b": "payload",
-                    "label2_val1b_val2a": "payload",
-                    "label2_val1b_val2b": "payload",
-                    "label2_val1c_val2a": "payload",
-                    "label2_val1c_val2b": "payload",
-                    "label3_val1a_val2a": "payload",
-                    "label3_val1a_val2b": "payload",
-                    "label3_val1b_val2a": "payload",
-                    "label3_val1b_val2b": "payload",
-                    "label3_val1c_val2a": "payload",
-                    "label3_val1c_val2b": "payload",
-                    "label4_val1a_val2a": "payload",
-                    "label4_val1a_val2b": "payload",
-                    "label4_val1b_val2a": "payload",
-                    "label4_val1b_val2b": "payload",
-                    "label4_val1c_val2a": "payload",
-                    "label4_val1c_val2b": "payload",
-                    "label5_val1a_val2a": "payload",
-                    "label5_val1a_val2b": "payload",
-                    "label5_val1b_val2a": "payload",
-                    "label5_val1b_val2b": "payload",
-                    "label5_val1c_val2a": "payload",
-                    "label5_val1c_val2b": "payload",
-                    "finalJob": "final",
-                    "pipetaskInit": "payload",
-                    "wms_noop_order1_val1a": "noop",
-                    "wms_noop_order1_val1b": "noop",
+                    "label1_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1b_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1b_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1c_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1c_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1b_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1b_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1c_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1c_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1b_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1b_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1c_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1c_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1b_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1b_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1c_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1c_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1b_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1b_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1c_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1c_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "finalJob": lssthtc.WmsNodeType.FINAL,
+                    "pipetaskInit": lssthtc.WmsNodeType.PAYLOAD,
+                    "wms_noop_order1_val1a": lssthtc.WmsNodeType.NOOP,
+                    "wms_noop_order1_val1b": lssthtc.WmsNodeType.NOOP,
+                },
+            )
+
+    def test_subdags(self):
+        with temporaryDirectory() as tmp_dir:
+            submit_dir = os.path.join(tmp_dir, "group_running_1")
+            copytree(f"{TESTDIR}/data/group_running_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            summary, job_name_to_label, job_name_to_type = lssthtc.summarize_dag(submit_dir)
+            self.assertEqual(
+                set(summary.split(";")),
+                {"pipetaskInit:1", "label1:6", "label2:6", "label3:6", "label4:6", "label5:6", "finalJob:1"},
+            )
+
+            self.assertEqual(
+                job_name_to_label,
+                {
+                    "pipetaskInit": "pipetaskInit",
+                    "label1_val1b_val2a": "label1",
+                    "label1_val1c_val2a": "label1",
+                    "label1_val1a_val2b": "label1",
+                    "label1_val1b_val2b": "label1",
+                    "label1_val1c_val2b": "label1",
+                    "label1_val1a_val2a": "label1",
+                    "label2_val1a_val2b": "label2",
+                    "label2_val1a_val2a": "label2",
+                    "label2_val1b_val2a": "label2",
+                    "label2_val1b_val2b": "label2",
+                    "label2_val1c_val2a": "label2",
+                    "label2_val1c_val2b": "label2",
+                    "label3_val1b_val2a": "label3",
+                    "label3_val1c_val2a": "label3",
+                    "label3_val1a_val2b": "label3",
+                    "label3_val1b_val2b": "label3",
+                    "label3_val1c_val2b": "label3",
+                    "label3_val1a_val2a": "label3",
+                    "label4_val1a_val2b": "label4",
+                    "label4_val1a_val2a": "label4",
+                    "label4_val1b_val2a": "label4",
+                    "label4_val1b_val2b": "label4",
+                    "label4_val1c_val2a": "label4",
+                    "label4_val1c_val2b": "label4",
+                    "label5_val1a_val2b": "label5",
+                    "label5_val1a_val2a": "label5",
+                    "label5_val1b_val2a": "label5",
+                    "label5_val1b_val2b": "label5",
+                    "label5_val1c_val2a": "label5",
+                    "label5_val1c_val2b": "label5",
+                    "finalJob": "finalJob",
+                    "provisioningJob": "provisioningJob",
+                    "wms_group_order1_val1a": "order1",
+                    "wms_group_order1_val1b": "order1",
+                    "wms_group_order1_val1c": "order1",
+                    "wms_check_status_wms_group_order1_val1a": "order1",
+                    "wms_check_status_wms_group_order1_val1b": "order1",
+                    "wms_check_status_wms_group_order1_val1c": "order1",
+                },
+            )
+
+            self.assertEqual(
+                job_name_to_type,
+                {
+                    "pipetaskInit": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1b_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1c_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1b_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1c_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label1_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1b_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1b_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1c_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label2_val1c_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1b_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1c_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1b_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1c_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label3_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1b_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1b_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1c_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label4_val1c_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1a_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1a_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1b_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1b_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1c_val2a": lssthtc.WmsNodeType.PAYLOAD,
+                    "label5_val1c_val2b": lssthtc.WmsNodeType.PAYLOAD,
+                    "finalJob": lssthtc.WmsNodeType.FINAL,
+                    "provisioningJob": lssthtc.WmsNodeType.SERVICE,
+                    "wms_group_order1_val1a": lssthtc.WmsNodeType.SUBDAG,
+                    "wms_group_order1_val1b": lssthtc.WmsNodeType.SUBDAG,
+                    "wms_group_order1_val1c": lssthtc.WmsNodeType.SUBDAG,
+                    "wms_check_status_wms_group_order1_val1a": lssthtc.WmsNodeType.SUBDAG_CHECK,
+                    "wms_check_status_wms_group_order1_val1b": lssthtc.WmsNodeType.SUBDAG_CHECK,
+                    "wms_check_status_wms_group_order1_val1c": lssthtc.WmsNodeType.SUBDAG_CHECK,
                 },
             )
 
@@ -363,7 +464,39 @@ class ReadDagNodesLogTestCase(unittest.TestCase):
 
     def testFileMissing(self):
         with self.assertRaisesRegex(FileNotFoundError, "DAGMan node log not found in"):
-            _, _ = lssthtc.read_dag_nodes_log(self.tmpdir)
+            _ = lssthtc.read_dag_nodes_log(self.tmpdir)
+
+    def testBadFile(self):
+        with temporaryDirectory() as tmp_dir:
+            submit_dir = os.path.join(tmp_dir, "tiny_problems")
+            copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            results = lssthtc.read_dag_nodes_log(submit_dir)
+            self.assertEqual(results["9231.0"]["JobStatus"], lssthtc.JobStatus.COMPLETED)
+            self.assertEqual(results["9231.0"]["ExitCode"], 1)
+            self.assertEqual(len(results), 6)
+
+    def testRegular(self):
+        with temporaryDirectory() as tmp_dir:
+            submit_dir = os.path.join(tmp_dir, "tiny_problems")
+            copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            results = lssthtc.read_dag_nodes_log(submit_dir)
+            self.assertEqual(results["9231.0"]["JobStatus"], lssthtc.JobStatus.COMPLETED)
+            self.assertEqual(results["9231.0"]["ExitCode"], 1)
+            self.assertEqual(len(results), 6)
+
+    def testSubdags(self):
+        """Making sure it gets data from subdag dirs and doesn't
+        fail if some subdags haven't started running yet.
+        """
+        with temporaryDirectory() as tmp_dir:
+            submit_dir = os.path.join(tmp_dir, "group_running_1")
+            copytree(f"{TESTDIR}/data/group_running_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            results = lssthtc.read_dag_nodes_log(submit_dir)
+            # main dag
+            self.assertEqual(results["10094.0"]["JobStatus"], lssthtc.JobStatus.RUNNING)
+            # subdag
+            self.assertEqual(results["10112.0"]["JobStatus"], lssthtc.JobStatus.COMPLETED)
+            self.assertEqual(results["10116.0"]["JobStatus"], lssthtc.JobStatus.RUNNING)
 
 
 class ReadNodeStatusTestCase(unittest.TestCase):
@@ -384,7 +517,11 @@ class ReadNodeStatusTestCase(unittest.TestCase):
         copy2(f"{TESTDIR}/data/tiny_prov_no_submit/tiny_prov_no_submit.dag", self.tmpdir)
 
         jobs = lssthtc.read_node_status(self.tmpdir)
-        found = [id_ for id_ in jobs if jobs[id_].get("bps_job_type", "MISS") == "service"]
+        found = [
+            id_
+            for id_ in jobs
+            if jobs[id_].get("wms_node_type", lssthtc.WmsNodeType.UNKNOWN) == lssthtc.WmsNodeType.SERVICE
+        ]
         self.assertEqual(len(found), 1)
         self.assertEqual(jobs[found[0]]["DAGNodeName"], "provisioningJob")
         self.assertEqual(jobs[found[0]]["NodeStatus"], lssthtc.NodeStatus.NOT_READY)
@@ -397,11 +534,101 @@ class ReadNodeStatusTestCase(unittest.TestCase):
         jobs = lssthtc.read_node_status(self.tmpdir)
         self.assertEqual(len(jobs), 7)
         self.assertEqual(jobs["9230.0"]["DAGNodeName"], "pipetaskInit")
-        self.assertEqual(jobs["9230.0"]["bps_job_type"], "payload")
+        self.assertEqual(jobs["9230.0"]["wms_node_type"], lssthtc.WmsNodeType.PAYLOAD)
         self.assertEqual(jobs["9230.0"]["JobStatus"], lssthtc.JobStatus.COMPLETED)
-        found = [id_ for id_ in jobs if jobs[id_].get("bps_job_type", "MISS") == "service"]
+        found = [
+            id_
+            for id_ in jobs
+            if jobs[id_].get("wms_node_type", lssthtc.WmsNodeType.UNKNOWN) == lssthtc.WmsNodeType.SERVICE
+        ]
         self.assertEqual(len(found), 1)
         self.assertEqual(jobs[found[0]]["DAGNodeName"], "provisioningJob")
+
+    def testSubdagsRunning(self):
+        with temporaryDirectory() as tmp_dir:
+            test_tmp_dir = pathlib.Path(tmp_dir)
+            submit_dir = test_tmp_dir / "submit"
+            copytree(f"{TESTDIR}/data/group_running_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            jobs = lssthtc.read_node_status(submit_dir)
+            self.assertEqual(len(jobs), 39)  # includes non-payload jobs
+            # not guaranteed ids are same, so use names instead
+            job_name_to_id = {}
+            for id_, info in jobs.items():
+                job_name_to_id[info.get("DAGNodeName", id_)] = id_
+            job_type_to_names = {}
+            for id_, info in jobs.items():
+                job_type_to_names.setdefault(
+                    info.get("wms_node_type", lssthtc.WmsNodeType.UNKNOWN), set()
+                ).add(info.get("DAGNodeName", id_))
+
+            # check counts
+            self.assertNotIn(lssthtc.WmsNodeType.NOOP, job_type_to_names)
+            self.assertEqual(len(job_type_to_names[lssthtc.WmsNodeType.PAYLOAD]), 31)
+            self.assertEqual(len(job_type_to_names[lssthtc.WmsNodeType.FINAL]), 1)
+            self.assertEqual(len(job_type_to_names[lssthtc.WmsNodeType.SERVICE]), 1)
+            self.assertEqual(len(job_type_to_names[lssthtc.WmsNodeType.SUBDAG]), 3)
+            self.assertEqual(len(job_type_to_names[lssthtc.WmsNodeType.SUBDAG_CHECK]), 3)
+
+            # spot check some statuses
+            self.assertEqual(
+                jobs[job_name_to_id["label3_val1a_val2b"]]["NodeStatus"], lssthtc.NodeStatus.DONE
+            )
+            self.assertEqual(
+                jobs[job_name_to_id["wms_group_order1_val1a"]]["NodeStatus"], lssthtc.NodeStatus.SUBMITTED
+            )
+            self.assertEqual(
+                jobs[job_name_to_id["label5_val1a_val2a"]]["NodeStatus"], lssthtc.NodeStatus.NOT_READY
+            )
+            self.assertEqual(
+                jobs[job_name_to_id["label2_val1a_val2a"]]["NodeStatus"], lssthtc.NodeStatus.DONE
+            )
+
+    def testSubdagsFailed(self):
+        with temporaryDirectory() as tmp_dir:
+            test_tmp_dir = pathlib.Path(tmp_dir)
+            submit_dir = test_tmp_dir / "submit"
+            copytree(f"{TESTDIR}/data/group_failed_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            jobs = lssthtc.read_node_status(submit_dir)
+            self.assertEqual(len(jobs), 39)
+            # not guaranteed ids are same, so use names instead
+            job_name_to_id = {}
+            for id_, info in jobs.items():
+                job_name_to_id[info.get("DAGNodeName", id_)] = id_
+            job_type_to_names = {}
+            for id_, info in jobs.items():
+                job_type_to_names.setdefault(
+                    info.get("wms_node_type", lssthtc.WmsNodeType.UNKNOWN), set()
+                ).add(info.get("DAGNodeName", id_))
+
+            # check counts
+            self.assertNotIn(lssthtc.WmsNodeType.NOOP, job_type_to_names)
+            self.assertEqual(len(job_type_to_names[lssthtc.WmsNodeType.PAYLOAD]), 31)
+            self.assertEqual(len(job_type_to_names[lssthtc.WmsNodeType.FINAL]), 1)
+            self.assertEqual(len(job_type_to_names[lssthtc.WmsNodeType.SERVICE]), 1)
+            self.assertEqual(len(job_type_to_names[lssthtc.WmsNodeType.SUBDAG]), 3)
+            self.assertEqual(len(job_type_to_names[lssthtc.WmsNodeType.SUBDAG_CHECK]), 3)
+
+            # spot check some statuses
+            self.assertEqual(
+                jobs[job_name_to_id["label3_val1a_val2b"]]["NodeStatus"], lssthtc.NodeStatus.DONE
+            )
+            self.assertEqual(
+                jobs[job_name_to_id["wms_group_order1_val1a"]]["NodeStatus"], lssthtc.NodeStatus.DONE
+            )
+            self.assertEqual(
+                jobs[job_name_to_id["label5_val1a_val2a"]]["NodeStatus"], lssthtc.NodeStatus.DONE
+            )
+
+            self.assertEqual(
+                jobs[job_name_to_id["label5_val1b_val2a"]]["NodeStatus"], lssthtc.NodeStatus.FUTILE
+            )
+            self.assertEqual(
+                jobs[job_name_to_id["wms_group_order1_val1b"]]["NodeStatus"], lssthtc.NodeStatus.DONE
+            )
+            self.assertEqual(
+                jobs[job_name_to_id["wms_check_status_wms_group_order1_val1b"]]["NodeStatus"],
+                lssthtc.NodeStatus.ERROR,
+            )
 
 
 class HTCJobTestCase(unittest.TestCase):
@@ -409,17 +636,507 @@ class HTCJobTestCase(unittest.TestCase):
 
     def testWriteDagCommandsPayload(self):
         job = lssthtc.HTCJob(
-            "job1", "label1", {"executable": "/bin/sleep", "arguments": "60", "log": "job1.log"}
+            "job1",
+            "label1",
+            {"executable": "/bin/sleep", "arguments": "60", "log": "job1.log"},
+            {"dir": "jobs/label1"},
         )
-        fakefile = io.StringIO()
-        job.write_dag_commands(fakefile)
-        self.assertIn("job1", fakefile.getvalue())
+        job.subfile = "job1.sub"
+
+        mockfh = io.StringIO()
+        job.write_dag_commands(mockfh, "../..")
+        self.assertIn('JOB job1 "job1.sub" DIR "../../jobs/label1"', mockfh.getvalue())
+
+    def testWriteDagCommandsNotJob(self):
+        # Testing giving command_name, no dag_rel_path and no dir
+        job = lssthtc.HTCJob(
+            "finalJob",
+            "finalJob",
+            {"executable": "/bin/sleep", "arguments": "60", "log": "job1.log"},
+        )
+        job.subfile = "jobs/finalJob/finalJob.sub"
+        mockfh = io.StringIO()
+        job.write_dag_commands(mockfh, "", "FINAL")
+        self.assertIn('FINAL finalJob "jobs/finalJob/finalJob.sub"', mockfh.getvalue())
 
     def testWriteDagCommandsNoop(self):
-        job = lssthtc.HTCJob("wms_noop_job1", "label1")
-        fakefile = io.StringIO()
-        job.write_dag_commands(fakefile)
-        self.assertIn("NOOP", fakefile.getvalue())
+        job = lssthtc.HTCJob("wms_noop_job1", "label1", {}, {"noop": True})
+        job.subfile = "notthere.sub"
+        mockfh = io.StringIO()
+        job.write_dag_commands(mockfh, "")
+        self.assertIn("NOOP", mockfh.getvalue())
+
+    def testWriteSubmitFile(self):
+        job = lssthtc.HTCJob(
+            "job1",
+            "label1",
+            {"executable": "/bin/sleep", "arguments": "60", "log": "job1.log"},
+        )
+        with temporaryDirectory() as tmp_dir:
+            filename = pathlib.Path(tmp_dir) / "label1/job1.sub"
+            job.write_submit_file(filename.parent)
+            self.assertTrue(filename.exists())
+            # Try to make Submit object from file to find any syntax issues
+            _ = lssthtc.htc_create_submit_from_file(filename)
+
+    def testWriteSubmitFileExists(self):
+        job = lssthtc.HTCJob(
+            "job1",
+            "label1",
+            {"executable": "/bin/sleep", "arguments": "60", "log": "job1.log"},
+        )
+        with temporaryDirectory() as tmp_dir:
+            filename = pathlib.Path(tmp_dir) / "job1.sub"
+            job.subfile = filename
+            with open(filename, "w"):
+                pass  # make empty file
+            job.write_submit_file(filename.parent)
+            # make sure didn't overwrite file
+            self.assertEqual(filename.stat().st_size, 0, "Incorrectly overwrote existing file")
+
+
+class HtcWriteJobCommands(unittest.TestCase):
+    """Test _htc_write_job_commands function."""
+
+    def testAllCommands(self):
+        dag_cmds = {
+            "pre": {
+                "defer": {"status": 1, "time": 120},
+                "debug": {"filename": "debug_pre.txt", "type": "ALL"},
+                "executable": "exec1",
+                "arguments": "arg1 arg2",
+            },
+            "post": {
+                "defer": {"status": 2, "time": 180},
+                "debug": {"filename": "debug_post.txt", "type": "ALL"},
+                "executable": "exec2",
+                "arguments": "arg3 arg4",
+            },
+            "vars": {"num": 8, "spaces": "a space"},
+            "pre_skip": "1",
+            "retry": 3,
+            "retry_unless_exit": 1,
+            "abort_dag_on": {"node_exit": 100, "abort_exit": 4},
+        }
+
+        truth = """SCRIPT DEFER 1 120 DEBUG debug_pre.txt ALL PRE job1 exec1 arg1 arg2
+SCRIPT DEFER 2 180 DEBUG debug_post.txt ALL POST job1 exec2 arg3 arg4
+VARS job1 num="8"
+VARS job1 spaces="a space"
+PRE_SKIP job1 1
+RETRY job1 3 UNLESS-EXIT 1
+ABORT-DAG-ON job1 100 RETURN 4
+"""
+        mockfh = io.StringIO()
+        lssthtc._htc_write_job_commands(mockfh, "job1", dag_cmds)
+        self.assertEqual(mockfh.getvalue(), truth)
+
+    def testPartialCommands(self):
+        # Trigger skipping the inner if clauses.
+        dag_cmds = {
+            "pre": {
+                "executable": "exec1",
+            },
+            "post": {
+                "executable": "exec2",
+            },
+            "vars": {"num": 8, "spaces": "a space"},
+            "pre_skip": "1",
+            "retry": 3,
+        }
+
+        truth = """SCRIPT PRE job1 exec1
+SCRIPT POST job1 exec2
+VARS job1 num="8"
+VARS job1 spaces="a space"
+PRE_SKIP job1 1
+RETRY job1 3
+"""
+        mockfh = io.StringIO()
+        lssthtc._htc_write_job_commands(mockfh, "job1", dag_cmds)
+        self.assertEqual(mockfh.getvalue(), truth)
+
+    def testNoCommands(self):
+        dag_cmds = {}
+        mockfh = io.StringIO()
+        lssthtc._htc_write_job_commands(mockfh, "job2", dag_cmds)
+        self.assertEqual(mockfh.getvalue(), "")
+
+
+class HTCBackupFilesSinglePathTestCase(unittest.TestCase):
+    """Test htc_backup_files_single_path function."""
+
+    def testSrcDestSame(self):
+        with temporaryDirectory() as tmp_dir:
+            with self.assertRaisesRegex(
+                RuntimeError, "Destination directory is same as the source directory"
+            ):
+                lssthtc.htc_backup_files_single_path(tmp_dir, tmp_dir)
+
+    def testSuccess(self):
+        with temporaryDirectory() as tmp_dir:
+            test_tmp_dir = pathlib.Path(tmp_dir)
+            submit_dir = test_tmp_dir / "the_src_dir"
+            copytree(f"{TESTDIR}/data/tiny_success", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            backup_dir = test_tmp_dir / "the_dest_dir"
+            backup_dir.mkdir()
+            lssthtc.htc_backup_files_single_path(submit_dir, backup_dir)
+            result_submit = []
+            for root, _, files in submit_dir.walk():
+                result_submit.extend([str(root.relative_to(submit_dir) / f) for f in files])
+            self.assertEqual(
+                set(result_submit),
+                {
+                    "tiny_success.dag.dagman.log",
+                    "tiny_success.dag.dagman.out",
+                    "tiny_success.dag",
+                },
+            )
+            result_backup = []
+            for root, _, files in backup_dir.walk():
+                result_backup.extend([str(root.relative_to(backup_dir) / f) for f in files])
+            self.assertEqual(
+                set(result_backup),
+                {
+                    "tiny_success.info.json",
+                    "tiny_success.dag.metrics",
+                    "tiny_success.dag.nodes.log",
+                    "tiny_success.node_status",
+                },
+            )
+
+
+class HTCBackupFilesTestCase(unittest.TestCase):
+    """Test htc_backup_files function."""
+
+    def testDirectoryNotFound(self):
+        with temporaryDirectory() as tmp_dir:
+            test_tmp_dir = pathlib.Path(tmp_dir)
+            submit_dir = test_tmp_dir / "submit"
+            with self.assertRaises(FileNotFoundError):
+                _ = lssthtc.htc_backup_files(submit_dir)
+
+    def testSuccess(self):
+        with temporaryDirectory() as tmp_dir:
+            test_tmp_dir = pathlib.Path(tmp_dir)
+            submit_dir = test_tmp_dir / "submit"
+            copytree(f"{TESTDIR}/data/tiny_success", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            result_rescue = lssthtc.htc_backup_files(submit_dir)
+            self.assertIsNone(result_rescue)
+            result_submit = []
+            for root, _, files in submit_dir.walk():
+                result_submit.extend([str(root.relative_to(submit_dir) / f) for f in files])
+            self.assertEqual(
+                set(result_submit),
+                {
+                    "tiny_success.dag.dagman.log",
+                    "tiny_success.dag.dagman.out",
+                    "tiny_success.dag",
+                    "000/tiny_success.info.json",
+                    "000/tiny_success.dag.metrics",
+                    "000/tiny_success.dag.nodes.log",
+                    "000/tiny_success.node_status",
+                },
+            )
+
+    def testDestNotInSubmitDir(self):
+        with temporaryDirectory() as tmp_dir:
+            test_tmp_dir = pathlib.Path(tmp_dir)
+            submit_dir = test_tmp_dir / "submit"
+            copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            with self.assertLogs("lsst.ctrl.bps.htcondor", level="WARNING") as cm:
+                result_rescue = lssthtc.htc_backup_files(submit_dir, test_tmp_dir / "backup")
+            self.assertIn("Invalid backup location:", cm.output[-1])
+            result_rescue = lssthtc.htc_backup_files(submit_dir)
+            self.assertTrue((submit_dir / "tiny_problems.dag.rescue001").samefile(result_rescue))
+            result_submit = []
+            for root, _, files in submit_dir.walk():
+                result_submit.extend([str(root.relative_to(submit_dir) / f) for f in files])
+            self.assertEqual(
+                set(result_submit),
+                {
+                    "tiny_problems.dag.dagman.log",
+                    "tiny_problems.dag.dagman.out",
+                    "tiny_problems.dag",
+                    "tiny_problems.dag.rescue001",
+                    "001/tiny_problems.info.json",
+                    "001/tiny_problems.dag.metrics",
+                    "001/tiny_problems.dag.nodes.log",
+                    "001/tiny_problems.node_status",
+                },
+            )
+
+    def testDestInSubmitDir(self):
+        with temporaryDirectory() as tmp_dir:
+            test_tmp_dir = pathlib.Path(tmp_dir)
+            submit_dir = test_tmp_dir / "submit"
+            backup_dir = submit_dir / "subdir"
+            copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            result_rescue = lssthtc.htc_backup_files(submit_dir, backup_dir)
+            self.assertTrue((submit_dir / "tiny_problems.dag.rescue001").samefile(result_rescue))
+            result_submit = []
+            for root, _, files in submit_dir.walk():
+                result_submit.extend([str(root.relative_to(submit_dir) / f) for f in files])
+            self.assertEqual(
+                set(result_submit),
+                {
+                    "tiny_problems.dag.dagman.log",
+                    "tiny_problems.dag.dagman.out",
+                    "tiny_problems.dag",
+                    "tiny_problems.dag.rescue001",
+                    "subdir/001/tiny_problems.info.json",
+                    "subdir/001/tiny_problems.dag.metrics",
+                    "subdir/001/tiny_problems.dag.nodes.log",
+                    "subdir/001/tiny_problems.node_status",
+                },
+            )
+
+    def testRelativeSubdir(self):
+        with temporaryDirectory() as tmp_dir:
+            test_tmp_dir = pathlib.Path(tmp_dir)
+            submit_dir = test_tmp_dir / "submit"
+            copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            result_rescue = lssthtc.htc_backup_files(submit_dir, "reldir")
+            self.assertTrue((submit_dir / "tiny_problems.dag.rescue001").samefile(result_rescue))
+            result_submit = []
+            for root, _, files in submit_dir.walk():
+                result_submit.extend([str(root.relative_to(submit_dir) / f) for f in files])
+            self.assertEqual(
+                set(result_submit),
+                {
+                    "tiny_problems.dag.dagman.log",
+                    "tiny_problems.dag.dagman.out",
+                    "tiny_problems.dag",
+                    "tiny_problems.dag.rescue001",
+                    "reldir/001/tiny_problems.info.json",
+                    "reldir/001/tiny_problems.dag.metrics",
+                    "reldir/001/tiny_problems.dag.nodes.log",
+                    "reldir/001/tiny_problems.node_status",
+                },
+            )
+
+    def testSubdags(self):
+        with temporaryDirectory() as tmp_dir:
+            test_tmp_dir = pathlib.Path(tmp_dir)
+            submit_dir = test_tmp_dir / "submit"
+            copytree(f"{TESTDIR}/data/group_failed_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            result_rescue = lssthtc.htc_backup_files(submit_dir)
+            self.assertTrue(result_rescue.samefile(submit_dir / "group_failed_1.dag.rescue001"))
+            result_submit = []
+            for root, _, files in submit_dir.walk():
+                result_submit.extend([str(root.relative_to(submit_dir) / f) for f in files])
+            self.assertEqual(
+                set(result_submit),
+                {
+                    "group_failed_1.dag",
+                    "group_failed_1.dag.dagman.log",
+                    "group_failed_1.dag.dagman.out",
+                    "group_failed_1.dag.rescue001",
+                    "subdags/wms_group_order1_val1a/group_order1_val1a.dag",
+                    "subdags/wms_group_order1_val1a/group_order1_val1a.dag.dagman.log",
+                    "subdags/wms_group_order1_val1a/group_order1_val1a.dag.dagman.out",
+                    "subdags/wms_group_order1_val1b/group_order1_val1b.dag",
+                    "subdags/wms_group_order1_val1b/group_order1_val1b.dag.dagman.log",
+                    "subdags/wms_group_order1_val1b/group_order1_val1b.dag.dagman.out",
+                    "subdags/wms_group_order1_val1b/group_order1_val1b.dag.rescue001",
+                    "subdags/wms_group_order1_val1c/group_order1_val1c.dag",
+                    "subdags/wms_group_order1_val1c/group_order1_val1c.dag.dagman.log",
+                    "subdags/wms_group_order1_val1c/group_order1_val1c.dag.dagman.out",
+                    "001/group_failed_1.dag.nodes.log",
+                    "001/group_failed_1.info.json",
+                    "001/group_failed_1.node_status",
+                    "001/subdags/wms_group_order1_val1a/group_order1_val1a.dag.nodes.log",
+                    "001/subdags/wms_group_order1_val1a/group_order1_val1a.node_status",
+                    "001/subdags/wms_group_order1_val1a/wms_group_order1_val1a.dag.post.out",
+                    "001/subdags/wms_group_order1_val1a/wms_group_order1_val1a.status.txt",
+                    "001/subdags/wms_group_order1_val1b/group_order1_val1b.dag.nodes.log",
+                    "001/subdags/wms_group_order1_val1b/group_order1_val1b.node_status",
+                    "001/subdags/wms_group_order1_val1b/wms_group_order1_val1b.status.txt",
+                    "001/subdags/wms_group_order1_val1b/wms_group_order1_val1b.dag.post.out",
+                    "001/subdags/wms_group_order1_val1c/group_order1_val1c.dag.nodes.log",
+                    "001/subdags/wms_group_order1_val1c/group_order1_val1c.node_status",
+                    "001/subdags/wms_group_order1_val1c/wms_group_order1_val1c.dag.post.out",
+                    "001/subdags/wms_group_order1_val1c/wms_group_order1_val1c.status.txt",
+                },
+            )
+
+
+class UpdateRescueFileTestCase(unittest.TestCase):
+    """Test _update_rescue_file function."""
+
+    def testSuccess(self):
+        self.maxDiff = None
+        with temporaryDirectory() as tmp_dir:
+            test_tmp_dir = pathlib.Path(tmp_dir)
+            submit_dir = test_tmp_dir / "submit"
+            copytree(f"{TESTDIR}/data/group_failed_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            rescue_file = submit_dir / "group_failed_1.dag.rescue001"
+            lssthtc._update_rescue_file(rescue_file)
+
+            with open(rescue_file) as fh:
+                lines = fh.readlines()
+                results = "".join(lines)
+
+            truth = """# Rescue DAG file, created after running
+#   the u_testuser_DM-46294_group_fail_20250310T160455Z.dag DAG file
+# Created 3/10/2025 16:08:56 UTC
+# Rescue DAG version: 2.0.1 (partial)
+#
+# Total number of Nodes: 26
+# Nodes premarked DONE: 21
+# Nodes that failed: 2
+#   wms_group_order1_val1b,finalJob,<ENDLIST>
+
+DONE pipetaskInit
+DONE label1_val1c_val2a
+DONE label1_val1b_val2b
+DONE label1_val1b_val2a
+DONE label1_val1c_val2b
+DONE label1_val1a_val2a
+DONE label1_val1a_val2b
+DONE label3_val1c_val2a
+DONE label3_val1b_val2b
+DONE label3_val1b_val2a
+DONE label3_val1c_val2b
+DONE label3_val1a_val2a
+DONE label3_val1a_val2b
+DONE wms_group_order1_val1a
+DONE label5_val1a_val2a
+DONE label5_val1a_val2b
+DONE wms_group_order1_val1c
+DONE label5_val1c_val2a
+DONE label5_val1c_val2b
+DONE wms_check_status_wms_group_order1_val1a
+DONE wms_check_status_wms_group_order1_val1c
+"""
+
+            print("results = ", results, file=sys.stderr)
+            print("truth = ", truth, file=sys.stderr)
+            self.assertEqual(results, truth)
+
+
+class ReadDagStatusTestCase(unittest.TestCase):
+    """Test read_dag_status function and read_single_dag_status."""
+
+    def testFileMissing(self):
+        with temporaryDirectory() as tmp_dir:
+            with self.assertRaisesRegex(FileNotFoundError, "DAGMan node status not found"):
+                _ = lssthtc.read_dag_status(tmp_dir)
+
+    def testRegular(self):
+        with temporaryDirectory() as tmp_dir:
+            submit_dir = os.path.join(tmp_dir, "tiny_problems")
+            copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            results = lssthtc.read_dag_status(submit_dir)
+            truth = {
+                "JobProcsHeld": 0,
+                "NodesPost": 0,
+                "JobProcsIdle": 0,
+                "NodesTotal": 6,
+                "NodesFailed": 2,
+                "NodesDone": 3,
+                "NodesQueued": 0,
+                "NodesPre": 0,
+                "NodesFutile": 1,
+                "NodesUnready": 0,
+            }
+            self.assertEqual(results, results | truth)
+
+    def testSubdags(self):
+        """Making sure it gets data from subdag dirs and doesn't
+        fail if some subdags haven't started running yet.
+        """
+        self.maxDiff = None
+        with temporaryDirectory() as tmp_dir:
+            submit_dir = os.path.join(tmp_dir, "submit")
+            copytree(f"{TESTDIR}/data/group_running_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
+            results = lssthtc.read_dag_status(submit_dir)
+            truth = {
+                "JobProcsHeld": 0,
+                "NodesPost": 0,
+                "JobProcsIdle": 0,
+                "NodesTotal": 34,
+                "NodesFailed": 0,
+                "NodesDone": 17,
+                "NodesQueued": 3,
+                "NodesPre": 0,
+                "NodesFutile": 0,
+                "NodesUnready": 14,
+            }
+            self.assertEqual(results, results | truth)
+
+
+class ReadDagInfoTestCase(unittest.TestCase):
+    """Test read_dag_info function."""
+
+    def testFileMissing(self):
+        with temporaryDirectory() as tmp_dir:
+            with self.assertRaisesRegex(FileNotFoundError, "File with DAGMan job information not found in "):
+                _ = lssthtc.read_dag_info(tmp_dir)
+
+    def testSuccess(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.info.json", tmp_dir)
+            results = lssthtc.read_dag_info(tmp_dir)
+
+        truth = {
+            "test02": {
+                "9208.0": {
+                    "ClusterId": 9208,
+                    "GlobalJobId": "test02#9208.0#1739465078",
+                    "bps_wms_service": "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorService",
+                    "bps_project": "dev",
+                    "bps_payload": "tiny",
+                    "bps_operator": "testuser",
+                    "bps_wms_workflow": "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorWorkflow",
+                    "bps_provisioning_job": "provisioningJob",
+                    "bps_run_quanta": "label1:1;label2:1",
+                    "bps_campaign": "quick",
+                    "bps_runsite": "testpool",
+                    "bps_job_summary": "pipetaskInit:1;label1:1;label2:1;finalJob:1",
+                    "bps_run": "u_testuser_tiny_20250213T164427Z",
+                    "bps_isjob": "True",
+                }
+            }
+        }
+
+        self.assertEqual(results, truth)
+
+    def testPermissionError(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.info.json", tmp_dir)
+            with unittest.mock.patch("lsst.ctrl.bps.htcondor.lssthtc.open") as mocked_open:
+                mocked_open.side_effect = PermissionError
+                with self.assertLogs("lsst.ctrl.bps.htcondor", level="DEBUG") as cm:
+                    results = lssthtc.read_dag_info(tmp_dir)
+                self.assertIn("Retrieving DAGMan job information failed:", cm.output[-1])
+                self.assertEqual({}, results)
+
+
+class HtcWriteCondorFileTestCase(unittest.TestCase):
+    """Test htc_write_condor_file function."""
+
+    def testSuccess(self):
+        with temporaryDirectory() as tmp_dir:
+            job_name = "job1"
+            filename = pathlib.Path(tmp_dir) / f"label1/{job_name}.sub"
+            job = {
+                "executable": "$(CTRL_MPEXEC_DIR)/bin/pipetask",
+                "arguments": "-a -b 2 -c",
+                "request_memory": "2000",
+                "environment": "one=1 two=\"2\" three='spacey 'quoted' value'",
+                "log": f"{job_name}.log",
+            }
+
+            job_attrs = {
+                "bps_job_name": job_name,
+                "bps_job_label": "label1",
+                "bps_job_quanta": "task1:8;task2:8",
+            }
+            lssthtc.htc_write_condor_file(filename, job_name, job, job_attrs)
+            self.assertTrue(filename.exists())
+            # Try to make Submit object from file to find any syntax issues
+            _ = lssthtc.htc_create_submit_from_file(filename)
 
 
 if __name__ == "__main__":

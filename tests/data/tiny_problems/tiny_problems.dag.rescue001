@@ -1,0 +1,13 @@
+# Rescue DAG file, created after running
+#   the /work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag DAG file
+# Created 2/13/2025 18:00:48 UTC
+# Rescue DAG version: 2.0.1 (partial)
+#
+# Total number of Nodes: 6
+# Nodes premarked DONE: 3
+# Nodes that failed: 2
+#   057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b,finalJob,<ENDLIST>
+
+DONE pipetaskInit
+DONE 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a
+DONE 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a

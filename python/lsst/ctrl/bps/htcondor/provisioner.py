@@ -184,7 +184,7 @@ class Provisioner:
             )
 
         name = self.script_name.stem
-        job = HTCJob(name=f"wms_{name}", label=name)
+        job = HTCJob(name=name, label=name)
         job.subfile = Path("jobs") / job.label / f"{name}.sub"
         job.add_job_attrs({"bps_job_name": job.name, "bps_job_label": job.label, "bps_job_quanta": ""})
         cmds = {

@@ -33,10 +33,10 @@ __all__ = ["HTCondorService", "HTCondorWorkflow"]
 import logging
 import os
 import re
-from collections import Counter, defaultdict
+from collections import defaultdict
 from enum import IntEnum, auto
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import htcondor
 from packaging import version
@@ -44,15 +44,18 @@ from packaging import version
 from lsst.ctrl.bps import (
     BaseWmsService,
     BaseWmsWorkflow,
+    BpsConfig,
     GenericWorkflow,
+    GenericWorkflowGroup,
     GenericWorkflowJob,
     GenericWorkflowNodeType,
+    GenericWorkflowNoopJob,
     WmsJobReport,
     WmsRunReport,
     WmsSpecificInfo,
     WmsStates,
 )
-from lsst.ctrl.bps.bps_utils import chdir, create_count_summary, parse_count_summary
+from lsst.ctrl.bps.bps_utils import chdir, create_count_summary
 from lsst.daf.butler import Config
 from lsst.utils.timer import time_this
 
@@ -61,8 +64,9 @@ from .lssthtc import (
     MISSING_ID,
     HTCDag,
     HTCJob,
-    JobStatus,
     NodeStatus,
+    WmsNodeType,
+    _update_rescue_file,
     condor_history,
     condor_q,
     condor_search,
@@ -176,17 +180,23 @@ class HTCondorService(BaseWmsService):
             Keyword arguments for the options.
         """
         dag = workflow.dag
-
         ver = version.parse(htc_version())
-        if ver >= version.parse("8.9.3"):
-            sub = htc_create_submit_from_dag(dag.graph["dag_filename"], {})
-        else:
-            sub = htc_create_submit_from_cmd(dag.graph["dag_filename"], {})
 
         # For workflow portability, internal paths are all relative. Hence
         # the DAG needs to be submitted to HTCondor from inside the submit
         # directory.
         with chdir(workflow.submit_path):
+            try:
+                if ver >= version.parse("8.9.3"):
+                    sub = htc_create_submit_from_dag(dag.graph["dag_filename"], dag.graph["submit_options"])
+                else:
+                    sub = htc_create_submit_from_cmd(dag.graph["dag_filename"], dag.graph["submit_options"])
+            except Exception:
+                _LOG.error(
+                    "Problems creating HTCondor submit object from filename: %s", dag.graph["dag_filename"]
+                )
+                raise
+
             _LOG.info("Submitting from directory: %s", os.getcwd())
             schedd_dag_info = htc_submit_dag(sub)
             if schedd_dag_info:
@@ -267,7 +277,9 @@ class HTCondorService(BaseWmsService):
             )
 
         _LOG.info("Backing up select HTCondor files from previous run attempt")
-        htc_backup_files(wms_path, subdir="backups")
+        rescue_file = htc_backup_files(wms_path, subdir="backups")
+        if (wms_path / "subdags").exists():
+            _update_rescue_file(rescue_file)
 
         # For workflow portability, internal paths are all relative. Hence
         # the DAG needs to be resubmitted to HTCondor from inside the submit
@@ -564,85 +576,16 @@ class HTCondorWorkflow(BaseWmsWorkflow):
     def from_generic_workflow(cls, config, generic_workflow, out_prefix, service_class):
         # Docstring inherited
         htc_workflow = cls(generic_workflow.name, config)
-        htc_workflow.dag = HTCDag(name=generic_workflow.name)
+        htc_workflow.dag = _generic_workflow_to_htcondor_dag(config, generic_workflow, out_prefix)
 
         _LOG.debug("htcondor dag attribs %s", generic_workflow.run_attrs)
-        htc_workflow.dag.add_attribs(generic_workflow.run_attrs)
+        # Add extra attributes to top most DAG.
         htc_workflow.dag.add_attribs(
             {
                 "bps_wms_service": service_class,
                 "bps_wms_workflow": f"{cls.__module__}.{cls.__name__}",
-                "bps_run_quanta": create_count_summary(generic_workflow.quanta_counts),
-                "bps_job_summary": create_count_summary(generic_workflow.job_counts),
             }
         )
-
-        _, tmp_template = config.search("subDirTemplate", opt={"replaceVars": False, "default": ""})
-        if isinstance(tmp_template, str):
-            subdir_template = defaultdict(lambda: tmp_template)
-        else:
-            subdir_template = tmp_template
-
-        # Create all DAG jobs
-        site_values = {}  # cache compute site specific values to reduce config lookups
-        workflow_job_counts = Counter()
-        for job_name in generic_workflow:
-            gwjob = generic_workflow.get_job(job_name)
-            if gwjob.node_type != GenericWorkflowNodeType.NOOP:
-                if gwjob.compute_site not in site_values:
-                    site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
-                htc_job = _create_job(
-                    subdir_template[gwjob.label],
-                    site_values[gwjob.compute_site],
-                    generic_workflow,
-                    gwjob,
-                    out_prefix,
-                )
-                workflow_job_counts["payload"] += 1
-            else:
-                htc_job = HTCJob(f"wms_{gwjob.name}", label=gwjob.label)
-                htc_job.add_job_attrs({"bps_job_name": gwjob.name, "bps_job_label": gwjob.label})
-                workflow_job_counts["noop"] += 1
-            _LOG.debug("adding job %s %s", htc_job.name, htc_job.label)
-            htc_workflow.dag.add_job(htc_job)
-
-        # Add job dependencies to the DAG (be careful with wms_ jobs)
-        for job_name in generic_workflow:
-            gwjob = generic_workflow.get_job(job_name)
-            successor_jobs = [generic_workflow.get_job(j) for j in generic_workflow.successors(job_name)]
-            parent_name = (
-                f"wms_{gwjob.name}" if gwjob.node_type != GenericWorkflowNodeType.PAYLOAD else gwjob.name
-            )
-            children_names = [
-                f"wms_{sjob.name}" if sjob.node_type != GenericWorkflowNodeType.PAYLOAD else sjob.name
-                for sjob in successor_jobs
-            ]
-            htc_workflow.dag.add_job_relationships([parent_name], children_names)
-
-        # If final job exists in generic workflow, create DAG final job
-        final = generic_workflow.get_final()
-        if final and isinstance(final, GenericWorkflowJob):
-            if final.compute_site and final.compute_site not in site_values:
-                site_values[final.compute_site] = _gather_site_values(config, final.compute_site)
-            final_htjob = _create_job(
-                subdir_template[final.label],
-                site_values[final.compute_site],
-                generic_workflow,
-                final,
-                out_prefix,
-            )
-            if "post" not in final_htjob.dagcmds:
-                final_htjob.dagcmds["post"] = (
-                    f"{os.path.dirname(__file__)}/final_post.sh {final.name} $DAG_STATUS $RETURN"
-                )
-            htc_workflow.dag.add_final_job(final_htjob)
-            workflow_job_counts["payload"] += 1
-        elif final and isinstance(final, GenericWorkflow):
-            raise NotImplementedError("HTCondor plugin does not support a workflow as the final job")
-        elif final:
-            return TypeError(f"Invalid type for GenericWorkflow.get_final() results ({type(final)})")
-
-        htc_workflow.dag.add_attribs({"workflow_job_summary": create_count_summary(workflow_job_counts)})
 
         return htc_workflow
 
@@ -658,7 +601,7 @@ class HTCondorWorkflow(BaseWmsWorkflow):
         os.makedirs(out_prefix, exist_ok=True)
 
         # Write down the workflow in HTCondor format.
-        self.dag.write(out_prefix, "jobs/{self.label}")
+        self.dag.write(out_prefix, job_subdir="jobs/{self.label}")
 
 
 def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefix):
@@ -689,8 +632,10 @@ def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefi
     if gwjob.tags:
         curvals.update(gwjob.tags)
 
-    subdir = subdir_template.format_map(curvals)
-    htc_job.subfile = Path("jobs") / subdir / f"{gwjob.name}.sub"
+    subdir = Path("jobs") / subdir_template.format_map(curvals)
+    htc_job.subdir = subdir
+    htc_job.subfile = f"{gwjob.name}.sub"
+    htc_job.add_dag_cmds({"dir": subdir})
 
     htc_job_cmds = {
         "universe": "vanilla",
@@ -713,7 +658,7 @@ def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefi
 
     # job stdout, stderr, htcondor user log.
     for key in ("output", "error", "log"):
-        htc_job_cmds[key] = htc_job.subfile.with_suffix(f".$(Cluster).{key[:3]}")
+        htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).{key[:3]}"
         _LOG.debug("HTCondor %s = %s", key, htc_job_cmds[key])
 
     htc_job_cmds.update(
@@ -840,7 +785,8 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
     # Handle command line
     if gwjob.executable.transfer_executable:
         jobcmds["transfer_executable"] = "True"
-        jobcmds["executable"] = os.path.basename(gwjob.executable.src_uri)
+        # jobcmds["executable"] = os.path.basename(gwjob.executable.src_uri)
+        jobcmds["executable"] = gwjob.executable.src_uri
     else:
         jobcmds["executable"] = _fix_env_var_syntax(gwjob.executable.src_uri)
 
@@ -997,7 +943,7 @@ def _replace_cmd_vars(arguments, gwjob):
     replacements = gwjob.cmdvals if gwjob.cmdvals is not None else {}
     try:
         arguments = arguments.format(**replacements)
-    except KeyError as exc:
+    except (KeyError, TypeError) as exc:  # TypeError in case None instead of {}
         _LOG.error("Could not replace command variables: replacement for %s not provided", str(exc))
         _LOG.debug("arguments: %s\ncmdvals: %s", arguments, replacements)
         raise
@@ -1286,9 +1232,9 @@ def _get_info_from_path(wms_path: str | Path) -> tuple[str, dict[str, dict[str, 
             schedd_name = next(iter(job_info))
             job_ad = next(iter(job_info[schedd_name].values()))
             job.update(job_ad)
-    except FileNotFoundError:
-        message = f"Could not find HTCondor files in '{wms_path}'"
-        _LOG.warning(message)
+    except FileNotFoundError as err:
+        message = f"Could not find HTCondor files in '{wms_path}' ({err})"
+        _LOG.debug(message)
         messages.append(message)
         message = htc_check_dagman_output(wms_path)
         if message:
@@ -1324,16 +1270,6 @@ def _create_detailed_report_from_jobs(
 
     dag_ad = jobs[wms_workflow_id]
 
-    # Following code assumes only payload jobs in job dictionary
-    payload_jobs = {}
-    wms_jobs = {}
-    for job_id, job_ad in jobs.items():
-        name = job_ad.get("DAGNodeName", job_id)
-        if job_id == wms_workflow_id or name.startswith("wms_"):
-            wms_jobs[job_id] = job_ad
-        else:
-            payload_jobs[job_id] = job_ad
-
     report = WmsRunReport(
         wms_id=f"{dag_ad['ClusterId']}.{dag_ad['ProcId']}",
         global_wms_id=dag_ad.get("GlobalJobId", "MISS"),
@@ -1355,14 +1291,14 @@ def _create_detailed_report_from_jobs(
     payload_jobs = {}  # keep track for later processing
     specific_info = WmsSpecificInfo()
     for job_id, job_ad in jobs.items():
-        if job_ad.get("bps_job_type", "MISS") in ["payload", "final"]:
+        if job_ad.get("wms_node_type", WmsNodeType.UNKNOWN) in [WmsNodeType.PAYLOAD, WmsNodeType.FINAL]:
             try:
                 name = job_ad.get("DAGNodeName", job_id)
                 wms_state = _htc_status_to_wms_state(job_ad)
                 job_report = WmsJobReport(
                     wms_id=job_id,
-                    name=job_ad.get("DAGNodeName", job_id),
-                    label=job_ad.get("bps_job_label", pegasus_name_to_label(job_ad["DAGNodeName"])),
+                    name=name,
+                    label=job_ad.get("bps_job_label", pegasus_name_to_label(name)),
                     state=wms_state,
                 )
                 if job_report.label == "init":
@@ -1388,10 +1324,6 @@ def _create_detailed_report_from_jobs(
     report.exit_code_summary = _get_exit_code_summary(payload_jobs)
     if specific_info:
         report.specific_info = specific_info
-
-    # Add the removed entry to restore the original content of the dictionary.
-    # The ordering of keys will be change permanently though.
-    jobs.update({wms_workflow_id: dag_ad})
 
     # Workflow will exit with non-zero DAG_STATUS if problem with
     # any of the wms jobs.  So change FAILED to SUCCEEDED if all
@@ -1639,14 +1571,14 @@ def _get_exit_code_summary(jobs):
             exit_code = 0
             job_status = job_ad["JobStatus"]
             match job_status:
-                case JobStatus.COMPLETED | JobStatus.HELD:
+                case htcondor.JobStatus.COMPLETED | htcondor.JobStatus.HELD:
                     exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
                 case (
-                    JobStatus.IDLE
-                    | JobStatus.RUNNING
-                    | JobStatus.REMOVED
-                    | JobStatus.TRANSFERRING_OUTPUT
-                    | JobStatus.SUSPENDED
+                    htcondor.JobStatus.IDLE
+                    | htcondor.JobStatus.RUNNING
+                    | htcondor.JobStatus.REMOVED
+                    | htcondor.JobStatus.TRANSFERRING_OUTPUT
+                    | htcondor.JobStatus.SUSPENDED
                 ):
                     pass
                 case _:
@@ -1682,17 +1614,13 @@ def _get_state_counts_from_jobs(
     """
     state_counts = dict.fromkeys(WmsStates, 0)
     for job_id, job_ad in jobs.items():
-        if job_id != wms_workflow_id and not is_service_job(job_ad):
+        if job_id != wms_workflow_id and job_ad.get("wms_node_type", WmsNodeType.UNKNOWN) in [
+            WmsNodeType.PAYLOAD,
+            WmsNodeType.FINAL,
+        ]:
             state_counts[_htc_status_to_wms_state(job_ad)] += 1
-    total_counted = sum(state_counts.values())
+    total_count = sum(state_counts.values())
 
-    dag_ad = jobs[wms_workflow_id]
-    if "workflow_job_summary" in dag_ad:
-        expected_workflow_job_counts = parse_count_summary(dag_ad["workflow_job_summary"])
-        total_count = expected_workflow_job_counts["payload"]
-    else:
-        total_count = dag_ad.get("NodesTotal", total_counted)
-    state_counts[WmsStates.UNREADY] += total_count - total_counted
     return total_count, state_counts
 
 
@@ -1790,27 +1718,28 @@ def _htc_job_status_to_wms_state(job):
     _LOG.debug(
         "htc_job_status_to_wms_state: %s=%s, %s", job["ClusterId"], job["JobStatus"], type(job["JobStatus"])
     )
-    job_status = int(job["JobStatus"])
     wms_state = WmsStates.MISFIT
+    if "JobStatus" in job and job["JobStatus"]:
+        job_status = int(job["JobStatus"])
 
-    _LOG.debug("htc_job_status_to_wms_state: job_status = %s", job_status)
-    if job_status == JobStatus.IDLE:
-        wms_state = WmsStates.PENDING
-    elif job_status == JobStatus.RUNNING:
-        wms_state = WmsStates.RUNNING
-    elif job_status == JobStatus.REMOVED:
-        wms_state = WmsStates.DELETED
-    elif job_status == JobStatus.COMPLETED:
-        if (
-            (job.get("ExitBySignal", False) and job.get("ExitSignal", 0))
-            or job.get("ExitCode", 0)
-            or job.get("DAG_Status", 0)
-        ):
-            wms_state = WmsStates.FAILED
-        else:
-            wms_state = WmsStates.SUCCEEDED
-    elif job_status == JobStatus.HELD:
-        wms_state = WmsStates.HELD
+        _LOG.debug("htc_job_status_to_wms_state: job_status = %s", job_status)
+        if job_status == htcondor.JobStatus.IDLE:
+            wms_state = WmsStates.PENDING
+        elif job_status == htcondor.JobStatus.RUNNING:
+            wms_state = WmsStates.RUNNING
+        elif job_status == htcondor.JobStatus.REMOVED:
+            wms_state = WmsStates.DELETED
+        elif job_status == htcondor.JobStatus.COMPLETED:
+            if (
+                (job.get("ExitBySignal", False) and job.get("ExitSignal", 0))
+                or job.get("ExitCode", 0)
+                or job.get("DAG_Status", 0)
+            ):
+                wms_state = WmsStates.FAILED
+            else:
+                wms_state = WmsStates.SUCCEEDED
+        elif job_status == htcondor.JobStatus.HELD:
+            wms_state = WmsStates.HELD
 
     return wms_state
 
@@ -2256,6 +2185,185 @@ def is_service_job(job_ad: dict[str, Any]) -> bool:
     -----
     At the moment, HTCondor does not provide a native way to distinguish
     between payload and service jobs in the workflow.  This code depends
-    on read_node_status adding bps_job_type.
+    on read_node_status adding wms_node_type.
     """
-    return job_ad.get("bps_job_type", "MISSING") == "service"
+    return job_ad.get("wms_node_type", WmsNodeType.UNKNOWN) == WmsNodeType.SERVICE
+
+
+def _group_to_subdag(
+    config: BpsConfig, generic_workflow_group: GenericWorkflowGroup, out_prefix: str
+) -> HTCJob:
+    """Convert a generic workflow group to an HTCondor dag.
+
+    Parameters
+    ----------
+    config : `lsst.ctrl.bps.BpsConfig`
+        Workflow configuration.
+    generic_workflow_group : `lsst.ctrl.bps.GenericWorkflowGroup`
+        The generic workflow group to convert.
+    out_prefix : `str`
+        Location prefix to be used when creating jobs.
+
+    Returns
+    -------
+    htc_job : `lsst.ctrl.bps.htcondor.HTCJob`
+        Job for running the HTCondor dag.
+    """
+    jobname = f"wms_{generic_workflow_group.name}"
+    htc_job = HTCJob(name=jobname, label=generic_workflow_group.label)
+    htc_job.add_dag_cmds({"dir": f"subdags/{jobname}"})
+    htc_job.subdag = _generic_workflow_to_htcondor_dag(config, generic_workflow_group, out_prefix)
+    if not generic_workflow_group.blocking:
+        htc_job.dagcmds["post"] = {
+            "defer": "",
+            "executable": f"{os.path.dirname(__file__)}/subdag_post.sh",
+            "arguments": f"{jobname} $RETURN",
+        }
+    return htc_job
+
+
+def _create_check_job(group_job_name: str, job_label: str) -> HTCJob:
+    """Create a job to check status of a group job.
+
+    Parameters
+    ----------
+    group_job_name : `str`
+        Name of the group job.
+    job_label : `str`
+        Label to use for the check status job.
+
+    Returns
+    -------
+    htc_job : `lsst.ctrl.bps.htcondor.HTCJob`
+        Job description for the job to check group job status.
+    """
+    htc_job = HTCJob(name=f"wms_check_status_{group_job_name}", label=job_label)
+    htc_job.subfile = "${CTRL_BPS_HTCONDOR_DIR}/python/lsst/ctrl/bps/htcondor/check_group_status.sub"
+    htc_job.add_dag_cmds({"dir": f"subdags/{group_job_name}", "vars": {"group_job_name": group_job_name}})
+
+    return htc_job
+
+
+def _generic_workflow_to_htcondor_dag(
+    config: BpsConfig, generic_workflow: GenericWorkflow, out_prefix: str
+) -> HTCDag:
+    """Convert a GenericWorkflow to a HTCDag.
+
+    Parameters
+    ----------
+    config : `lsst.ctrl.bps.BpsConfig`
+        Workflow configuration.
+    generic_workflow : `lsst.ctrl.bps.GenericWorkflow`
+        The GenericWorkflow to convert.
+    out_prefix : `str`
+        Location prefix where the HTCondor files will be written.
+
+    Returns
+    -------
+    dag : `lsst.ctrl.bps.htcondor.HTCDag`
+        The HTCDag representation of the given GenericWorkflow.
+    """
+    dag = HTCDag(name=generic_workflow.name)
+
+    _LOG.debug("htcondor dag attribs %s", generic_workflow.run_attrs)
+    dag.add_attribs(generic_workflow.run_attrs)
+    dag.add_attribs(
+        {
+            "bps_run_quanta": create_count_summary(generic_workflow.quanta_counts),
+            "bps_job_summary": create_count_summary(generic_workflow.job_counts),
+        }
+    )
+
+    _, tmp_template = config.search("subDirTemplate", opt={"replaceVars": False, "default": ""})
+    if isinstance(tmp_template, str):
+        subdir_template = defaultdict(lambda: tmp_template)
+    else:
+        subdir_template = tmp_template
+
+    # Create all DAG jobs
+    site_values = {}  # cache compute site specific values to reduce config lookups
+    for job_name in generic_workflow:
+        gwjob = generic_workflow.get_job(job_name)
+        if gwjob.node_type == GenericWorkflowNodeType.PAYLOAD:
+            gwjob = cast(GenericWorkflowJob, gwjob)
+            if gwjob.compute_site not in site_values:
+                site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
+            htc_job = _create_job(
+                subdir_template[gwjob.label],
+                site_values[gwjob.compute_site],
+                generic_workflow,
+                gwjob,
+                out_prefix,
+            )
+        elif gwjob.node_type == GenericWorkflowNodeType.NOOP:
+            gwjob = cast(GenericWorkflowNoopJob, gwjob)
+            htc_job = HTCJob(f"wms_{gwjob.name}", label=gwjob.label)
+            htc_job.add_job_attrs({"bps_job_name": gwjob.name, "bps_job_label": gwjob.label})
+            htc_job.add_dag_cmds({"noop": True})
+        elif gwjob.node_type == GenericWorkflowNodeType.GROUP:
+            gwjob = cast(GenericWorkflowGroup, gwjob)
+            htc_job = _group_to_subdag(config, gwjob, out_prefix)
+            # In case DAGMAN_GENERATE_SUBDAG_SUBMITS is False,
+            dag.graph["submit_options"]["do_recurse"] = True
+        else:
+            raise RuntimeError(f"Unsupported generic workflow node type {gwjob.node_type} ({gwjob.name})")
+        _LOG.debug("Calling adding job %s %s", htc_job.name, htc_job.label)
+        dag.add_job(htc_job)
+
+    # Add job dependencies to the DAG (be careful with wms_ jobs)
+    for job_name in generic_workflow:
+        gwjob = generic_workflow.get_job(job_name)
+        parent_name = (
+            gwjob.name if gwjob.node_type == GenericWorkflowNodeType.PAYLOAD else f"wms_{gwjob.name}"
+        )
+        successor_jobs = [generic_workflow.get_job(j) for j in generic_workflow.successors(job_name)]
+        children_names = []
+        if gwjob.node_type == GenericWorkflowNodeType.GROUP:
+            gwjob = cast(GenericWorkflowGroup, gwjob)
+            group_children = []  # Dependencies between same group jobs
+            for sjob in successor_jobs:
+                if sjob.node_type == GenericWorkflowNodeType.GROUP and sjob.label == gwjob.label:
+                    group_children.append(f"wms_{sjob.name}")
+                elif sjob.node_type == GenericWorkflowNodeType.PAYLOAD:
+                    children_names.append(sjob.name)
+                else:
+                    children_names.append(f"wms_{sjob.name}")
+            if group_children:
+                dag.add_job_relationships([parent_name], group_children)
+            if not gwjob.blocking:
+                # Since subdag will always succeed, need to add a special
+                # job that fails if group failed to block payload children.
+                check_job = _create_check_job(f"wms_{gwjob.name}", gwjob.label)
+                dag.add_job(check_job)
+                dag.add_job_relationships([f"wms_{gwjob.name}"], [check_job.name])
+                parent_name = check_job.name
+        else:
+            for sjob in successor_jobs:
+                if sjob.node_type == GenericWorkflowNodeType.PAYLOAD:
+                    children_names.append(sjob.name)
+                else:
+                    children_names.append(f"wms_{sjob.name}")
+
+        dag.add_job_relationships([parent_name], children_names)
+
+    # If final job exists in generic workflow, create DAG final job
+    final = generic_workflow.get_final()
+    if final and isinstance(final, GenericWorkflowJob):
+        if final.compute_site and final.compute_site not in site_values:
+            site_values[final.compute_site] = _gather_site_values(config, final.compute_site)
+        final_htjob = _create_job(
+            subdir_template[final.label], site_values[final.compute_site], generic_workflow, final, out_prefix
+        )
+        if "post" not in final_htjob.dagcmds:
+            final_htjob.dagcmds["post"] = {
+                "defer": "",
+                "executable": f"{os.path.dirname(__file__)}/final_post.sh",
+                "arguments": f"{final.name} $DAG_STATUS $RETURN",
+            }
+        dag.add_final_job(final_htjob)
+    elif final and isinstance(final, GenericWorkflow):
+        raise NotImplementedError("HTCondor plugin does not support a workflow as the final job")
+    elif final:
+        raise TypeError(f"Invalid type for GenericWorkflow.get_final() results ({type(final)})")
+
+    return dag
