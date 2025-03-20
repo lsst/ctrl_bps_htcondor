@@ -1,0 +1,10 @@
+JOB label2_val1a_val2a "label2_val1a_val2a.sub" DIR "../../jobs/label2/val1a"
+JOB label2_val1a_val2b "label2_val1a_val2b.sub" DIR "../../jobs/label2/val1a"
+JOB label4_val1a_val2a "label4_val1a_val2a.sub" DIR "../../jobs/label4/val1a"
+JOB label4_val1a_val2b "label4_val1a_val2b.sub" DIR "../../jobs/label4/val1a"
+PARENT label2_val1a_val2a CHILD label4_val1a_val2a
+PARENT label2_val1a_val2b CHILD label4_val1a_val2b
+DOT group_order1_val1a.dot
+NODE_STATUS_FILE group_order1_val1a.node_status
+SET_JOB_ATTR bps_run_quanta= "label2:2;label4:2"
+SET_JOB_ATTR bps_job_summary= "label4:2;label2:2"

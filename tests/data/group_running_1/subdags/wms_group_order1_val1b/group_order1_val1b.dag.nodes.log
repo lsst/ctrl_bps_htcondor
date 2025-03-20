@@ -1,0 +1,22 @@
+000 (10115.000.000) 2025-03-10 11:07:02 Job submitted from host: <10.0.0.33:20939?addrs=10.0.0.33-20939+[2601-248-8500-b50--617a]-20939&alias=test02>
+    DAG Node: label2_val1b_val2b
+...
+000 (10116.000.000) 2025-03-10 11:07:02 Job submitted from host: <10.0.0.33:20939?addrs=10.0.0.33-20939+[2601-248-8500-b50--617a]-20939&alias=test02>
+    DAG Node: label2_val1b_val2a
+...
+001 (10115.000.000) 2025-03-10 11:07:07 Job executing on host: <10.0.0.33:26751?addrs=10.0.0.33-26751+[2601-248-8500-b50--617a]-26751&alias=test02>
+	SlotName: slot1_7@test02
+	CondorScratchDir = "/var/lib/condor/execute/dir_18528"
+	Cpus = 1
+	Disk = 2048
+	GPUs = 0
+	Memory = 2048
+...
+001 (10116.000.000) 2025-03-10 11:07:10 Job executing on host: <10.0.0.33:26751?addrs=10.0.0.33-26751+[2601-248-8500-b50--617a]-26751&alias=test02>
+	SlotName: slot1_1@test02
+	CondorScratchDir = "/var/lib/condor/execute/dir_18540"
+	Cpus = 1
+	Disk = 2048
+	GPUs = 0
+	Memory = 2048
+...

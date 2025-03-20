@@ -162,7 +162,7 @@ class ProvisionerTestCase(unittest.TestCase):
             provisioner.provision(dag)
 
         self.assertIsNotNone(dag.graph["service_job"])
-        self.assertEqual(dag.graph["service_job"].name, f"wms_{script.stem}")
+        self.assertEqual(dag.graph["service_job"].name, script.stem)
         self.assertEqual(dag.graph["service_job"].label, script.stem)
         self.assertEqual(dict(dag.graph["service_job"].cmds), cmds)
         self.assertIn("bps_provisioning_job", dag.graph["attr"])

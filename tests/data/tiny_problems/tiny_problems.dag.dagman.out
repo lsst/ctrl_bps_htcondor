@@ -251,18 +251,18 @@
 02/13/25 12:00:08 0 job proc(s) currently held
 02/13/25 12:00:08 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.006201301302228656; EventCycleTimeCount = 21.0; EventCycleTimeMax = 0.1277668476104736; EventCycleTimeMin = 3.981590270996094E-05; EventCycleTimeStd = 0.02785429546285483; EventCycleTimeSum = 0.1302273273468018; LogProcessCycleTimeAvg = 0.0001814961433410645; LogProcessCycleTimeCount = 4.0; LogProcessCycleTimeMax = 0.0002131462097167969; LogProcessCycleTimeMin = 0.0001490116119384766; LogProcessCycleTimeStd = 2.639554977691035E-05; LogProcessCycleTimeSum = 0.0007259845733642578; SleepCycleTimeAvg = 1.001077697390602; SleepCycleTimeCount = 21.0; SleepCycleTimeMax = 1.001123905181885; SleepCycleTimeMin = 1.001029014587402; SleepCycleTimeStd = 2.576064202461596E-05; SleepCycleTimeSum = 21.02263164520264; SubmitCycleTimeAvg = 0.005813663656061346; SubmitCycleTimeCount = 22.0; SubmitCycleTimeMax = 0.1274127960205078; SubmitCycleTimeMin = 5.006790161132812E-06; SubmitCycleTimeStd = 0.02715956000814675; SubmitCycleTimeSum = 0.1279006004333496; ]
 02/13/25 12:00:09 ReadMultipleUserLogs::GetLogStatus()
-02/13/25 12:00:09 Submitting HTCondor Node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b job(s)...
+02/13/25 12:00:09 Submitting HTCondor Node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b job(s)...
 02/13/25 12:00:09 TmpDir(10)::TmpDir()
 02/13/25 12:00:09 TmpDir(10)::Cd2TmpDir()
-02/13/25 12:00:09 Submitting node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b from file jobs/label1/val1/057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b.sub using direct job submission
+02/13/25 12:00:09 Submitting node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b from file jobs/label1/val1a/057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b.sub using direct job submission
 02/13/25 12:00:09 SharedPortClient: sent connection request to local schedd for shared port id schedd_1499_c48e
 02/13/25 12:00:09 TmpDir(10)::Cd2MainDir()
 02/13/25 12:00:09 TmpDir(10)::~TmpDir()
 02/13/25 12:00:09 	assigned HTCondor ID (9231.0.0)
-02/13/25 12:00:09 Submitting HTCondor Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a job(s)...
+02/13/25 12:00:09 Submitting HTCondor Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a job(s)...
 02/13/25 12:00:09 TmpDir(11)::TmpDir()
 02/13/25 12:00:09 TmpDir(11)::Cd2TmpDir()
-02/13/25 12:00:09 Submitting node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a from file jobs/label1/val1/4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a.sub using direct job submission
+02/13/25 12:00:09 Submitting node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a from file jobs/label1/val1a/4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a.sub using direct job submission
 02/13/25 12:00:09 SharedPortClient: sent connection request to local schedd for shared port id schedd_1499_c48e
 02/13/25 12:00:09 TmpDir(11)::Cd2MainDir()
 02/13/25 12:00:09 TmpDir(11)::~TmpDir()
@@ -280,17 +280,17 @@
 02/13/25 12:00:10 Currently monitoring 1 HTCondor log file(s)
 02/13/25 12:00:10 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:10 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
-02/13/25 12:00:10 Reassigning the id of job 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b from (9231.0.0) to (9231.0.0)
-02/13/25 12:00:10 Event: ULOG_SUBMIT for HTCondor Node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b (9231.0.0) {02/13/25 12:00:09}
+02/13/25 12:00:10 Reassigning the id of job 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b from (9231.0.0) to (9231.0.0)
+02/13/25 12:00:10 Event: ULOG_SUBMIT for HTCondor Node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b (9231.0.0) {02/13/25 12:00:09}
 02/13/25 12:00:10 Number of idle job procs: 1
 02/13/25 12:00:10 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:10 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
-02/13/25 12:00:10 Reassigning the id of job 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a from (9232.0.0) to (9232.0.0)
-02/13/25 12:00:10 Event: ULOG_SUBMIT for HTCondor Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a (9232.0.0) {02/13/25 12:00:09}
+02/13/25 12:00:10 Reassigning the id of job 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a from (9232.0.0) to (9232.0.0)
+02/13/25 12:00:10 Event: ULOG_SUBMIT for HTCondor Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a (9232.0.0) {02/13/25 12:00:09}
 02/13/25 12:00:10 Number of idle job procs: 2
 02/13/25 12:00:10 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:10 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
-02/13/25 12:00:10 Event: ULOG_EXECUTE for HTCondor Node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b (9231.0.0) {02/13/25 12:00:09}
+02/13/25 12:00:10 Event: ULOG_EXECUTE for HTCondor Node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b (9231.0.0) {02/13/25 12:00:09}
 02/13/25 12:00:10 Number of idle job procs: 1
 02/13/25 12:00:10 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:10 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
@@ -298,7 +298,7 @@
 02/13/25 12:00:11 Currently monitoring 1 HTCondor log file(s)
 02/13/25 12:00:11 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:11 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
-02/13/25 12:00:11 Event: ULOG_EXECUTE for HTCondor Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a (9232.0.0) {02/13/25 12:00:11}
+02/13/25 12:00:11 Event: ULOG_EXECUTE for HTCondor Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a (9232.0.0) {02/13/25 12:00:11}
 02/13/25 12:00:11 Number of idle job procs: 0
 02/13/25 12:00:11 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:11 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
@@ -315,9 +315,9 @@
 02/13/25 12:00:20 Currently monitoring 1 HTCondor log file(s)
 02/13/25 12:00:20 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:20 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
-02/13/25 12:00:20 Event: ULOG_JOB_TERMINATED for HTCondor Node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b (9231.0.0) {02/13/25 12:00:19}
+02/13/25 12:00:20 Event: ULOG_JOB_TERMINATED for HTCondor Node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b (9231.0.0) {02/13/25 12:00:19}
 02/13/25 12:00:20 Number of idle job procs: 0
-02/13/25 12:00:20 Node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b job proc (9231.0.0) failed with status 1.
+02/13/25 12:00:20 Node 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b job proc (9231.0.0) failed with status 1.
 02/13/25 12:00:20 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:20 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
 02/13/25 12:00:20 DAG status: 2 (DAG_STATUS_NODE_FAILED)
@@ -331,10 +331,10 @@
 02/13/25 12:00:21 Currently monitoring 1 HTCondor log file(s)
 02/13/25 12:00:21 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:21 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
-02/13/25 12:00:21 Event: ULOG_JOB_TERMINATED for HTCondor Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a (9232.0.0) {02/13/25 12:00:21}
+02/13/25 12:00:21 Event: ULOG_JOB_TERMINATED for HTCondor Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a (9232.0.0) {02/13/25 12:00:21}
 02/13/25 12:00:21 Number of idle job procs: 0
-02/13/25 12:00:21 Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a job proc (9232.0.0) completed successfully.
-02/13/25 12:00:21 Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1_val2a job completed
+02/13/25 12:00:21 Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a job proc (9232.0.0) completed successfully.
+02/13/25 12:00:21 Node 4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a job completed
 02/13/25 12:00:21 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:21 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
 02/13/25 12:00:21 DAG status: 2 (DAG_STATUS_NODE_FAILED)
@@ -345,10 +345,10 @@
 02/13/25 12:00:21 0 job proc(s) currently held
 02/13/25 12:00:21 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.007607382886550005; EventCycleTimeCount = 34.0; EventCycleTimeMax = 0.1277668476104736; EventCycleTimeMin = 3.981590270996094E-05; EventCycleTimeStd = 0.02939515874199166; EventCycleTimeSum = 0.2586510181427002; LogProcessCycleTimeAvg = 0.0002269148826599121; LogProcessCycleTimeCount = 8.0; LogProcessCycleTimeMax = 0.00032806396484375; LogProcessCycleTimeMin = 0.0001490116119384766; LogProcessCycleTimeStd = 7.312682441209861E-05; LogProcessCycleTimeSum = 0.001815319061279297; SleepCycleTimeAvg = 1.00107302385218; SleepCycleTimeCount = 34.0; SleepCycleTimeMax = 1.001123905181885; SleepCycleTimeMin = 1.001029014587402; SleepCycleTimeStd = 2.438914996316164E-05; SleepCycleTimeSum = 34.03648281097412; SubmitCycleTimeAvg = 0.00704646110534668; SubmitCycleTimeCount = 35.0; SubmitCycleTimeMax = 0.1274127960205078; SubmitCycleTimeMin = 5.006790161132812E-06; SubmitCycleTimeStd = 0.02896978576746286; SubmitCycleTimeSum = 0.2466261386871338; ]
 02/13/25 12:00:22 ReadMultipleUserLogs::GetLogStatus()
-02/13/25 12:00:22 Submitting HTCondor Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a job(s)...
+02/13/25 12:00:22 Submitting HTCondor Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a job(s)...
 02/13/25 12:00:22 TmpDir(12)::TmpDir()
 02/13/25 12:00:22 TmpDir(12)::Cd2TmpDir()
-02/13/25 12:00:22 Submitting node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a from file jobs/label2/val1/696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a.sub using direct job submission
+02/13/25 12:00:22 Submitting node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a from file jobs/label2/val1a/696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a.sub using direct job submission
 02/13/25 12:00:22 SharedPortClient: sent connection request to local schedd for shared port id schedd_1499_c48e
 02/13/25 12:00:22 TmpDir(12)::Cd2MainDir()
 02/13/25 12:00:22 TmpDir(12)::~TmpDir()
@@ -366,12 +366,12 @@
 02/13/25 12:00:23 Currently monitoring 1 HTCondor log file(s)
 02/13/25 12:00:23 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:23 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
-02/13/25 12:00:23 Reassigning the id of job 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a from (9233.0.0) to (9233.0.0)
-02/13/25 12:00:23 Event: ULOG_SUBMIT for HTCondor Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a (9233.0.0) {02/13/25 12:00:22}
+02/13/25 12:00:23 Reassigning the id of job 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a from (9233.0.0) to (9233.0.0)
+02/13/25 12:00:23 Event: ULOG_SUBMIT for HTCondor Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a (9233.0.0) {02/13/25 12:00:22}
 02/13/25 12:00:23 Number of idle job procs: 1
 02/13/25 12:00:23 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:23 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
-02/13/25 12:00:23 Event: ULOG_EXECUTE for HTCondor Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a (9233.0.0) {02/13/25 12:00:22}
+02/13/25 12:00:23 Event: ULOG_EXECUTE for HTCondor Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a (9233.0.0) {02/13/25 12:00:22}
 02/13/25 12:00:23 Number of idle job procs: 0
 02/13/25 12:00:23 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:23 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
@@ -389,10 +389,10 @@
 02/13/25 12:00:34 Currently monitoring 1 HTCondor log file(s)
 02/13/25 12:00:34 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:34 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
-02/13/25 12:00:34 Event: ULOG_JOB_TERMINATED for HTCondor Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a (9233.0.0) {02/13/25 12:00:33}
+02/13/25 12:00:34 Event: ULOG_JOB_TERMINATED for HTCondor Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a (9233.0.0) {02/13/25 12:00:33}
 02/13/25 12:00:34 Number of idle job procs: 0
-02/13/25 12:00:34 Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a job proc (9233.0.0) completed successfully.
-02/13/25 12:00:34 Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1_val2a job completed
+02/13/25 12:00:34 Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a job proc (9233.0.0) completed successfully.
+02/13/25 12:00:34 Node 696ee50d-e711-40d6-9caf-ee29ae4a656d_label2_val1a_val2a job completed
 02/13/25 12:00:34 ReadMultipleUserLogs::readEvent()
 02/13/25 12:00:34 ReadMultipleUserLogs::readEventFromLog(/work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.nodes.log)
 02/13/25 12:00:34 DAG status: 2 (DAG_STATUS_NODE_FAILED)
@@ -404,15 +404,15 @@
 02/13/25 12:00:34 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.007057626196678648; EventCycleTimeCount = 47.0; EventCycleTimeMax = 0.1277668476104736; EventCycleTimeMin = 3.981590270996094E-05; EventCycleTimeStd = 0.02686973707127884; EventCycleTimeSum = 0.3317084312438965; LogProcessCycleTimeAvg = 0.0002347230911254883; LogProcessCycleTimeCount = 10.0; LogProcessCycleTimeMax = 0.00032806396484375; LogProcessCycleTimeMin = 0.0001490116119384766; LogProcessCycleTimeStd = 6.666586413808144E-05; LogProcessCycleTimeSum = 0.002347230911254883; SleepCycleTimeAvg = 1.001023754160455; SleepCycleTimeCount = 47.0; SleepCycleTimeMax = 1.001123905181885; SleepCycleTimeMin = 1.000128984451294; SleepCycleTimeStd = 0.0001947942048269502; SleepCycleTimeSum = 47.04811644554138; SubmitCycleTimeAvg = 0.006620511412620544; SubmitCycleTimeCount = 48.0; SubmitCycleTimeMax = 0.1274127960205078; SubmitCycleTimeMin = 5.006790161132812E-06; SubmitCycleTimeStd = 0.02657975089009677; SubmitCycleTimeSum = 0.3177845478057861; ]
 02/13/25 12:00:34 ERROR: the following job(s) failed:
 02/13/25 12:00:34 ---------------------- Job ----------------------
-02/13/25 12:00:34       Node Name: 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b
+02/13/25 12:00:34       Node Name: 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b
 02/13/25 12:00:34            Noop: false
 02/13/25 12:00:34          NodeID: 1
 02/13/25 12:00:34     Node Status: STATUS_ERROR    
 02/13/25 12:00:34 Node return val: 1
 02/13/25 12:00:34           Error: Job proc (9231.0.0) failed with status 1
-02/13/25 12:00:34 Job Submit File: jobs/label1/val1/057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b.sub
+02/13/25 12:00:34 Job Submit File: jobs/label1/val1a/057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b.sub
 02/13/25 12:00:34  HTCondor Job ID: (9231.0.0)
-02/13/25 12:00:34 PARENTS: pipetaskInit WAITING: 0 CHILDREN: 40040b97-606d-4997-98d3-e0493055fe7e_label2_val1_val2b
+02/13/25 12:00:34 PARENTS: pipetaskInit WAITING: 0 CHILDREN: 40040b97-606d-4997-98d3-e0493055fe7e_label2_val1a_val2b
 02/13/25 12:00:34 ---------------------------------------	<END>
 02/13/25 12:00:34 Aborting DAG...
 02/13/25 12:00:34 Writing Rescue DAG to /work/testuser/submit/u/testuser/tiny/20250213T175935Z/u_testuser_tiny_20250213T175935Z.dag.rescue001...
@@ -524,15 +524,15 @@
 02/13/25 12:00:48 DAGMan Runtime Statistics: [ EventCycleTimeAvg = 0.007063102722167969; EventCycleTimeCount = 60.0; EventCycleTimeMax = 0.1277668476104736; EventCycleTimeMin = 3.981590270996094E-05; EventCycleTimeStd = 0.02548168506656051; EventCycleTimeSum = 0.4237861633300781; LogProcessCycleTimeAvg = 0.0007470675877162389; LogProcessCycleTimeCount = 14.0; LogProcessCycleTimeMax = 0.007516860961914062; LogProcessCycleTimeMin = 0.0001308917999267578; LogProcessCycleTimeStd = 0.001949465478399763; LogProcessCycleTimeSum = 0.01045894622802734; SleepCycleTimeAvg = 1.019881682317765; SleepCycleTimeCount = 61.0; SleepCycleTimeMax = 2.150636911392212; SleepCycleTimeMin = 1.000128984451294; SleepCycleTimeStd = 0.1471914512940767; SleepCycleTimeSum = 62.21278262138367; SubmitCycleTimeAvg = 0.006313339356453188; SubmitCycleTimeCount = 62.0; SubmitCycleTimeMax = 0.1274127960205078; SubmitCycleTimeMin = 4.053115844726562E-06; SubmitCycleTimeStd = 0.02503478121336396; SubmitCycleTimeSum = 0.3914270401000977; ]
 02/13/25 12:00:48 ERROR: the following job(s) failed:
 02/13/25 12:00:48 ---------------------- Job ----------------------
-02/13/25 12:00:48       Node Name: 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b
+02/13/25 12:00:48       Node Name: 057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b
 02/13/25 12:00:48            Noop: false
 02/13/25 12:00:48          NodeID: 1
 02/13/25 12:00:48     Node Status: STATUS_ERROR    
 02/13/25 12:00:48 Node return val: 1
 02/13/25 12:00:48           Error: Job proc (9231.0.0) failed with status 1
-02/13/25 12:00:48 Job Submit File: jobs/label1/val1/057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1_val2b.sub
+02/13/25 12:00:48 Job Submit File: jobs/label1/val1a/057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b.sub
 02/13/25 12:00:48  HTCondor Job ID: (9231.0.0)
-02/13/25 12:00:48 PARENTS: pipetaskInit WAITING: 0 CHILDREN: 40040b97-606d-4997-98d3-e0493055fe7e_label2_val1_val2b
+02/13/25 12:00:48 PARENTS: pipetaskInit WAITING: 0 CHILDREN: 40040b97-606d-4997-98d3-e0493055fe7e_label2_val1a_val2b
 02/13/25 12:00:48 ---------------------- Job ----------------------
 02/13/25 12:00:48       Node Name: finalJob
 02/13/25 12:00:48            Noop: false

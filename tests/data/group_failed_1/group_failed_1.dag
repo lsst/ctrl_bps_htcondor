@@ -1,0 +1,77 @@
+JOB pipetaskInit "pipetaskInit.sub" DIR "jobs/pipetaskInit"
+JOB label1_val1c_val2a "label1_val1c_val2a.sub" DIR "jobs/label1/val1c"
+JOB label1_val1b_val2b "label1_val1b_val2b.sub" DIR "jobs/label1/val1b"
+JOB label1_val1b_val2a "label1_val1b_val2a.sub" DIR "jobs/label1/val1b"
+JOB label1_val1c_val2b "label1_val1c_val2b.sub" DIR "jobs/label1/val1c"
+JOB label1_val1a_val2a "label1_val1a_val2a.sub" DIR "jobs/label1/val1a"
+JOB label1_val1a_val2b "label1_val1a_val2b.sub" DIR "jobs/label1/val1a"
+JOB label3_val1c_val2a "label3_val1c_val2a.sub" DIR "jobs/label3/val1c"
+JOB label3_val1b_val2b "label3_val1b_val2b.sub" DIR "jobs/label3/val1b"
+JOB label3_val1b_val2a "label3_val1b_val2a.sub" DIR "jobs/label3/val1b"
+JOB label3_val1c_val2b "label3_val1c_val2b.sub" DIR "jobs/label3/val1c"
+JOB label3_val1a_val2a "label3_val1a_val2a.sub" DIR "jobs/label3/val1a"
+JOB label3_val1a_val2b "label3_val1a_val2b.sub" DIR "jobs/label3/val1a"
+SUBDAG EXTERNAL wms_group_order1_val1a group_order1_val1a.dag DIR subdags/wms_group_order1_val1a
+SCRIPT  POST wms_group_order1_val1a /work/testuser/gen3work/ordering-46294/subdag/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/subdag_post.sh wms_group_order1_val1a $RETURN
+JOB label5_val1a_val2a "label5_val1a_val2a.sub" DIR "jobs/label5/val1a"
+JOB label5_val1a_val2b "label5_val1a_val2b.sub" DIR "jobs/label5/val1a"
+SUBDAG EXTERNAL wms_group_order1_val1b group_order1_val1b.dag DIR subdags/wms_group_order1_val1b
+SCRIPT  POST wms_group_order1_val1b /work/testuser/gen3work/ordering-46294/subdag/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/subdag_post.sh wms_group_order1_val1b $RETURN
+JOB label5_val1b_val2b "label5_val1b_val2b.sub" DIR "jobs/label5/val1b"
+JOB label5_val1b_val2a "label5_val1b_val2a.sub" DIR "jobs/label5/val1b"
+SUBDAG EXTERNAL wms_group_order1_val1c group_order1_val1c.dag DIR subdags/wms_group_order1_val1c
+SCRIPT  POST wms_group_order1_val1c /work/testuser/gen3work/ordering-46294/subdag/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/subdag_post.sh wms_group_order1_val1c $RETURN
+JOB label5_val1c_val2a "label5_val1c_val2a.sub" DIR "jobs/label5/val1c"
+JOB label5_val1c_val2b "label5_val1c_val2b.sub" DIR "jobs/label5/val1c"
+JOB wms_check_status_wms_group_order1_val1a "/work/testuser/gen3work/ordering-46294/subdag/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/check_group_status.sub" DIR "subdags/wms_group_order1_val1a"
+VARS wms_check_status_wms_group_order1_val1a group_job_name="wms_group_order1_val1a"
+JOB wms_check_status_wms_group_order1_val1b "/work/testuser/gen3work/ordering-46294/subdag/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/check_group_status.sub" DIR "subdags/wms_group_order1_val1b"
+VARS wms_check_status_wms_group_order1_val1b group_job_name="wms_group_order1_val1b"
+JOB wms_check_status_wms_group_order1_val1c "/work/testuser/gen3work/ordering-46294/subdag/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/check_group_status.sub" DIR "subdags/wms_group_order1_val1c"
+VARS wms_check_status_wms_group_order1_val1c group_job_name="wms_group_order1_val1c"
+PARENT pipetaskInit CHILD label1_val1c_val2a
+PARENT pipetaskInit CHILD label1_val1b_val2b
+PARENT pipetaskInit CHILD label1_val1b_val2a
+PARENT pipetaskInit CHILD label1_val1c_val2b
+PARENT pipetaskInit CHILD label1_val1a_val2a
+PARENT pipetaskInit CHILD label1_val1a_val2b
+PARENT label1_val1c_val2a CHILD label3_val1c_val2a
+PARENT label1_val1c_val2a CHILD wms_group_order1_val1c
+PARENT label1_val1b_val2b CHILD label3_val1b_val2b
+PARENT label1_val1b_val2b CHILD wms_group_order1_val1b
+PARENT label1_val1b_val2a CHILD label3_val1b_val2a
+PARENT label1_val1b_val2a CHILD wms_group_order1_val1b
+PARENT label1_val1c_val2b CHILD label3_val1c_val2b
+PARENT label1_val1c_val2b CHILD wms_group_order1_val1c
+PARENT label1_val1a_val2a CHILD label3_val1a_val2a
+PARENT label1_val1a_val2a CHILD wms_group_order1_val1a
+PARENT label1_val1a_val2b CHILD label3_val1a_val2b
+PARENT label1_val1a_val2b CHILD wms_group_order1_val1a
+PARENT wms_group_order1_val1a CHILD wms_group_order1_val1b
+PARENT wms_group_order1_val1a CHILD wms_check_status_wms_group_order1_val1a
+PARENT wms_group_order1_val1b CHILD wms_group_order1_val1c
+PARENT wms_group_order1_val1b CHILD wms_check_status_wms_group_order1_val1b
+PARENT wms_group_order1_val1c CHILD wms_check_status_wms_group_order1_val1c
+PARENT wms_check_status_wms_group_order1_val1a CHILD label5_val1a_val2a
+PARENT wms_check_status_wms_group_order1_val1a CHILD label5_val1a_val2b
+PARENT wms_check_status_wms_group_order1_val1b CHILD label5_val1b_val2b
+PARENT wms_check_status_wms_group_order1_val1b CHILD label5_val1b_val2a
+PARENT wms_check_status_wms_group_order1_val1c CHILD label5_val1c_val2a
+PARENT wms_check_status_wms_group_order1_val1c CHILD label5_val1c_val2b
+DOT u_testuser_DM-46294_group_fail_20250310T160455Z.dot
+NODE_STATUS_FILE u_testuser_DM-46294_group_fail_20250310T160455Z.node_status
+SET_JOB_ATTR bps_isjob= "True"
+SET_JOB_ATTR bps_project= "dev"
+SET_JOB_ATTR bps_campaign= "ci_rc2"
+SET_JOB_ATTR bps_run= "u_testuser_DM-46294_group_fail_20250310T160455Z"
+SET_JOB_ATTR bps_operator= "testuser"
+SET_JOB_ATTR bps_payload= "DM-46294/group/fail"
+SET_JOB_ATTR bps_runsite= "testpool"
+SET_JOB_ATTR bps_run_quanta= "label1:6;label3:6;label2:6;label4:6;label5:6"
+SET_JOB_ATTR bps_job_summary= "pipetaskInit:1;label1:6;label3:6;label2:6;label5:6;label4:6;finalJob:1"
+SET_JOB_ATTR bps_wms_service= "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorService"
+SET_JOB_ATTR bps_wms_workflow= "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorWorkflow"
+SET_JOB_ATTR bps_provisioning_job= "provisioningJob"
+FINAL finalJob "finalJob.sub" DIR "jobs/finalJob"
+SCRIPT  POST finalJob /work/testuser/gen3work/ordering-46294/subdag/ctrl_bps_htcondor/python/lsst/ctrl/bps/htcondor/final_post.sh finalJob $DAG_STATUS $RETURN
+SERVICE provisioningJob "jobs/provisioningJob/provisioningJob.sub"

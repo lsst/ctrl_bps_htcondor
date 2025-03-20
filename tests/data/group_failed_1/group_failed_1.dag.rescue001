@@ -1,0 +1,32 @@
+# Rescue DAG file, created after running
+#   the u_testuser_DM-46294_group_fail_20250310T160455Z.dag DAG file
+# Created 3/10/2025 16:08:56 UTC
+# Rescue DAG version: 2.0.1 (partial)
+#
+# Total number of Nodes: 26
+# Nodes premarked DONE: 22
+# Nodes that failed: 2
+#   wms_check_status_wms_group_order1_val1b,finalJob,<ENDLIST>
+
+DONE pipetaskInit
+DONE label1_val1c_val2a
+DONE label1_val1b_val2b
+DONE label1_val1b_val2a
+DONE label1_val1c_val2b
+DONE label1_val1a_val2a
+DONE label1_val1a_val2b
+DONE label3_val1c_val2a
+DONE label3_val1b_val2b
+DONE label3_val1b_val2a
+DONE label3_val1c_val2b
+DONE label3_val1a_val2a
+DONE label3_val1a_val2b
+DONE wms_group_order1_val1a
+DONE label5_val1a_val2a
+DONE label5_val1a_val2b
+DONE wms_group_order1_val1b
+DONE wms_group_order1_val1c
+DONE label5_val1c_val2a
+DONE label5_val1c_val2b
+DONE wms_check_status_wms_group_order1_val1a
+DONE wms_check_status_wms_group_order1_val1c
