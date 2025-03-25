@@ -1,3 +1,25 @@
+lsst-ctrl-bps-htcondor v29.0.0 (2025-03-25)
+===========================================
+
+New Features
+------------
+
+- Added GenericWorkflowJob's environment values to HTCondor job submit files. (`DM-48245 <https://rubinobs.atlassian.net/browse/DM-48245>`_)
+
+
+Bug Fixes
+---------
+
+- Included non-Python data artifacts when packaging for PyPi distribution, including ``etc/*yaml`` and ``final_post.sh``. (`DM-48032 <https://rubinobs.atlassian.net/browse/DM-48032>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Modified the function responsible for replacing placeholders in command line arguments so it gracefully handles the case when there are no placeholders to replace. (`DM-46307 <https://rubinobs.atlassian.net/browse/DM-46307>`_)
+- Improved reporting of provisioning job in atypical situations. (`DM-48752 <https://rubinobs.atlassian.net/browse/DM-48752>`_)
+
+
 lsst-ctrl-bps-htcondor v28.0.0 (2024-11-21)
 ===========================================
 
