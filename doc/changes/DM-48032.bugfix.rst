@@ -1,1 +1,0 @@
-Include non-Python data artifacts when packaging for PyPi distribution, including ``etc/*yaml`` and ``final_post.sh``.
