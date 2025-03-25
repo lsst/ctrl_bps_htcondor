@@ -2297,6 +2297,7 @@ def _generic_workflow_to_htcondor_dag(
         elif gwjob.node_type == GenericWorkflowNodeType.NOOP:
             gwjob = cast(GenericWorkflowNoopJob, gwjob)
             htc_job = HTCJob(f"wms_{gwjob.name}", label=gwjob.label)
+            htc_job.subfile = "${CTRL_BPS_HTCONDOR_DIR}/python/lsst/ctrl/bps/htcondor/noop.sub"
             htc_job.add_job_attrs({"bps_job_name": gwjob.name, "bps_job_label": gwjob.label})
             htc_job.add_dag_cmds({"noop": True})
         elif gwjob.node_type == GenericWorkflowNodeType.GROUP:

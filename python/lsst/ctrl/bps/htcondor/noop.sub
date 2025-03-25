@@ -1,0 +1,12 @@
+# This should actually be submitted, but have to have a sub
+# file for noop jobs.
+universe = vanilla
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT_OR_EVICT
+transfer_executable = False
+getenv = True
+executable = /usr/bin/env
+output = noop.$(Cluster).out
+error = noop.$(Cluster).out
+log = noop.$(Cluster).log
+queue
