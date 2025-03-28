@@ -64,6 +64,27 @@ The plugin supports all settings described in `ctrl_bps documentation`__
 
 .. Describe any plugin specific aspects of defining a submission below if any.
 
+Job Ordering
+^^^^^^^^^^^^
+
+This plugin supports both ordering types of ``group`` and ``noop``.
+Job outputs are still underneath the ``jobs`` subdirectory.
+
+If one is looking at HTCondor information directly:
+
+* ``group`` ordering is implemented as subdags so you will see more dagman
+  jobs in the queue as well as a new ``subdags`` subdirectory for the
+  internal files for running a group.  To enable running other subdags after
+  a failure but pruning downstream jobs, another job, name starting with
+  ``wms_check_status``, runs after the subdag to check for a failure and trigger
+  the pruning.
+
+* ``noop`` ordering is directly implemented as DAGMan NOOP jobs.  These jobs
+  do not actually do anything, but provide a mechanism for telling HTCondor
+  about more job dependencies without using a large number (all-to-all) of
+  dependencies.
+
+
 Job Environment
 ^^^^^^^^^^^^^^^
 

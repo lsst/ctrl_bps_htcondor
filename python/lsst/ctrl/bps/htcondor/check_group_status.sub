@@ -1,0 +1,13 @@
+universe = vanilla
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT_OR_EVICT
+transfer_output_files = ""
+transfer_input_files = $(group_job_name).status.txt
+transfer_executable = False
+getenv = True
+executable = $ENV(CTRL_BPS_HTCONDOR_DIR)/python/lsst/ctrl/bps/htcondor/check_group_status.sh
+arguments = $(group_job_name).status.txt
+output = check_group_job_$(group_job_name).$(Cluster).out
+error = check_group_job_$(group_job_name).$(Cluster).err
+log = check_group_job_$(group_job_name).$(Cluster).log
+queue
