@@ -30,10 +30,11 @@ import io
 import logging
 import os
 import pathlib
+import stat
 import sys
 import tempfile
 import unittest
-from shutil import copy2, copytree, ignore_patterns, rmtree
+from shutil import copy2, copytree, ignore_patterns, rmtree, which
 
 import htcondor
 
@@ -1137,6 +1138,93 @@ class HtcWriteCondorFileTestCase(unittest.TestCase):
             self.assertTrue(filename.exists())
             # Try to make Submit object from file to find any syntax issues
             _ = lssthtc.htc_create_submit_from_file(filename)
+
+
+class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
+    """Test htc_create_submit_from_dag function."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.bindir = None
+        # htcondor.Submit.from_dag requires condor_dagman executable in path.
+        if not which("condor_dagman"):  # pragma: no cover
+            cls.bindir = tempfile.TemporaryDirectory()
+            fake_dagman_exec = pathlib.Path(cls.bindir.name) / "condor_dagman"
+            with open(fake_dagman_exec, "w") as fh:
+                print("#!/bin/bash", file=fh)
+                print("echo fake_condor_dagman $@", file=fh)
+                print("exit 0", file=fh)
+            fake_dagman_exec.chmod(fake_dagman_exec.stat().st_mode | stat.S_IEXEC)
+            os.environ["PATH"] = f"{os.environ['PATH']}:{cls.bindir.name}"
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.bindir:
+            cls.bindir.cleanup()
+
+    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_MAX_JOBS_IDLE": "42"})
+    def testMaxIdleEnvVar(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
+            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
+            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {})
+            self.assertIn("-MaxIdle 42", submit["arguments"])
+            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
+
+    @unittest.mock.patch.dict(os.environ, {})
+    def testMaxIdleGiven(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
+            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
+            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"MaxIdle": 37})
+            self.assertIn("-MaxIdle 37", submit["arguments"])
+            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
+
+    @unittest.mock.patch.dict(os.environ, {})
+    def testNoMaxJobsIdle(self):
+        """Note: Since the produced arguments differ depending on
+        HTCondor version when no MaxIdle passed to from_dag, not
+        checking arguments string here.  Instead just making sure
+        lssthtc code doesn't pass MaxIdle value to from_dag.
+        """
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
+            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
+            with unittest.mock.patch("htcondor.Submit.from_dag") as submit_mock:
+                with unittest.mock.patch("htcondor.param") as mock_param:
+                    mock_param.__contains__.return_value = False
+                    _ = lssthtc.htc_create_submit_from_dag(str(dag_filename), {})
+                    self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
+                    submit_mock.assert_called_once_with(str(dag_filename), {})
+
+    @unittest.mock.patch.dict(os.environ, {})
+    def testDoRecurseGivenWithNoEnv(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
+            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
+            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
+            self.assertIn("-do_recurse", submit["arguments"])
+            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"].lower())
+            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
+
+    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS": "False"})
+    def testDoRecurseGivenWithEnv(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
+            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
+            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
+            self.assertIn("-do_recurse", submit["arguments"])
+            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
+            self.assertEqual("false", os.environ["_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"].lower())
+
+    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV": "*_DIR"})
+    def testGetEnvOverridden(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
+            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
+            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
+            self.assertIn("-do_recurse", submit["arguments"])
+            self.assertEqual(os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"], "*_DIR")
 
 
 if __name__ == "__main__":
