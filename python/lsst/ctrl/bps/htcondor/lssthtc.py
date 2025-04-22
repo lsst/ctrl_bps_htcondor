@@ -703,7 +703,7 @@ def htc_submit_dag(sub):
     return schedd_dag_info
 
 
-def htc_create_submit_from_dag(dag_filename, submit_options=None):
+def htc_create_submit_from_dag(dag_filename: str, submit_options: dict[str, Any]) -> htcondor.Submit:
     """Create a DAGMan job submit description.
 
     Parameters
@@ -730,11 +730,26 @@ def htc_create_submit_from_dag(dag_filename, submit_options=None):
     var_name = "_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"
     if var_name not in os.environ:
         os.environ[var_name] = "True"
-    do_recurse = submit_options.get("do_recurse", None)
-    if do_recurse:
+
+    if "do_recurse" in submit_options:
         var_name = "_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"
         if var_name not in os.environ:
-            os.environ[var_name] = str(do_recurse)
+            os.environ[var_name] = str(submit_options["do_recurse"])
+
+    # Config and environment variables do not seem to override -MaxIdle
+    # on the .dag.condor.sub's command line (broken in some 24.0.x versions).
+    # Explicitly forward them as a submit_option if either exists.
+    # Note: auto generated subdag submit files are still the -MaxIdle=1000
+    # in the broken versions.
+    if "MaxIdle" not in submit_options:
+        max_jobs_idle: int | None = None
+        config_var_name = "DAGMAN_MAX_JOBS_IDLE"
+        if f"_CONDOR_{config_var_name}" in os.environ:
+            max_jobs_idle = int(os.environ[f"_CONDOR_{config_var_name}"])
+        elif config_var_name in htcondor.param:
+            max_jobs_idle = htcondor.param[config_var_name]
+        if max_jobs_idle:
+            submit_options["MaxIdle"] = max_jobs_idle
 
     return htcondor.Submit.from_dag(dag_filename, submit_options)
 
