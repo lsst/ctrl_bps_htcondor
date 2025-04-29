@@ -714,6 +714,10 @@ def _create_job(subdir_template, cached_values, generic_workflow, gwjob, out_pre
         _handle_job_inputs(generic_workflow, gwjob.name, cached_values["bpsUseShared"], out_prefix)
     )
 
+    htc_job_cmds.update(
+        _handle_job_outputs(generic_workflow, gwjob.name, cached_values["bpsUseShared"], out_prefix)
+    )
+
     # Add the job cmds dict to the job object.
     htc_job.add_job_cmds(htc_job_cmds)
 
@@ -1025,7 +1029,7 @@ def _handle_job_inputs(
         # Note if use_shared and job_shared, don't need to transfer file.
 
         if not use_shared:  # Copy file using push to job
-            inputs.append(str(uri.relative_to(out_prefix)))
+            inputs.append(str(uri))
         elif not gwf_file.job_shared:  # Jobs require own copy
             # if using shared filesystem, but still need copy in job. Use
             # HTCondor's curl plugin for a local copy.
@@ -1039,6 +1043,51 @@ def _handle_job_inputs(
     if inputs:
         htc_commands["transfer_input_files"] = ",".join(inputs)
         _LOG.debug("transfer_input_files=%s", htc_commands["transfer_input_files"])
+    return htc_commands
+
+
+def _handle_job_outputs(
+    generic_workflow: GenericWorkflow, job_name: str, use_shared: bool, out_prefix: str
+) -> dict[str, str]:
+    """Add job output files from generic workflow to the job if any.
+
+    Parameters
+    ----------
+    generic_workflow : `lsst.ctrl.bps.GenericWorkflow`
+        The generic workflow (e.g., has executable name and arguments).
+    job_name : `str`
+        Unique name for the job.
+    use_shared : `bool`
+        Whether job has access to files via shared filesystem.
+    out_prefix : `str`
+        The root directory into which all WMS-specific files are written.
+
+    Returns
+    -------
+    htc_commands : `dict` [`str`, `str`]
+        HTCondor commands for the job submission script.
+    """
+    outputs = []
+    output_remaps = []
+    for gwf_file in generic_workflow.get_job_outputs(job_name, data=True, transfer_only=True):
+        _LOG.debug("src_uri=%s", gwf_file.src_uri)
+
+        uri = Path(gwf_file.src_uri)
+        if not use_shared:
+            outputs.append(uri.name)
+            output_remaps.append(f"{uri.name}={str(uri)}")
+
+    # Set to an empty string to disable and only update if there are output
+    # files to transfer. Otherwise, HTCondor will transfer back all files in
+    # the job’s temporary working directory that have been modified or created
+    # by the job.
+    htc_commands = {"transfer_output_files": '""'}
+    if outputs:
+        htc_commands["transfer_output_files"] = ",".join(outputs)
+        _LOG.debug("transfer_output_files=%s", htc_commands["transfer_output_files"])
+
+        htc_commands["transfer_output_remaps"] = f'"{";".join(output_remaps)}"'
+        _LOG.debug("transfer_output_remaps=%s", htc_commands["transfer_output_remaps"])
     return htc_commands
 
 
