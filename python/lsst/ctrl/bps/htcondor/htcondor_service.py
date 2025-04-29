@@ -1016,7 +1016,6 @@ def _handle_job_inputs(
     htc_commands : `dict` [`str`, `str`]
         HTCondor commands for the job submission script.
     """
-    htc_commands = {}
     inputs = []
     for gwf_file in generic_workflow.get_job_inputs(job_name, data=True, transfer_only=True):
         _LOG.debug("src_uri=%s", gwf_file.src_uri)
@@ -1036,6 +1035,7 @@ def _handle_job_inputs(
                 )
             inputs.append(f"file://{uri}")
 
+    htc_commands = {}
     if inputs:
         htc_commands["transfer_input_files"] = ",".join(inputs)
         _LOG.debug("transfer_input_files=%s", htc_commands["transfer_input_files"])
