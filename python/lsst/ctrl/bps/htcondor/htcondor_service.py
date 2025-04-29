@@ -995,7 +995,9 @@ def _replace_cmd_vars(arguments, gwjob):
     return arguments
 
 
-def _handle_job_inputs(generic_workflow: GenericWorkflow, job_name: str, use_shared: bool, out_prefix: str):
+def _handle_job_inputs(
+    generic_workflow: GenericWorkflow, job_name: str, use_shared: bool, out_prefix: str
+) -> dict[str, str]:
     """Add job input files from generic workflow to job.
 
     Parameters
