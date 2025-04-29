@@ -946,13 +946,7 @@ def _replace_file_vars(use_shared, arguments, workflow, gwjob):
                 # Have shared filesystems and jobs can share file.
                 uri = gwfile.src_uri
             else:
-                # Taking advantage of inside knowledge.  Not future-proof.
-                # Temporary fix until have job wrapper that pulls files
-                # within job.
-                if gwfile.name == "butlerConfig" and Path(gwfile.src_uri).suffix != ".yaml":
-                    uri = "butler.yaml"
-                else:
-                    uri = os.path.basename(gwfile.src_uri)
+                uri = os.path.basename(gwfile.src_uri)
         else:  # Using push transfer
             uri = os.path.basename(gwfile.src_uri)
         arguments = arguments.replace(f"<FILE:{gwfile.name}>", uri)
@@ -1034,27 +1028,11 @@ def _handle_job_inputs(generic_workflow: GenericWorkflow, job_name: str, use_sha
         elif not gwf_file.job_shared:  # Jobs require own copy
             # if using shared filesystem, but still need copy in job. Use
             # HTCondor's curl plugin for a local copy.
-
-            # Execution butler is represented as a directory which the
-            # curl plugin does not handle. Taking advantage of inside
-            # knowledge for temporary fix until have job wrapper that pulls
-            # files within job.
-            if gwf_file.name == "butlerConfig":
-                # The execution butler directory doesn't normally exist until
-                # the submit phase so checking for suffix instead of using
-                # is_dir().  If other non-yaml file exists they would have a
-                # different gwf_file.name.
-                if uri.suffix == ".yaml":  # Single file, so just copy.
-                    inputs.append(f"file://{uri}")
-                else:
-                    inputs.append(f"file://{uri / 'butler.yaml'}")
-                    inputs.append(f"file://{uri / 'gen3.sqlite3'}")
-            elif uri.is_dir():
+            if uri.is_dir():
                 raise RuntimeError(
                     f"HTCondor plugin cannot transfer directories locally within job {gwf_file.src_uri}"
                 )
-            else:
-                inputs.append(f"file://{uri}")
+            inputs.append(f"file://{uri}")
 
     if inputs:
         htc_commands["transfer_input_files"] = ",".join(inputs)
