@@ -62,6 +62,49 @@ special features. See `BPS configuration file`__ for details.
 The plugin supports all settings described in `ctrl_bps documentation`__
 *except* **preemptible**.
 
+Automatic Releasing of Held Jobs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In certain cases HTCondor will put a job on hold.  For example, if a job
+exceeds memory or if the filesystem that holds the job scratch directory is
+full.  There are BPS mechanisms for automatic releasing of jobs
+put on hold for exceeding memory (see `Automatic memory scaling`__ section
+in **ctrl_bps** documentation for more information regarding this topic).
+
+.. __: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#automatic-memory-scaling
+
+But this leaves other jobs that were held for other reasons still sitting
+in the queue in hold state waiting for someone to either cancel them or
+release them. Many times releasing the jobs to just try again is successful
+because the system issues are periodic.
+
+``releaseExpr`` can be set to add more automatic release conditions.  Like
+other BPS config values, this can be globally set or set for a specific
+cluster or pipetask.  The number of retries is still limited by the
+``numberOfRetries``.  All held jobs count towards this limit no matter
+what the reason.  The plugin prohibits the automatic release of
+jobs held by user.
+
+Example expressions:
+
+* ``releaseExpr: "True"`` - will always release held job unless held by user.
+* ``releaseExpr: "HoldReasonCode =?= 7"`` - release jobs where the standard
+  output file for the job could not be opened.
+
+For more information see HTCondor documentation:
+
+* list of `HoldReasonCodes`_
+* HTCondor `ClassAd expressions`_
+
+.. __: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html#HoldReasonCode
+.. __: https://htcondor.readthedocs.io/en/latest/classads/classad-mechanism.html#classad-evaluation-semantics
+
+.. warning:
+
+   System problems should still be reported.  All of the hold reasons for a
+   single completed run can be found via ``grep -A 2 held <submit dir>/*.nodes.log``
+
+
 .. Describe any plugin specific aspects of defining a submission below if any.
 
 Job Ordering
