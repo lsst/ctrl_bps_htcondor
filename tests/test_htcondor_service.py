@@ -352,7 +352,7 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
 
     def setUp(self):
         self.gw_exec = GenericWorkflowExec("test_exec", "/dummy/dir/pipetask")
-        self.cached_vals = {"profile": {}, "bpsUseShared": True}
+        self.cached_vals = {"profile": {}, "bpsUseShared": True, "memoryLimit": 32768}
 
     def testRetryUnlessNone(self):
         gwjob = GenericWorkflowJob("retryUnless", "label1", executable=self.gw_exec)
@@ -408,6 +408,30 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
         gwjob.environment = {"TEST_ENV_VAR": "<ENV:CTRL_BPS_DIR>/tests"}
         htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
         self.assertEqual(htc_commands["environment"], "TEST_ENV_VAR='$ENV(CTRL_BPS_DIR)/tests'")
+
+    def testPeriodicRelease(self):
+        gwjob = GenericWorkflowJob("periodicRelease", "label1", executable=self.gw_exec)
+        gwjob.request_memory = 2048
+        gwjob.memory_multiplier = 2
+        gwjob.number_of_retries = 3
+        htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
+        release = (
+            "JobStatus == 5 && NumJobStarts <= JobMaxRetries && "
+            "(HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 || "
+            "HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34) && "
+            "min({int(2048 * pow(2, NumJobStarts - 1)), 32768}) < 32768"
+        )
+        self.assertEqual(htc_commands["periodic_release"], release)
+
+    def testPeriodicRemoveNoRetries(self):
+        gwjob = GenericWorkflowJob("periodicRelease", "label1", executable=self.gw_exec)
+        gwjob.request_memory = 2048
+        gwjob.memory_multiplier = 1
+        gwjob.number_of_retries = 0
+        htc_commands = htcondor_service._translate_job_cmds(self.cached_vals, None, gwjob)
+        remove = "JobStatus == 5 && (NumJobStarts > JobMaxRetries)"
+        self.assertEqual(htc_commands["periodic_remove"], remove)
+        self.assertEqual(htc_commands["max_retries"], 0)
 
 
 class GetStateCountsFromDagJobTestCase(unittest.TestCase):
@@ -1135,6 +1159,53 @@ class GatherSiteValuesTestCase(unittest.TestCase):
         self.assertEqual(results["memoryLimit"], BPS_DEFAULTS["memoryLimit"])
 
 
+class GatherLabelValuesTestCase(unittest.TestCase):
+    """Test _gather_labels_values function."""
+
+    def testClusterLabel(self):
+        # Test cluster value overrides pipetask.
+        label = "label1"
+        config = BpsConfig(
+            {
+                "cluster": {
+                    "label1": {"releaseExpr": "cluster_val", "profile": {"condor": {"prof_val1": 3}}}
+                },
+                "pipetask": {"label1": {"releaseExpr": "pipetask_val"}},
+            },
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        results = htcondor_service._gather_label_values(config, label)
+        self.assertEqual(results, {"attrs": {}, "profile": {"prof_val1": 3}, "releaseExpr": "cluster_val"})
+
+    def testPipetaskLabel(self):
+        label = "label1"
+        config = BpsConfig(
+            {
+                "pipetask": {
+                    "label1": {"releaseExpr": "pipetask_val", "profile": {"condor": {"prof_val1": 3}}}
+                }
+            },
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        results = htcondor_service._gather_label_values(config, label)
+        self.assertEqual(results, {"attrs": {}, "profile": {"prof_val1": 3}, "releaseExpr": "pipetask_val"})
+
+    def testNoSection(self):
+        label = "notThere"
+        config = BpsConfig(
+            {},
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        results = htcondor_service._gather_label_values(config, label)
+        self.assertEqual(results, {"attrs": {}, "profile": {}})
+
+
 class CreateCheckJobTestCase(unittest.TestCase):
     """Test _create_check_job function."""
 
@@ -1145,6 +1216,78 @@ class CreateCheckJobTestCase(unittest.TestCase):
         self.assertIn(group_job_name, job.name)
         self.assertEqual(job.label, job_label)
         self.assertIn("check_group_status.sub", job.subfile)
+
+
+class CreatePeriodicReleaseExprTestCase(unittest.TestCase):
+    """Test _create_periodic_release_expr function."""
+
+    def testNoReleaseExpr(self):
+        results = htcondor_service._create_periodic_release_expr(2048, 1, 32768, "")
+        self.assertEqual(results, "")
+
+    def testMultiplierNone(self):
+        results = htcondor_service._create_periodic_release_expr(2048, None, 32768, "")
+        self.assertEqual(results, "")
+
+    def testJustMemoryReleaseExpr(self):
+        self.maxDiff = None  # so test error shows entire strings
+        results = htcondor_service._create_periodic_release_expr(2048, 2, 32768, "")
+        truth = (
+            "JobStatus == 5 && NumJobStarts <= JobMaxRetries && "
+            "(HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 || "
+            "HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34) && "
+            "min({int(2048 * pow(2, NumJobStarts - 1)), 32768}) < 32768"
+        )
+        self.assertEqual(results, truth)
+
+    def testJustUserReleaseExpr(self):
+        results = htcondor_service._create_periodic_release_expr(2048, 1, 32768, "True")
+        truth = "JobStatus == 5 && NumJobStarts <= JobMaxRetries && HoldReasonCode =!= 1 && True"
+        self.assertEqual(results, truth)
+
+    def testJustUserReleaseExprMultiplierNone(self):
+        results = htcondor_service._create_periodic_release_expr(2048, None, 32768, "True")
+        truth = "JobStatus == 5 && NumJobStarts <= JobMaxRetries && HoldReasonCode =!= 1 && True"
+        self.assertEqual(results, truth)
+
+    def testMemoryAndUserReleaseExpr(self):
+        self.maxDiff = None  # so test error shows entire strings
+        results = htcondor_service._create_periodic_release_expr(2048, 2, 32768, "True")
+        truth = (
+            "JobStatus == 5 && NumJobStarts <= JobMaxRetries && "
+            "((HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 || "
+            "HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34) && "
+            "min({int(2048 * pow(2, NumJobStarts - 1)), 32768}) < 32768 || "
+            "HoldReasonCode =!= 1 && True)"
+        )
+        self.assertEqual(results, truth)
+
+
+class CreatePeriodicRemoveExprTestCase(unittest.TestCase):
+    """Test _create_periodic_release_expr function."""
+
+    def testBasicRemoveExpr(self):
+        """Function assumes only called if max_retries >= 0."""
+        results = htcondor_service._create_periodic_remove_expr(2048, 1, 32768)
+        truth = "JobStatus == 5 && (NumJobStarts > JobMaxRetries)"
+        self.assertEqual(results, truth)
+
+    def testBasicRemoveExprMultiplierNone(self):
+        """Function assumes only called if max_retries >= 0."""
+        results = htcondor_service._create_periodic_remove_expr(2048, None, 32768)
+        truth = "JobStatus == 5 && (NumJobStarts > JobMaxRetries)"
+        self.assertEqual(results, truth)
+
+    def testMemoryRemoveExpr(self):
+        self.maxDiff = None  # so test error shows entire strings
+        results = htcondor_service._create_periodic_remove_expr(2048, 2, 32768)
+        truth = (
+            "JobStatus == 5 && (NumJobStarts > JobMaxRetries || "
+            "((HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 || "
+            "HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34) && "
+            "min({int(2048 * pow(2, NumJobStarts - 1)), 32768}) == 32768))"
+        )
+        self.assertEqual(results, truth)
 
 
 if __name__ == "__main__":

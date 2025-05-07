@@ -476,12 +476,42 @@ for a specific reason, here, the memory usage exceeded memory limits
 .. note::
 
    By default, BPS will automatically retry jobs that failed due to the out of
-   memory error (see `Automatic memory scaling`__ section in **ctrl_bps**
+   memory error (see `Automatic memory scaling`_ section in **ctrl_bps**
    documentation for more information regarding this topic) and the issues
    illustrated by the above examples should only occur if automatic memory
    scalling was explicitly disabled in the submit YAML file.
 
-.. __: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#automatic-memory-scaling
+
+Automatic Releasing of Held Jobs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Many times releasing the jobs to just try again is successful because the
+system issues are transient.
+
+``releaseExpr`` can be set in the submit yaml to add automatic release
+conditions.  Like other BPS config values, this can be set globally or
+set for a specific cluster or pipetask.  The number of retries is still
+limited by the ``numberOfRetries``.  All held jobs count towards this
+limit no matter what the reason.  The plugin prohibits the automatic
+release of jobs held by user.
+
+Example expressions:
+
+* ``releaseExpr: "True"`` - will always release held job unless held by user.
+* ``releaseExpr: "HoldReasonCode =?= 7"`` - release jobs where the standard
+  output file for the job could not be opened.
+
+For more information about expressions, see HTCondor documentation:
+
+* HTCondor `ClassAd expressions`_
+* list of `HoldReasonCodes`_
+
+.. warning::
+
+   System problems should still be tracked and reported.  All of the
+   hold reasons for a single completed run can be found via ``grep -A
+   2 held <submit dir>/*.nodes.log``.
+
 
 .. _htc-plugin-troubleshooting:
 
@@ -535,3 +565,6 @@ complete your run.
 .. _condor_release: https://htcondor.readthedocs.io/en/latest/man-pages/condor_release.html
 .. _condor_rm: https://htcondor.readthedocs.io/en/latest/man-pages/condor_rm.html
 .. _lsst_distrib: https://github.com/lsst/lsst_distrib.git
+.. _Automatic memory scaling: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#automatic-memory-scaling
+.. _HoldReasonCodes: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html#HoldReasonCode
+.. _ClassAd expressions: https://htcondor.readthedocs.io/en/latest/classads/classad-mechanism.html#classad-evaluation-semantics
