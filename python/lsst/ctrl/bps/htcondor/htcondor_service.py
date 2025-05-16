@@ -34,6 +34,7 @@ import logging
 import os
 import re
 from collections import defaultdict
+from copy import deepcopy
 from enum import IntEnum, auto
 from pathlib import Path
 from typing import Any, cast
@@ -331,7 +332,7 @@ class HTCondorService(BaseWmsService):
 
         Returns
         -------
-        job_ids : `list` [`Any`]
+        job_ids : `list` [`~typing.Any`]
             Only job ids to be used by cancel and other functions.  Typically
             this means top-level jobs (i.e., not children jobs).
         """
@@ -604,15 +605,15 @@ class HTCondorWorkflow(BaseWmsWorkflow):
         self.dag.write(out_prefix, job_subdir="jobs/{self.label}")
 
 
-def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefix):
+def _create_job(subdir_template, cached_values, generic_workflow, gwjob, out_prefix):
     """Convert GenericWorkflow job nodes to DAG jobs.
 
     Parameters
     ----------
     subdir_template : `str`
         Template for making subdirs.
-    site_values : `dict`
-        Site specific values
+    cached_values : `dict`
+        Site and label specific values.
     generic_workflow : `lsst.ctrl.bps.GenericWorkflow`
         Generic workflow that is being converted.
     gwjob : `lsst.ctrl.bps.GenericWorkflowJob`
@@ -654,7 +655,7 @@ def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefi
         "on_exit_hold_subcode": "34",
     }
 
-    htc_job_cmds.update(_translate_job_cmds(site_values, generic_workflow, gwjob))
+    htc_job_cmds.update(_translate_job_cmds(cached_values, generic_workflow, gwjob))
 
     # job stdout, stderr, htcondor user log.
     for key in ("output", "error", "log"):
@@ -662,7 +663,7 @@ def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefi
         _LOG.debug("HTCondor %s = %s", key, htc_job_cmds[key])
 
     htc_job_cmds.update(
-        _handle_job_inputs(generic_workflow, gwjob.name, site_values["bpsUseShared"], out_prefix)
+        _handle_job_inputs(generic_workflow, gwjob.name, cached_values["bpsUseShared"], out_prefix)
     )
 
     # Add the job cmds dict to the job object.
@@ -673,7 +674,7 @@ def _create_job(subdir_template, site_values, generic_workflow, gwjob, out_prefi
     # Add job attributes to job.
     _LOG.debug("gwjob.attrs = %s", gwjob.attrs)
     htc_job.add_job_attrs(gwjob.attrs)
-    htc_job.add_job_attrs(site_values["attrs"])
+    htc_job.add_job_attrs(cached_values["attrs"])
     htc_job.add_job_attrs({"bps_job_quanta": create_count_summary(gwjob.quanta_counts)})
     htc_job.add_job_attrs({"bps_job_name": gwjob.name, "bps_job_label": gwjob.label})
 
@@ -685,8 +686,8 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
 
     Parameters
     ----------
-    cached_vals : `dict` [`str`, `Any`]
-        Config values common to jobs with same label.
+    cached_vals : `dict` [`str`, `~typing.Any`]
+        Config values common to jobs with same site or label.
     generic_workflow : `lsst.ctrl.bps.GenericWorkflow`
         Generic workflow that contains job to being converted.
     gwjob : `lsst.ctrl.bps.GenericWorkflowJob`
@@ -694,7 +695,7 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
 
     Returns
     -------
-    htc_job_commands : `dict` [`str`, `Any`]
+    htc_job_commands : `dict` [`str`, `~typing.Any`]
         Contains commands which can appear in the HTCondor submit description
         file.
     """
@@ -720,9 +721,6 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
         jobcmds["accounting_group_user"] = cached_vals.get("accountingUser")
 
     # job commands that need modification
-    if gwjob.number_of_retries:
-        jobcmds["max_retries"] = f"{gwjob.number_of_retries}"
-
     if gwjob.retry_unless_exit:
         if isinstance(gwjob.retry_unless_exit, int):
             jobcmds["retry_until"] = f"{gwjob.retry_unless_exit}"
@@ -739,6 +737,7 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
     if gwjob.request_memory:
         jobcmds["request_memory"] = f"{gwjob.request_memory}"
 
+    memory_max = 0
     if gwjob.memory_multiplier:
         # Do not use try-except! At the moment, BpsConfig returns an empty
         # string if it does not contain the key.
@@ -765,13 +764,18 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
             gwjob.request_memory, gwjob.memory_multiplier, memory_max
         )
 
-        # Periodically release jobs which are being held due to exceeding
-        # memory. Stop doing that (by removing the job from the HTCondor queue)
-        # after the maximal number of retries has been reached or the job was
-        # already run at maximal allowed memory.
-        jobcmds["periodic_release"] = _create_periodic_release_expr(
-            gwjob.request_memory, gwjob.memory_multiplier, memory_max
-        )
+    user_release_expr = cached_vals.get("releaseExpr", "")
+    if gwjob.number_of_retries is not None and gwjob.number_of_retries >= 0:
+        jobcmds["max_retries"] = gwjob.number_of_retries
+
+        # No point in adding periodic_release if 0 retries
+        if gwjob.number_of_retries > 0:
+            periodic_release = _create_periodic_release_expr(
+                gwjob.request_memory, gwjob.memory_multiplier, memory_max, user_release_expr
+            )
+            if periodic_release:
+                jobcmds["periodic_release"] = periodic_release
+
         jobcmds["periodic_remove"] = _create_periodic_remove_expr(
             gwjob.request_memory, gwjob.memory_multiplier, memory_max
         )
@@ -830,7 +834,7 @@ def _translate_dag_cmds(gwjob):
 
     Returns
     -------
-    dagcmds : `dict` [`str`, `Any`]
+    dagcmds : `dict` [`str`, `~typing.Any`]
         DAGMan commands for the job.
     """
     # Values in the dag script that just are name mappings.
@@ -1180,7 +1184,7 @@ def _get_info_from_path(wms_path: str | os.PathLike) -> tuple[str, dict[str, dic
     -------
     wms_workflow_id : `str`
         The run id which is a DAGman job id.
-    jobs : `dict` [`str`, `dict` [`str`, `Any`]]
+    jobs : `dict` [`str`, `dict` [`str`, `~typing.Any`]]
         Information about jobs read from files in the given directory.
         The key is the HTCondor id and the value is a dictionary of HTCondor
         keys and values.
@@ -1340,7 +1344,7 @@ def _add_service_job_specific_info(job_ad: dict[str, Any], specific_info: WmsSpe
 
     Parameters
     ----------
-    job_ad : `dict` [`str`, `Any`]
+    job_ad : `dict` [`str`, `~typing.Any`]
         Provisioning job information.
     specific_info : `lsst.ctrl.bps.WmsSpecificInfo`
         Where to add message.
@@ -1466,7 +1470,7 @@ def _add_run_info(wms_path, job):
     ----------
     wms_path : `str`
         Path to submit files for the run.
-    job : `dict` [`str`, `Any`]
+    job : `dict` [`str`, `~typing.Any`]
         HTCondor dag job information.
 
     Raises
@@ -1502,7 +1506,7 @@ def _get_owner(job):
 
     Parameters
     ----------
-    job : `dict` [`str`, `Any`]
+    job : `dict` [`str`, `~typing.Any`]
         HTCondor dag job information.
 
     Returns
@@ -1524,7 +1528,7 @@ def _get_run_summary(job):
 
     Parameters
     ----------
-    job : `dict` [`str`, `Any`]
+    job : `dict` [`str`, `~typing.Any`]
         HTCondor dag job information.
 
     Returns
@@ -1600,7 +1604,7 @@ def _get_state_counts_from_jobs(
     ----------
     wms_workflow_id : `str`
         HTCondor job id.
-    jobs : `dict [`dict` [`str`, `Any`]]
+    jobs : `dict [`dict` [`str`, `~typing.Any`]]
         HTCondor dag job information.
 
     Returns
@@ -1628,7 +1632,7 @@ def _get_state_counts_from_dag_job(job):
 
     Parameters
     ----------
-    job : `dict` [`str`, `Any`]
+    job : `dict` [`str`, `~typing.Any`]
         HTCondor dag job information.
 
     Returns
@@ -1684,7 +1688,7 @@ def _htc_status_to_wms_state(job):
 
     Parameters
     ----------
-    job : `dict` [`str`, `Any`]
+    job : `dict` [`str`, `~typing.Any`]
         HTCondor job information.
 
     Returns
@@ -1706,7 +1710,7 @@ def _htc_job_status_to_wms_state(job):
 
     Parameters
     ----------
-    job : `dict` [`str`, `Any`]
+    job : `dict` [`str`, `~typing.Any`]
         HTCondor job information.
 
     Returns
@@ -1748,7 +1752,7 @@ def _htc_node_status_to_wms_state(job):
 
     Parameters
     ----------
-    job : `dict` [`str`, `Any`]
+    job : `dict` [`str`, `~typing.Any`]
         HTCondor job information.
 
     Returns
@@ -1795,9 +1799,9 @@ def _update_jobs(jobs1, jobs2):
 
     Parameters
     ----------
-    jobs1 : `dict` [`str`, `dict` [`str`, `Any`]]
+    jobs1 : `dict` [`str`, `dict` [`str`, `~typing.Any`]]
         HTCondor job information to be updated.
-    jobs2 : `dict` [`str`, `dict` [`str`, `Any`]]
+    jobs2 : `dict` [`str`, `dict` [`str`, `~typing.Any`]]
         Additional HTCondor job information.
     """
     for job_id, job_ad in jobs2.items():
@@ -1937,34 +1941,39 @@ def _wms_id_to_dir(wms_id):
     return wms_path, id_type
 
 
-def _create_periodic_release_expr(memory, multiplier, limit):
+def _create_periodic_release_expr(
+    memory: int, multiplier: float | None, limit: int, additional_expr: str = ""
+) -> str:
     """Construct an HTCondorAd expression for releasing held jobs.
-
-    The expression instruct HTCondor to release any job which was put on hold
-    due to exceeding memory requirements back to the job queue providing it
-    satisfies all of the conditions below:
-
-    * number of run attempts did not reach allowable number of retries,
-    * the memory requirements in the last failed run attempt did not reach
-      the specified memory limit.
 
     Parameters
     ----------
     memory : `int`
         Requested memory in MB.
-    multiplier : `float`
-        Memory growth rate between retires.
+    multiplier : `float` or None
+        Memory growth rate between retries.
     limit : `int`
         Memory limit.
+    additional_expr : `str`, optional
+        Expression to add to periodic_release.  Defaults to empty string.
 
     Returns
     -------
     expr : `str`
-        A string representing an HTCondor ClassAd expression for releasing jobs
-        which have been held due to exceeding the memory requirements.
+        A string representing an HTCondor ClassAd expression for releasing job.
     """
-    is_retry_allowed = "NumJobStarts <= JobMaxRetries"
-    was_below_limit = f"min({{int({memory} * pow({multiplier}, NumJobStarts - 1)), {limit}}}) < {limit}"
+    _LOG.debug(
+        "periodic_release: memory: %s, multiplier: %s, limit: %s, additional_expr: %s",
+        memory,
+        multiplier,
+        limit,
+        additional_expr,
+    )
+
+    # ctrl_bps sets multiplier to None in the GenericWorkflow if
+    # memoryMultiplier <= 1, but checking value just in case.
+    if (not multiplier or multiplier <= 1) and not additional_expr:
+        return ""
 
     # Job ClassAds attributes 'HoldReasonCode' and 'HoldReasonSubCode' are
     # UNDEFINED if job is not HELD (i.e. when 'JobStatus' is not 5).
@@ -1976,63 +1985,74 @@ def _create_periodic_release_expr(memory, multiplier, limit):
     # the entire expression should evaluate to FALSE when the job is not HELD.
     # According to ClassAd evaluation semantics FALSE && UNDEFINED is FALSE,
     # but better safe than sorry.
-    was_mem_exceeded = (
-        "JobStatus == 5 "
-        "&& (HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 "
-        "|| HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34)"
-    )
+    is_held = "JobStatus == 5"
+    is_retry_allowed = "NumJobStarts <= JobMaxRetries"
 
-    expr = f"{was_mem_exceeded} && {is_retry_allowed} && {was_below_limit}"
+    mem_expr = ""
+    if memory and multiplier and multiplier > 1 and limit:
+        was_mem_exceeded = (
+            "(HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 "
+            "|| HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34)"
+        )
+        was_below_limit = f"min({{int({memory} * pow({multiplier}, NumJobStarts - 1)), {limit}}}) < {limit}"
+        mem_expr = f"{was_mem_exceeded} && {was_below_limit}"
+
+    user_expr = ""
+    if additional_expr:
+        # Never auto release a job held by user.
+        user_expr = f"HoldReasonCode =!= 1 && {additional_expr}"
+
+    expr = f"{is_held} && {is_retry_allowed}"
+    if user_expr and mem_expr:
+        expr += f" && ({mem_expr} || {user_expr})"
+    elif user_expr:
+        expr += f" && {user_expr}"
+    elif mem_expr:
+        expr += f" && {mem_expr}"
+
     return expr
 
 
 def _create_periodic_remove_expr(memory, multiplier, limit):
     """Construct an HTCondorAd expression for removing jobs from the queue.
 
-    The expression instruct HTCondor to remove any job which was put on hold
-    due to exceeding memory requirements from the job queue providing it
-    satisfies any of the conditions below:
-
-    * allowable number of retries was reached,
-    * the memory requirements during the last failed run attempt reached
-      the specified memory limit.
-
     Parameters
     ----------
     memory : `int`
         Requested memory in MB.
     multiplier : `float`
-        Memory growth rate between retires.
+        Memory growth rate between retries.
     limit : `int`
         Memory limit.
 
     Returns
     -------
     expr : `str`
-        A string representing an HTCondor ClassAd expression for removing jobs
-        which were run at the maximal allowable memory and still exceeded
-        the memory requirements.
+        A string representing an HTCondor ClassAd expression for removing jobs.
     """
-    is_retry_disallowed = "NumJobStarts > JobMaxRetries"
-    was_limit_reached = f"min({{int({memory} * pow({multiplier}, NumJobStarts - 1)), {limit}}}) == {limit}"
-
-    # Job ClassAds attributes 'HoldReasonCode' and 'HoldReasonSubCode' are
-    # UNDEFINED if job is not HELD (i.e. when 'JobStatus' is not 5).
-    # The special comparison operators ensure that all comparisons below will
-    # evaluate to FALSE in this case.
+    # Job ClassAds attributes 'HoldReasonCode' and 'HoldReasonSubCode'
+    # are UNDEFINED if job is not HELD (i.e. when 'JobStatus' is not 5).
+    # The special comparison operators ensure that all comparisons below
+    # will evaluate to FALSE in this case.
     #
     # Note:
-    # May not be strictly necessary. Operators '&&' and '||' are not strict so
-    # the entire expression should evaluate to FALSE when the job is not HELD.
-    # According to ClassAd evaluation semantics FALSE && UNDEFINED is FALSE,
-    # but better safe than sorry.
-    was_mem_exceeded = (
-        "JobStatus == 5 "
-        "&& (HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 "
-        "|| HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34)"
-    )
+    # May not be strictly necessary. Operators '&&' and '||' are not
+    # strict so the entire expression should evaluate to FALSE when the
+    # job is not HELD. According to ClassAd evaluation semantics
+    # FALSE && UNDEFINED is FALSE, but better safe than sorry.
+    is_held = "JobStatus == 5"
+    is_retry_disallowed = "NumJobStarts > JobMaxRetries"
 
-    expr = f"{was_mem_exceeded} && ({is_retry_disallowed} || {was_limit_reached})"
+    mem_expr = ""
+    if memory and multiplier and multiplier > 1 and limit:
+        mem_limit_expr = f"min({{int({memory} * pow({multiplier}, NumJobStarts - 1)), {limit}}}) == {limit}"
+
+        mem_expr = (  # Add || here so only added if adding memory expr
+            " || ((HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 "
+            f"|| HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34) && {mem_limit_expr})"
+        )
+
+    expr = f"{is_held} && ({is_retry_disallowed}{mem_expr})"
     return expr
 
 
@@ -2044,7 +2064,7 @@ def _create_request_memory_expr(memory, multiplier, limit):
     memory : `int`
         Requested memory in MB.
     multiplier : `float`
-        Memory growth rate between retires.
+        Memory growth rate between retries.
     limit : `int`
         Memory limit.
 
@@ -2119,7 +2139,7 @@ def _gather_site_values(config, compute_site):
 
     Returns
     -------
-    site_values : `dict` [`str`, `Any`]
+    site_values : `dict` [`str`, `~typing.Any`]
         Values specific to the given site.
     """
     site_values = {"attrs": {}, "profile": {}}
@@ -2165,6 +2185,50 @@ def _gather_site_values(config, compute_site):
                 site_values["profile"][subkey] = val
 
     return site_values
+
+
+def _gather_label_values(config: BpsConfig, label: str) -> dict[str, Any]:
+    """Gather values specific to given job label.
+
+    Parameters
+    ----------
+    config : `lsst.ctrl.bps.BpsConfig`
+        BPS configuration that includes necessary submit/runtime
+        information.
+    label : `str`
+        GenericWorkflowJob label.
+
+    Returns
+    -------
+    values : `dict` [`str`, `~typing.Any`]
+        Values specific to the given job label.
+    """
+    values: dict[str, Any] = {"attrs": {}, "profile": {}}
+
+    search_opts = {}
+    profile_key = ""
+    if label == "finalJob":
+        search_opts["searchobj"] = config["finalJob"]
+        profile_key = ".finalJob.profile.condor"
+    elif label in config["cluster"]:
+        search_opts["curvals"] = {"curr_cluster": label}
+        profile_key = f".cluster.{label}.profile.condor"
+    elif label in config["pipetask"]:
+        search_opts["curvals"] = {"curr_pipetask": label}
+        profile_key = f".pipetask.{label}.profile.condor"
+
+    found, value = config.search("releaseExpr", opt=search_opts)
+    if found:
+        values["releaseExpr"] = value
+
+    if profile_key and profile_key in config:
+        for subkey, val in config[profile_key].items():
+            if subkey.startswith("+"):
+                values["attrs"][subkey[1:]] = val
+            else:
+                values["profile"][subkey] = val
+
+    return values
 
 
 def is_service_job(job_ad: dict[str, Any]) -> bool:
@@ -2280,16 +2344,22 @@ def _generic_workflow_to_htcondor_dag(
         subdir_template = tmp_template
 
     # Create all DAG jobs
-    site_values = {}  # cache compute site specific values to reduce config lookups
+    site_values = {}  # Cache compute site specific values to reduce config lookups.
+    cached_values = {}  # Cache label-specific values to reduce config lookups.
+    # Note: Can't use get_job_by_label because those only include payload jobs.
     for job_name in generic_workflow:
         gwjob = generic_workflow.get_job(job_name)
         if gwjob.node_type == GenericWorkflowNodeType.PAYLOAD:
             gwjob = cast(GenericWorkflowJob, gwjob)
             if gwjob.compute_site not in site_values:
                 site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
+            if gwjob.label not in cached_values:
+                cached_values[gwjob.label] = deepcopy(site_values[gwjob.compute_site])
+                cached_values[gwjob.label].update(_gather_label_values(config, gwjob.label))
+                _LOG.debug("cached: %s= %s", gwjob.label, cached_values[gwjob.label])
             htc_job = _create_job(
                 subdir_template[gwjob.label],
-                site_values[gwjob.compute_site],
+                cached_values[gwjob.label],
                 generic_workflow,
                 gwjob,
                 out_prefix,
@@ -2351,8 +2421,15 @@ def _generic_workflow_to_htcondor_dag(
     if final and isinstance(final, GenericWorkflowJob):
         if final.compute_site and final.compute_site not in site_values:
             site_values[final.compute_site] = _gather_site_values(config, final.compute_site)
+        if final.label not in cached_values:
+            cached_values[final.label] = deepcopy(site_values[final.compute_site])
+            cached_values[final.label].update(_gather_label_values(config, final.label))
         final_htjob = _create_job(
-            subdir_template[final.label], site_values[final.compute_site], generic_workflow, final, out_prefix
+            subdir_template[final.label],
+            cached_values[final.label],
+            generic_workflow,
+            final,
+            out_prefix,
         )
         if "post" not in final_htjob.dagcmds:
             final_htjob.dagcmds["post"] = {
