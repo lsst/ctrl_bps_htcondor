@@ -538,7 +538,49 @@ Troubleshooting
 Where is stdout/stderr from pipeline tasks?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For now, stdout/stderr can be found in files in the run submit directory.
+For now, stdout/stderr can be found in files in the run submit directory
+after the job is done.  Python logging goes to stderr so the majority
+of the pipetask output will be in the \*.err file.  One exception is
+``finalJob`` which does print some information to stdout (\*.out file)
+
+While the job is running, the owner of the job can use ``condor_tail``
+command to peek at the stdout/stderr of a job.  ``bps`` uses the ID for
+the entire workflow.  But for the HTCondor command ``condor_tail``
+you will need the ID for the individual job.  Run the following command
+and look for the ID for the job (undefined's are normal and normally
+correspond to the DAGMan jobs).
+
+.. code-block::
+
+   condor_q -run -nobatch -af:hj bps_job_name bps_run
+
+Once you have the HTCondor ID for the particular job you want to peek
+at the output, run this command:
+
+.. code-block::
+
+   condor_tail -stderr -f <ID>
+
+If you want to instead see the stdout, leave off the ``-stderr``.
+If you need to see more of the contents specify ``-maxbytes <numbytes>``
+(defaults to 1024 bytes).
+
+I need to look around on the compute node where my job is running.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If using glideins, you might be able to just ``ssh`` to the compute
+node from the submit node.  First, need to find out on which node the
+job is running.
+
+.. code-block::
+
+   condor_q -run -nobatch -af:hj RemoteHost bps_job_name bps_run
+
+Alternatively, HTCondor has the command ``condor_ssh_to_job`` where you
+just need the job ID.  This is not the workflow ID (the ID that ``bps``
+commands use), but an individual job ID.  The command above also prints
+the job IDs.
+
 
 Why did my submission fail?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
