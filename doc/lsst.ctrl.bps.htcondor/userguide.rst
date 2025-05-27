@@ -148,10 +148,27 @@ See `bps submit`_.
 
 .. Describe any plugin specific aspects of a submission below if any.
 
-.. _htc-plugin-report:
+
+.. _htc-plugin-status:
 
 Checking status
 ---------------
+
+See `bps status`_.
+
+The plugin can take either the HTCondor ID (as shown in ``bps report`` or
+``condor_q``) or the submit path.
+
+For not-completed workflows, the speed of using the ID can depend on
+whether on the same submit machine (i.e., local schedd) or not and how
+busy the schedd machines are.  For completed workflows, using the ID
+may not work if the HTCondor logs have rolled over between the time of
+completion and time of the status command.
+
+.. _htc-plugin-report:
+
+Printing a report
+-----------------
 
 See `bps report`_.
 
@@ -555,7 +572,8 @@ complete your run.
 .. _HTCondor: https://htcondor.readthedocs.io/en/latest/
 .. _Slurm: https://slurm.schedmd.com/overview.html
 .. _bps cancel: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#canceling-submitted-jobs
-.. _bps report: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#checking-status
+.. _bps status: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#checking-status
+.. _bps report: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#printing-a-report
 .. _bps restart: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#restarting-a-failed-run
 .. _bps submit: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#submitting-a-run
 .. _ctrl_bps: https://github.com/lsst/ctrl_bps

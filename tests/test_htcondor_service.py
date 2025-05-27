@@ -94,8 +94,8 @@ class HTCondorServiceTestCase(unittest.TestCase):
         self.assertEqual(self.service.defaults_uri, HTC_DEFAULTS_URI)
         self.assertFalse(self.service.defaults_uri.isdir())
 
-    @unittest.mock.patch.object(htcondor.Collector, "locate", return_value=LOCATE_SUCCESS)
     @unittest.mock.patch.object(htcondor.SecMan, "ping", return_value=PING_SUCCESS)
+    @unittest.mock.patch.object(htcondor.Collector, "locate", return_value=LOCATE_SUCCESS)
     def testPingSuccess(self, mock_locate, mock_ping):
         status, message = self.service.ping(None)
         self.assertEqual(status, 0)
@@ -115,6 +115,71 @@ class HTCondorServiceTestCase(unittest.TestCase):
             status, message = self.service.ping(None)
             self.assertEqual(status, 1)
             self.assertEqual(message, "Permission problem with Schedd service.")
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._get_status_from_id")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._locate_schedds")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    def testGetStatusLocal(self, mock_type, mock_locate, mock_status):
+        mock_type.return_value = htcondor_service.WmsIdType.LOCAL
+        mock_locate.return_value = {}
+        mock_status.return_value = (WmsStates.RUNNING, "")
+
+        fake_id = "100"
+        state, message = self.service.get_status(fake_id)
+
+        mock_type.assert_called_once_with(fake_id)
+        mock_locate.assert_called_once_with(locate_all=False)
+        mock_status.assert_called_once_with(fake_id, 1, schedds={})
+
+        self.assertEqual(state, WmsStates.RUNNING)
+        self.assertEqual(message, "")
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._get_status_from_id")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._locate_schedds")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    def testGetStatusGlobal(self, mock_type, mock_locate, mock_status):
+        mock_type.return_value = htcondor_service.WmsIdType.GLOBAL
+        mock_locate.return_value = {}
+        fake_message = ""
+        mock_status.return_value = (WmsStates.RUNNING, fake_message)
+
+        fake_id = "100"
+        state, message = self.service.get_status(fake_id, 2)
+
+        mock_type.assert_called_once_with(fake_id)
+        mock_locate.assert_called_once_with(locate_all=True)
+        mock_status.assert_called_once_with(fake_id, 2, schedds={})
+
+        self.assertEqual(state, WmsStates.RUNNING)
+        self.assertEqual(message, fake_message)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._get_status_from_path")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    def testGetStatusPath(self, mock_type, mock_status):
+        fake_message = "fake message"
+        mock_type.return_value = htcondor_service.WmsIdType.PATH
+        mock_status.return_value = (WmsStates.FAILED, fake_message)
+
+        fake_id = "/fake/path"
+        state, message = self.service.get_status(fake_id)
+
+        mock_type.assert_called_once_with(fake_id)
+        mock_status.assert_called_once_with(fake_id)
+
+        self.assertEqual(state, WmsStates.FAILED)
+        self.assertEqual(message, fake_message)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    def testGetStatusUnknownType(self, mock_type):
+        mock_type.return_value = htcondor_service.WmsIdType.UNKNOWN
+
+        fake_id = "100.0"
+        state, message = self.service.get_status(fake_id)
+
+        mock_type.assert_called_once_with(fake_id)
+
+        self.assertEqual(state, WmsStates.UNKNOWN)
+        self.assertEqual(message, "Invalid job id")
 
 
 class GetExitCodeSummaryTestCase(unittest.TestCase):
@@ -1288,6 +1353,69 @@ class CreatePeriodicRemoveExprTestCase(unittest.TestCase):
             "min({int(2048 * pow(2, NumJobStarts - 1)), 32768}) == 32768))"
         )
         self.assertEqual(results, truth)
+
+
+class GetStatusFromIdTestCase(unittest.TestCase):
+    """Test _get_status_from_id function."""
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._get_info_from_schedd")
+    def testNotFound(self, mock_get):
+        mock_get.return_value = {}
+
+        state, message = htcondor_service._get_status_from_id("100", 0, {})
+
+        mock_get.assert_called_once_with("100", 0, {})
+
+        self.assertEqual(state, WmsStates.UNKNOWN)
+        self.assertEqual(message, "DAGMan job 100 not found in queue or history.  Check id or try path.")
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._htc_status_to_wms_state")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._get_info_from_schedd")
+    def testFound(self, mock_get, mock_conversion):
+        fake_id = "100.0"
+        dag_ads = {fake_id: {"JobStatus": lssthtc.JobStatus.RUNNING}}
+        mock_get.return_value = {"schedd1": dag_ads}
+        mock_conversion.return_value = WmsStates.RUNNING
+
+        state, message = htcondor_service._get_status_from_id(fake_id, 0, {})
+
+        mock_get.assert_called_once_with(fake_id, 0, {})
+        mock_conversion.assert_called_once_with(dag_ads[fake_id])
+
+        self.assertEqual(state, WmsStates.RUNNING)
+        self.assertEqual(message, "")
+
+
+class GetStatusFromPathTestCase(unittest.TestCase):
+    """Test _get_status_from_path function."""
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_log")
+    def testNoDagLog(self, mock_read):
+        mock_read.side_effect = FileNotFoundError
+
+        fake_path = "/fake/path"
+        state, message = htcondor_service._get_status_from_path(fake_path)
+
+        mock_read.assert_called_once_with(Path(fake_path))
+
+        self.assertEqual(state, WmsStates.UNKNOWN)
+        self.assertEqual(message, f"DAGMan log not found in {fake_path}.  Check path.")
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._htc_status_to_wms_state")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_log")
+    def testSuccess(self, mock_read, mock_conversion):
+        dag_ads = {"100.0": {"JobStatus": lssthtc.JobStatus.COMPLETED, "ExitBySignal": False, "ExitCode": 0}}
+        mock_read.return_value = ("100.0", dag_ads)
+        mock_conversion.return_value = WmsStates.SUCCEEDED
+
+        fake_path = "/fake/path"
+        state, message = htcondor_service._get_status_from_path(fake_path)
+
+        mock_read.assert_called_once_with(Path(fake_path))
+        mock_conversion.assert_called_once_with(dag_ads["100.0"])
+
+        self.assertEqual(state, WmsStates.SUCCEEDED)
+        self.assertEqual(message, "")
 
 
 if __name__ == "__main__":

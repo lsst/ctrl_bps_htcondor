@@ -401,6 +401,54 @@ class HTCondorService(BaseWmsService):
         _LOG.debug("job_ids = %s", job_ids)
         return job_ids
 
+    def get_status(
+        self,
+        wms_workflow_id: str,
+        hist: float = 1,
+        is_global: bool = False,
+    ) -> tuple[WmsStates, str]:
+        """Return status of run based upon given constraints.
+
+        Parameters
+        ----------
+        wms_workflow_id : `str`
+            Limit to specific run based on id (queue id or path).
+        hist : `float`, optional
+            Limit history search to this many days. Defaults to 1.
+        is_global : `bool`, optional
+            If set, all job queues (and their histories) will be queried for
+            job information. Defaults to False which means that only the local
+            job queue will be queried.
+
+        Returns
+        -------
+        state : `lsst.ctrl.bps.WmsStates`
+            Status of single run from given information.
+        message : `str`
+            Extra message for status command to print.  This could be pointers
+            to documentation or to WMS specific commands.
+        """
+        _LOG.debug("get_status: id=%s, hist=%s, is_global=%s", wms_workflow_id, hist, is_global)
+
+        id_type = _wms_id_type(wms_workflow_id)
+        _LOG.debug("id_type = %s", id_type.name)
+
+        if id_type == WmsIdType.LOCAL:
+            schedulers = _locate_schedds(locate_all=is_global)
+            _LOG.debug("schedulers = %s", schedulers)
+            state, message = _get_status_from_id(wms_workflow_id, hist, schedds=schedulers)
+        elif id_type == WmsIdType.GLOBAL:
+            schedulers = _locate_schedds(locate_all=True)
+            _LOG.debug("schedulers = %s", schedulers)
+            state, message = _get_status_from_id(wms_workflow_id, hist, schedds=schedulers)
+        elif id_type == WmsIdType.PATH:
+            state, message = _get_status_from_path(wms_workflow_id)
+        else:
+            state, message = WmsStates.UNKNOWN, "Invalid job id"
+        _LOG.debug("state: %s, %s", state, message)
+
+        return state, message
+
     def report(
         self,
         wms_workflow_id=None,
@@ -1014,6 +1062,77 @@ def _handle_job_inputs(generic_workflow: GenericWorkflow, job_name: str, use_sha
     return htc_commands
 
 
+def _get_status_from_id(
+    wms_workflow_id: str, hist: float, schedds: dict[str, htcondor.Schedd]
+) -> tuple[WmsStates, str]:
+    """Gather run information using workflow id.
+
+    Parameters
+    ----------
+    wms_workflow_id : `str`
+        Limit to specific run based on id.
+    hist : `float`
+        Limit history search to this many days.
+    schedds : `dict` [ `str`, `htcondor.Schedd` ]
+        HTCondor schedulers which to query for job information. If empty
+        dictionary, all queries will be run against the local scheduler only.
+
+    Returns
+    -------
+    state : `lsst.ctrl.bps.WmsStates`
+        Status for the corresponding run.
+    message : `str`
+        Message with extra error information.
+    """
+    _LOG.debug("_get_status_from_id: id=%s, hist=%s, schedds=%s", wms_workflow_id, hist, schedds)
+
+    message = ""
+
+    # Collect information about the job by querying HTCondor schedd and
+    # HTCondor history.
+    schedd_dag_info = _get_info_from_schedd(wms_workflow_id, hist, schedds)
+    if len(schedd_dag_info) == 1:
+        schedd_name = next(iter(schedd_dag_info))
+        dag_id = next(iter(schedd_dag_info[schedd_name]))
+        dag_ad = schedd_dag_info[schedd_name][dag_id]
+        state = _htc_status_to_wms_state(dag_ad)
+    else:
+        state = WmsStates.UNKNOWN
+        message = f"DAGMan job {wms_workflow_id} not found in queue or history.  Check id or try path."
+    return state, message
+
+
+def _get_status_from_path(wms_path: str | os.PathLike) -> tuple[WmsStates, str]:
+    """Gather run status from a given run directory.
+
+    Parameters
+    ----------
+    wms_path : `str` | `os.PathLike`
+        The directory containing the submit side files (e.g., HTCondor files).
+
+    Returns
+    -------
+    state : `lsst.ctrl.bps.WmsStates`
+        Status for the run.
+    message : `str`
+        Message to be printed.
+    """
+    wms_path = Path(wms_path).resolve()
+    message = ""
+    try:
+        wms_workflow_id, dag_ad = read_dag_log(wms_path)
+    except FileNotFoundError:
+        wms_workflow_id = MISSING_ID
+        message = f"DAGMan log not found in {wms_path}.  Check path."
+
+    if wms_workflow_id == MISSING_ID:
+        state = WmsStates.UNKNOWN
+    else:
+        state = _htc_status_to_wms_state(dag_ad[wms_workflow_id])
+
+    return state, message
+
+
 def _report_from_path(wms_path):
     """Gather run information from a given run directory.
 
@@ -1139,11 +1258,11 @@ def _get_info_from_schedd(
     ----------
     wms_workflow_id : `str`
         Limit to specific run based on id.
-    hist : `int`
+    hist : `float`
         Limit history search to this many days.
-    schedds : `dict` [ `str`, `htcondor.Schedd` ], optional
-        HTCondor schedulers which to query for job information. If None
-        (default), all queries will be run against the local scheduler only.
+    schedds : `dict` [ `str`, `htcondor.Schedd` ]
+        HTCondor schedulers which to query for job information. If empty
+        dictionary, all queries will be run against the local scheduler only.
 
     Returns
     -------
@@ -1152,6 +1271,8 @@ def _get_info_from_schedd(
         Scheduler, local HTCondor job ids are mapped to their respective
         classads.
     """
+    _LOG.debug("_get_info_from_schedd: id=%s, hist=%s, schedds=%s", wms_workflow_id, hist, schedds)
+
     dag_constraint = 'regexp("dagman$", Cmd)'
     try:
         cluster_id = int(float(wms_workflow_id))

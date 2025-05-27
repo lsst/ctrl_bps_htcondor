@@ -1376,6 +1376,7 @@ def condor_search(constraint=None, hist=None, schedds=None):
 
     job_info = condor_q(constraint=constraint, schedds=schedds)
     if hist is not None:
+        _LOG.debug("Searching history going back %s days", hist)
         epoch = (datetime.now() - timedelta(days=hist)).timestamp()
         constraint += f" && (CompletionDate >= {epoch} || JobFinishedHookDone >= {epoch})"
         hist_info = condor_history(constraint, schedds=schedds)
