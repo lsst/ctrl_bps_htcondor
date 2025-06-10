@@ -181,7 +181,7 @@ DAG, this status can lag behind by a few minutes.  Also, DAGMan tracks
 deletion of individual jobs as failures (no separate counts for
 deleted jobs).  So the summary report flag column will show ``F`` when
 there are either failed or deleted jobs.  If getting a detailed report
-(``bps report --id <id>``), the plugin reads detailed job information
+(``bps report --id <ID>``), the plugin reads detailed job information
 from files.  So, the detailed report can distinguish between failed and
 deleted jobs, and thus will show ``D`` in the flag column for a running
 workflow if there is a deleted job.
@@ -202,7 +202,7 @@ jobs are being held, use
 
 .. code-block:: bash
 
-   condor_q -hold <id>    # to see a specific job being held
+   condor_q -hold <ID>    # to see a specific job being held
    condor-q -hold <user>  # to see all held jobs owned by the user
 
 .. _htc-plugin-cancel:
@@ -231,18 +231,18 @@ See `bps restart`_.
 .. Describe any plugin specific aspects of restarting failed jobs below
    if any.
 
-A valid run id is one of the following:
+A valid run ID is one of the following:
 
-* job id, e.g., ``1234.0`` (using just the cluster id, ``1234``, will also
+* job ID, e.g., ``1234.0`` (using just the cluster ID, ``1234``, will also
   work),
-* global job id (e.g.,
+* global job ID (e.g.,
   ``sdfrome002.sdf.slac.stanford.edu#165725.0#1699393748``),
 * run's submit directory (e.g.,
   ``/sdf/home/m/mxk/lsst/bps/submit/u/mxk/pipelines_check/20230713T135346Z``).
 
 .. note::
 
-   If you don't remember any of the run's id you may try running
+   If you don't remember any of the run's ID you may try running
 
    .. code::
 
@@ -299,7 +299,7 @@ alongside the other payload jobs in the workflow that should automatically
 create and maintain glideins required for the payload jobs to run.
 
 If you enable automatic provisioning of resources, you will see the status of
-the provisioning job in the output of the ``bps report --id <id>`` command.
+the provisioning job in the output of the ``bps report --id <ID>`` command.
 Look for the line starting with "Provisioning job status".  For example
 
 .. code-block:: bash
@@ -446,7 +446,7 @@ If any of your jobs are being held, it will display something similar to::
 
 The job that is in the hold state can be released from it with
 `condor_release`_ providing the issue that made HTCondor put it in this state
-has been resolved. For example, if your job with id 1234.0 was placed in the
+has been resolved. For example, if your job with ID 1234.0 was placed in the
 hold state because during the execution it exceeded 2048 MiB you requested for
 it during the submission, you can double the amount of memory it should request with
 
@@ -538,7 +538,49 @@ Troubleshooting
 Where is stdout/stderr from pipeline tasks?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For now, stdout/stderr can be found in files in the run submit directory.
+For now, stdout/stderr can be found in files in the run submit directory
+after the job is done.  Python logging goes to stderr so the majority
+of the pipetask output will be in the \*.err file.  One exception is
+``finalJob`` which does print some information to stdout (\*.out file)
+
+While the job is running, the owner of the job can use ``condor_tail``
+command to peek at the stdout/stderr of a job.  ``bps`` uses the ID for
+the entire workflow.  But for the HTCondor command ``condor_tail``
+you will need the ID for the individual job.  Run the following command
+and look for the ID for the job (undefined's are normal and normally
+correspond to the DAGMan jobs).
+
+.. code-block::
+
+   condor_q -run -nobatch -af:hj bps_job_name bps_run
+
+Once you have the HTCondor ID for the particular job you want to peek
+at the output, run this command:
+
+.. code-block::
+
+   condor_tail -stderr -f <ID>
+
+If you want to instead see the stdout, leave off the ``-stderr``.
+If you need to see more of the contents specify ``-maxbytes <numbytes>``
+(defaults to 1024 bytes).
+
+I need to look around on the compute node where my job is running.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If using glideins, you might be able to just ``ssh`` to the compute
+node from the submit node.  First, need to find out on which node the
+job is running.
+
+.. code-block::
+
+   condor_q -run -nobatch -af:hj RemoteHost bps_job_name bps_run
+
+Alternatively, HTCondor has the command ``condor_ssh_to_job`` where you
+just need the job ID.  This is not the workflow ID (the ID that ``bps``
+commands use), but an individual job ID.  The command above also prints
+the job IDs.
+
 
 Why did my submission fail?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -556,7 +598,7 @@ will continue normally until the existing gliedins expire.  As a result,
 payload jobs may get stuck in the job queue if the glideins were not created
 or expired before the execution of the workflow could be completed.
 
-Firstly, use ``bps report --id <run id>`` to display the run report and look
+Firstly, use ``bps report --id <run ID>`` to display the run report and look
 for the line
 
 .. code-block::
