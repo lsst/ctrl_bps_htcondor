@@ -1,3 +1,20 @@
+lsst-ctrl-bps-htcondor v29.1.0 (2025-06-13)
+===========================================
+
+New Features
+------------
+
+- Added capability for ``NOOP`` and ``EXTERNAL SUBDAG`` DAG nodes. (`DM-46294 <https://rubinobs.atlassian.net/browse/DM-46294>`_)
+- Added ability to add job release expression. (`DM-50614 <https://rubinobs.atlassian.net/browse/DM-50614>`_)
+- Added get_status method to ``HTCondorService`` class for quick checking of run status. (`DM-50619 <https://rubinobs.atlassian.net/browse/DM-50619>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Explicitly define ``MaxIdle`` to workaround bug where HTCondor overrides config and environment variables when it is responsible for making DAGMan submit file (affects at least certain 24.0.x versions). (`DM-50212 <https://rubinobs.atlassian.net/browse/DM-50212>`_)
+
+
 lsst-ctrl-bps-htcondor v29.0.0 (2025-03-25)
 ===========================================
 

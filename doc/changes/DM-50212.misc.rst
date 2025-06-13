@@ -1,1 +1,0 @@
-Explicitly define ``MaxIdle`` to workaround bug where HTCondor overrides config and environment variables when it is responsible for making DAGMan submit file (affects at least certain 24.0.x versions).
