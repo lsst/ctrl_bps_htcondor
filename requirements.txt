@@ -1,4 +1,4 @@
-htcondor >= 8.8
+htcondor >= 8.8, == 24.0.*
 lsst-ctrl-bps @ git+https://github.com/lsst/ctrl_bps.git@main
 lsst-daf-butler @ git+https://github.com/lsst/daf_butler@main
 lsst-utils @ git+https://github.com/lsst/utils@main
