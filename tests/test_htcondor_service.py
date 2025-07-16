@@ -40,6 +40,7 @@ from lsst.ctrl.bps import (
     BPS_SEARCH_ORDER,
     BpsConfig,
     GenericWorkflowExec,
+    GenericWorkflowFile,
     GenericWorkflowJob,
     WmsSpecificInfo,
     WmsStates,
@@ -1416,6 +1417,92 @@ class GetStatusFromPathTestCase(unittest.TestCase):
 
         self.assertEqual(state, WmsStates.SUCCEEDED)
         self.assertEqual(message, "")
+
+
+class HandleJobOutputsTestCase(unittest.TestCase):
+    """Test _handle_job_outputs function."""
+
+    def setUp(self):
+        self.job_name = "test_job"
+        self.out_prefix = "/test/prefix"
+
+    def tearDown(self):
+        pass
+
+    def testNoOutputsSharedFilesystem(self):
+        """Test with shared filesystem and no outputs."""
+        mock_workflow = unittest.mock.Mock()
+        mock_workflow.get_job_outputs.return_value = []
+
+        result = htcondor_service._handle_job_outputs(mock_workflow, self.job_name, True, self.out_prefix)
+
+        self.assertEqual(result, {"transfer_output_files": '""'})
+
+    def testWithOutputsSharedFilesystem(self):
+        """Test with shared filesystem and outputs present (still empty)."""
+        mock_workflow = unittest.mock.Mock()
+        mock_workflow.get_job_outputs.return_value = [
+            GenericWorkflowFile(name="output.txt", src_uri="/path/to/output.txt")
+        ]
+
+        result = htcondor_service._handle_job_outputs(mock_workflow, self.job_name, True, self.out_prefix)
+
+        self.assertEqual(result, {"transfer_output_files": '""'})
+
+    def testNoOutputsNoSharedFilesystem(self):
+        """Test without shared filesystem and no outputs."""
+        mock_workflow = unittest.mock.Mock()
+        mock_workflow.get_job_outputs.return_value = []
+
+        result = htcondor_service._handle_job_outputs(mock_workflow, self.job_name, False, self.out_prefix)
+
+        self.assertEqual(result, {"transfer_output_files": '""'})
+
+    def testWithAnOutputNoSharedFilesystem(self):
+        """Test without shared filesystem and single output file."""
+        mock_workflow = unittest.mock.Mock()
+        mock_workflow.get_job_outputs.return_value = [
+            GenericWorkflowFile(name="output.txt", src_uri="/path/to/output.txt")
+        ]
+
+        result = htcondor_service._handle_job_outputs(mock_workflow, self.job_name, False, self.out_prefix)
+
+        expected = {
+            "transfer_output_files": "output.txt",
+            "transfer_output_remaps": '"output.txt=/path/to/output.txt"',
+        }
+        self.assertEqual(result, expected)
+
+    def testWithOutputsNoSharedFilesystem(self):
+        """Test without shared filesystem and multiple output files."""
+        mock_workflow = unittest.mock.Mock()
+        mock_workflow.get_job_outputs.return_value = [
+            GenericWorkflowFile(name="output1.txt", src_uri="/path/output1.txt"),
+            GenericWorkflowFile(name="output2.txt", src_uri="/another/path/output2.txt"),
+        ]
+
+        result = htcondor_service._handle_job_outputs(mock_workflow, self.job_name, False, self.out_prefix)
+
+        expected = {
+            "transfer_output_files": "output1.txt,output2.txt",
+            "transfer_output_remaps": '"output1.txt=/path/output1.txt;output2.txt=/another/path/output2.txt"',
+        }
+        self.assertEqual(result, expected)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._LOG")
+    def testLogging(self, mock_log):
+        mock_workflow = unittest.mock.Mock()
+        mock_workflow.get_job_outputs.return_value = [
+            GenericWorkflowFile(name="output.txt", src_uri="/path/to/output.txt")
+        ]
+
+        htcondor_service._handle_job_outputs(mock_workflow, self.job_name, False, self.out_prefix)
+
+        self.assertTrue(mock_log.debug.called)
+        debug_calls = mock_log.debug.call_args_list
+        self.assertTrue(any("src_uri=" in str(call) for call in debug_calls))
+        self.assertTrue(any("transfer_output_files=" in str(call) for call in debug_calls))
+        self.assertTrue(any("transfer_output_remaps=" in str(call) for call in debug_calls))
 
 
 if __name__ == "__main__":
