@@ -205,6 +205,7 @@ HTC_VALID_JOB_KEYS = {
     "transfer_executable",
     "transfer_input_files",
     "transfer_output_files",
+    "transfer_output_remaps",
     "request_cpus",
     "request_memory",
     "request_disk",
