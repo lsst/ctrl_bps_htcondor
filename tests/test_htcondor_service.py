@@ -47,7 +47,7 @@ from lsst.ctrl.bps import (
 )
 from lsst.ctrl.bps.htcondor import htcondor_service, lssthtc
 from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
-from lsst.ctrl.bps.tests.gw_test_utils import make_3_label_workflow_groups_sort
+from lsst.ctrl.bps.tests.gw_test_utils import make_3_label_workflow, make_3_label_workflow_groups_sort
 from lsst.utils.tests import temporaryDirectory
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
@@ -1234,7 +1234,11 @@ class GatherLabelValuesTestCase(unittest.TestCase):
         config = BpsConfig(
             {
                 "cluster": {
-                    "label1": {"releaseExpr": "cluster_val", "profile": {"condor": {"prof_val1": 3}}}
+                    "label1": {
+                        "releaseExpr": "cluster_val",
+                        "overwriteJobFiles": False,
+                        "profile": {"condor": {"prof_val1": 3}},
+                    }
                 },
                 "pipetask": {"label1": {"releaseExpr": "pipetask_val"}},
             },
@@ -1243,14 +1247,26 @@ class GatherLabelValuesTestCase(unittest.TestCase):
             wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
         )
         results = htcondor_service._gather_label_values(config, label)
-        self.assertEqual(results, {"attrs": {}, "profile": {"prof_val1": 3}, "releaseExpr": "cluster_val"})
+        self.assertEqual(
+            results,
+            {
+                "attrs": {},
+                "profile": {"prof_val1": 3},
+                "releaseExpr": "cluster_val",
+                "overwriteJobFiles": False,
+            },
+        )
 
     def testPipetaskLabel(self):
         label = "label1"
         config = BpsConfig(
             {
                 "pipetask": {
-                    "label1": {"releaseExpr": "pipetask_val", "profile": {"condor": {"prof_val1": 3}}}
+                    "label1": {
+                        "releaseExpr": "pipetask_val",
+                        "overwriteJobFiles": False,
+                        "profile": {"condor": {"prof_val1": 3}},
+                    }
                 }
             },
             search_order=BPS_SEARCH_ORDER,
@@ -1258,7 +1274,15 @@ class GatherLabelValuesTestCase(unittest.TestCase):
             wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
         )
         results = htcondor_service._gather_label_values(config, label)
-        self.assertEqual(results, {"attrs": {}, "profile": {"prof_val1": 3}, "releaseExpr": "pipetask_val"})
+        self.assertEqual(
+            results,
+            {
+                "attrs": {},
+                "profile": {"prof_val1": 3},
+                "releaseExpr": "pipetask_val",
+                "overwriteJobFiles": False,
+            },
+        )
 
     def testNoSection(self):
         label = "notThere"
@@ -1269,7 +1293,31 @@ class GatherLabelValuesTestCase(unittest.TestCase):
             wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
         )
         results = htcondor_service._gather_label_values(config, label)
-        self.assertEqual(results, {"attrs": {}, "profile": {}})
+        self.assertEqual(results, {"attrs": {}, "profile": {}, "overwriteJobFiles": True})
+
+    def testNoOverwriteSpecified(self):
+        label = "notthere"
+        config = BpsConfig(
+            {},
+            search_order=BPS_SEARCH_ORDER,
+            defaults={},
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        results = htcondor_service._gather_label_values(config, label)
+        self.assertEqual(results, {"attrs": {}, "profile": {}, "overwriteJobFiles": True})
+
+    def testFinalJob(self):
+        label = "finalJob"
+        config = BpsConfig(
+            {"finalJob": {"profile": {"condor": {"prof_val2": 6, "+attr_val1": 5}}}},
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        results = htcondor_service._gather_label_values(config, label)
+        self.assertEqual(
+            results, {"attrs": {"attr_val1": 5}, "profile": {"prof_val2": 6}, "overwriteJobFiles": False}
+        )
 
 
 class CreateCheckJobTestCase(unittest.TestCase):
@@ -1503,6 +1551,32 @@ class HandleJobOutputsTestCase(unittest.TestCase):
         self.assertTrue(any("src_uri=" in str(call) for call in debug_calls))
         self.assertTrue(any("transfer_output_files=" in str(call) for call in debug_calls))
         self.assertTrue(any("transfer_output_remaps=" in str(call) for call in debug_calls))
+
+
+class CreateJobTestCase(unittest.TestCase):
+    """Test _create_job function."""
+
+    def setUp(self):
+        self.generic_workflow = make_3_label_workflow("test1", True)
+
+    def testNoOverwrite(self):
+        template = "{label}/{tract}/{patch}/{band}/{subfilter}/{physical_filter}/{visit}/{exposure}"
+        cached_values = {
+            "bpsUseShared": True,
+            "overwriteJobFiles": False,
+            "memoryLimit": 491520,
+            "profile": {},
+            "attrs": {},
+        }
+        gwjob = self.generic_workflow.get_final()
+        out_prefix = "submit"
+        htc_job = htcondor_service._create_job(
+            template, cached_values, self.generic_workflow, gwjob, out_prefix
+        )
+        self.assertEqual(htc_job.name, gwjob.name)
+        self.assertEqual(htc_job.label, gwjob.label)
+        self.assertIn("NumJobStarts", htc_job.cmds["output"])
+        self.assertIn("NumJobStarts", htc_job.cmds["error"])
 
 
 if __name__ == "__main__":

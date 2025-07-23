@@ -38,3 +38,8 @@ provisioning:
 
 # By default, disable automatic provisioning of resources.
 provisionResources: false
+
+# Whether automatic job retries overwrite stdout/stderr of previous attempt.
+overwriteJobFiles: true
+finalJob:
+  overwriteJobFiles: false

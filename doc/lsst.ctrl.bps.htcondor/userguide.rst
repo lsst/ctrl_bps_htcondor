@@ -109,6 +109,24 @@ environment variables can be used.  Some examples:
    per cluster, per pipeline task)
 
 
+Overwriting Job Output/Error Files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When jobs are automatically retried, HTCondor keeps the same job id.
+Any existing job's output and error files are overwritten with the new
+ones.  This is not always ideal, for example, when successful parts of
+the failed job is skipped in the retry.  The ``overwriteJobFiles`` value
+(True or False) in the submit yaml controls whether to overwrite job files
+on retry.  When not overwriting job files an extra counter corresponding
+to the retry number appears in the output and error filenames even for
+successful jobs (e.g., cluster1_96908.163.0.err, cluster1_96908.163.1.err,
+cluster1_96908.163.2.err).  ``overwriteJobFiles`` defaults to True for
+payload jobs, but defaults to False for ``finalJob`` because the retries
+for it are always partial.  ``overwriteJobFiles`` can be specified in
+``pipetask`` and ``cluster`` sections as well as the ``finalJob`` section
+or yaml root.
+
+
 Glideins
 ^^^^^^^^
 

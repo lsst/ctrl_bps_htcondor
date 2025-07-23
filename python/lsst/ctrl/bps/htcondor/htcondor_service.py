@@ -706,9 +706,16 @@ def _create_job(subdir_template, cached_values, generic_workflow, gwjob, out_pre
     htc_job_cmds.update(_translate_job_cmds(cached_values, generic_workflow, gwjob))
 
     # job stdout, stderr, htcondor user log.
-    for key in ("output", "error", "log"):
-        htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).{key[:3]}"
+    for key in ("output", "error"):
+        if cached_values["overwriteJobFiles"]:
+            htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).{key[:3]}"
+        else:
+            htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).$$([NumJobStarts ?: 0]).{key[:3]}"
         _LOG.debug("HTCondor %s = %s", key, htc_job_cmds[key])
+
+    key = "log"
+    htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).{key[:3]}"
+    _LOG.debug("HTCondor %s = %s", key, htc_job_cmds[key])
 
     htc_job_cmds.update(
         _handle_job_inputs(generic_workflow, gwjob.name, cached_values["bpsUseShared"], out_prefix)
@@ -2370,6 +2377,12 @@ def _gather_label_values(config: BpsConfig, label: str) -> dict[str, Any]:
     found, value = config.search("releaseExpr", opt=search_opts)
     if found:
         values["releaseExpr"] = value
+
+    found, value = config.search("overwriteJobFiles", opt=search_opts)
+    if found:
+        values["overwriteJobFiles"] = value
+    else:
+        values["overwriteJobFiles"] = True
 
     if profile_key and profile_key in config:
         for subkey, val in config[profile_key].items():
