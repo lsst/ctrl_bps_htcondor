@@ -705,16 +705,16 @@ def _create_job(subdir_template, cached_values, generic_workflow, gwjob, out_pre
 
     htc_job_cmds.update(_translate_job_cmds(cached_values, generic_workflow, gwjob))
 
-    # job stdout, stderr, htcondor user log.
+    # Combine stdout and stderr to reduce the number of files.
     for key in ("output", "error"):
         if cached_values["overwriteJobFiles"]:
-            htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).{key[:3]}"
+            htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).out"
         else:
-            htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).$$([NumJobStarts ?: 0]).{key[:3]}"
+            htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).$$([NumJobStarts ?: 0]).out"
         _LOG.debug("HTCondor %s = %s", key, htc_job_cmds[key])
 
     key = "log"
-    htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).{key[:3]}"
+    htc_job_cmds[key] = f"{gwjob.name}.$(Cluster).{key}"
     _LOG.debug("HTCondor %s = %s", key, htc_job_cmds[key])
 
     htc_job_cmds.update(
