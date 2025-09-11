@@ -147,7 +147,7 @@ class ProvisionerTestCase(unittest.TestCase):
             "should_transfer_files": "NO",
             "getenv": "True",
             "output": f"jobs/{script.stem}/{script.stem}.$(Cluster).out",
-            "error": f"jobs/{script.stem}/{script.stem}.$(Cluster).err",
+            "error": f"jobs/{script.stem}/{script.stem}.$(Cluster).out",
             "log": f"jobs/{script.stem}/{script.stem}.$(Cluster).log",
         }
         dag = HTCDag(name="default")

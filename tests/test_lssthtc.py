@@ -1128,13 +1128,30 @@ class HtcWriteCondorFileTestCase(unittest.TestCase):
                 "environment": "one=1 two=\"2\" three='spacey 'quoted' value'",
                 "log": f"{job_name}.log",
             }
-
             job_attrs = {
                 "bps_job_name": job_name,
                 "bps_job_label": "label1",
                 "bps_job_quanta": "task1:8;task2:8",
             }
+            expected = [
+                "executable=$(CTRL_MPEXEC_DIR)/bin/pipetask\n",
+                "arguments=-a -b 2 -c\n",
+                "request_memory=2000\n",
+                "environment=\"one=1 two=\"2\" three='spacey 'quoted' value'\"\n",
+                f"output={job_name}.$(Cluster).out\n",
+                f"error={job_name}.$(Cluster).out\n",
+                f"log={job_name}.log\n",
+                f'+bps_job_name = "{job_name}"\n',
+                '+bps_job_label = "label1"\n',
+                '+bps_job_quanta = "task1:8;task2:8"\n',
+                "queue\n",
+            ]
+
             lssthtc.htc_write_condor_file(filename, job_name, job, job_attrs)
+            with open(filename, encoding="utf-8") as f:
+                actual = f.readlines()
+
+            self.assertEqual(set(actual), set(expected))
             self.assertTrue(filename.exists())
             # Try to make Submit object from file to find any syntax issues
             _ = lssthtc.htc_create_submit_from_file(filename)
