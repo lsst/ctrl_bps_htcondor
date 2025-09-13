@@ -530,7 +530,7 @@ def htc_write_condor_file(
                     print(f"{key}={value}", file=fh)
         for key in ["output", "error", "log"]:
             if key not in job:
-                filename = f"{job_name}.$(Cluster).${key[:3]}"
+                filename = f"{job_name}.$(Cluster).{'out' if key != 'log' else key}"
                 print(f"{key}={filename}", file=fh)
 
         if job_attrs is not None:

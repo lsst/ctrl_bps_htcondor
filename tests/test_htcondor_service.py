@@ -1577,6 +1577,10 @@ class CreateJobTestCase(unittest.TestCase):
         self.assertEqual(htc_job.label, gwjob.label)
         self.assertIn("NumJobStarts", htc_job.cmds["output"])
         self.assertIn("NumJobStarts", htc_job.cmds["error"])
+        self.assertNotIn("NumJobStarts", htc_job.cmds["log"])
+        self.assertTrue(htc_job.cmds["error"].endswith(".out"))
+        self.assertTrue(htc_job.cmds["output"].endswith(".out"))
+        self.assertTrue(htc_job.cmds["log"].endswith(".log"))
 
 
 if __name__ == "__main__":

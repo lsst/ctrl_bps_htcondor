@@ -194,8 +194,9 @@ class Provisioner:
             "getenv": "True",
         }
         cmds |= {
-            stream: str(job.subfile.with_suffix(f".$(Cluster).{stream[:3]}"))
-            for stream in ("output", "error", "log")
+            "output": str(job.subfile.with_suffix(".$(Cluster).out")),
+            "error": str(job.subfile.with_suffix(".$(Cluster).out")),
+            "log": str(job.subfile.with_suffix(".$(Cluster).log")),
         }
         job.add_job_cmds(cmds)
 

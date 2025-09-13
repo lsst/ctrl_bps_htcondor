@@ -49,7 +49,7 @@ class ProvisionerTestCase(unittest.TestCase):
         pass
 
     def testConfigureWithoutExistingConfig(self):
-        """Test if configuration file is created if necessary."""
+        """Test if the configuration file is created if necessary."""
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             filename = f"{tmpdir}/condor-info.py"
             self.config[".provisioning.provisioningScriptConfig"] = "foo"
@@ -66,7 +66,7 @@ class ProvisionerTestCase(unittest.TestCase):
             self.assertTrue(provisioner.is_configured)
 
     def testConfigureWithExistingConfig(self):
-        """Test if existing configuration file is left unchanged."""
+        """Test if the existing configuration file is left unchanged."""
         with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8") as tmpfile:
             self.config[".provisioning.provisioningScriptConfig"] = "bar"
             self.config[".provisioning.provisioningScriptConfigPath"] = tmpfile.name
@@ -97,7 +97,7 @@ class ProvisionerTestCase(unittest.TestCase):
         self.assertTrue(provisioner.is_configured)
 
     def testConfigureOsError(self):
-        """Test if method raises when the configuration can't be created."""
+        """Test if the method raises when it can't create the configuration."""
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             filename = f"{tmpdir}/subdir/condor-info.py"
             self.config[".provisioning.provisioningScriptConfigPath"] = filename
@@ -112,7 +112,7 @@ class ProvisionerTestCase(unittest.TestCase):
             os.chmod(tmpdir, 0o700)
 
     def testPrepare(self):
-        """Test if provisioning script is created."""
+        """Test if the provisioning script is created."""
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             prov_config = Path(f"{tmpdir}/condor-info.py")
             self.config[".provisioning.provisioningScriptConfigPath"] = str(prov_config)
@@ -133,13 +133,13 @@ class ProvisionerTestCase(unittest.TestCase):
             self.assertEqual(prov_script.read_text(), "bar")
 
     def testPrepareIfNotConfigured(self):
-        """Test if method raises when the configuration step was skipped."""
+        """Test if the method raises when the configuration step is skipped."""
         provisioner = Provisioner(self.config)
         with self.assertRaises(RuntimeError):
             provisioner.prepare("provisioning_job.sh", prefix="")
 
     def testProvision(self):
-        """Test if provisioning job is added to the DAG."""
+        """Test if the provisioning job is added to the DAG."""
         script = Path("provisioningJob.sh")
         cmds = {
             "universe": "local",
@@ -147,7 +147,7 @@ class ProvisionerTestCase(unittest.TestCase):
             "should_transfer_files": "NO",
             "getenv": "True",
             "output": f"jobs/{script.stem}/{script.stem}.$(Cluster).out",
-            "error": f"jobs/{script.stem}/{script.stem}.$(Cluster).err",
+            "error": f"jobs/{script.stem}/{script.stem}.$(Cluster).out",
             "log": f"jobs/{script.stem}/{script.stem}.$(Cluster).log",
         }
         dag = HTCDag(name="default")
@@ -168,7 +168,7 @@ class ProvisionerTestCase(unittest.TestCase):
         self.assertIn("bps_provisioning_job", dag.graph["attr"])
 
     def testProvisionError(self):
-        """Test if method raises when the prepare step was skipped."""
+        """Test if the method raises when the prepare step was skipped."""
         dag = HTCDag(name="test")
         provisioner = Provisioner(self.config)
         with self.assertRaises(RuntimeError):
