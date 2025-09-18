@@ -27,5 +27,6 @@
 
 from .htcondor_config import *
 from .htcondor_service import *
+from .htcondor_workflow import *
 from .lssthtc import *
 from .version import *
