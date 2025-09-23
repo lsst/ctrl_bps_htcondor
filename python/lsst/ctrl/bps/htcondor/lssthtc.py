@@ -2345,3 +2345,29 @@ def _update_dicts(dict1, dict2):
             _update_dicts(dict1[key], value)
         else:
             dict1[key] = value
+
+
+def _locate_schedds(locate_all=False):
+    """Find out Scheduler daemons in an HTCondor pool.
+
+    Parameters
+    ----------
+    locate_all : `bool`, optional
+        If True, all available schedulers in the HTCondor pool will be located.
+        False by default which means that the search will be limited to looking
+        for the Scheduler running on a local host.
+
+    Returns
+    -------
+    schedds : `dict` [`str`, `htcondor.Schedd`]
+        A mapping between Scheduler names and Python objects allowing for
+        interacting with them.
+    """
+    coll = htcondor.Collector()
+
+    schedd_ads = []
+    if locate_all:
+        schedd_ads.extend(coll.locateAll(htcondor.DaemonTypes.Schedd))
+    else:
+        schedd_ads.append(coll.locate(htcondor.DaemonTypes.Schedd))
+    return {ad["Name"]: htcondor.Schedd(ad) for ad in schedd_ads}
