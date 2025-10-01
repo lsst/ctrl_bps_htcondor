@@ -31,6 +31,8 @@ __all__ = [
     "HTC_JOB_AD_HANDLERS",
     "Chain",
     "Handler",
+    "JobAbortedByPeriodicRemoveHandler",
+    "JobAbortedByUserHandler",
     "JobCompletedWithExecTicketHandler",
     "JobCompletedWithoutExecTicketHandler",
     "JobHeldByOtherHandler",
@@ -207,7 +209,7 @@ class JobCompletedWithoutExecTicketHandler(Handler):
                 ad["ExitCode"] = ad["ReturnValue"]
         else:
             _LOG.debug(
-                "%s: refusing to process the ad for the job '%s.%s': ticket of execution found",
+                "Handler %s: refusing to process the ad for the job '%s.%s': ticket of execution found",
                 self.__class__.__name__,
                 ad["ClusterId"],
                 ad["ProcId"],
@@ -314,7 +316,98 @@ class JobHeldByUserHandler(Handler):
         return ad
 
 
+class JobAbortedByPeriodicRemoveHandler(Handler):
+    """Handler of ClassAds for jobs deleted by periodic remove policy."""
+
+    def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
+        if not ad["MyType"].endswith("AbortedEvent"):
+            _LOG.debug(
+                "Handler '%s': refusing to process the ad for the job '%s.%s': job not removed",
+                self.__class__.__name__,
+                ad["ClusterId"],
+                ad["ProcId"],
+            )
+            return None
+        if "Reason" in ad:
+            if "PeriodicRemove" in ad["Reason"]:
+                ad["ExitBySignal"] = True
+
+                ad["ExitSignal"] = -1
+                if "HoldReason" in ad:
+                    match = re.search(r"signal (\d+)", ad["HoldReason"])
+                    if match is not None:
+                        ad["ExitSignal"] = int(match.group(1))
+
+            else:
+                _LOG.debug(
+                    "Handler '%s': refusing to process the ad for the job '%s.%s': "
+                    "job was not removed by the periodic removal policy: Reason = %s",
+                    self.__class__.__name__,
+                    ad["ClusterId"],
+                    ad["ProcId"],
+                    ad["Reason"],
+                )
+                return None
+        else:
+            _LOG.debug(
+                "Handler '%s': refusing to process the ad for the job '%s.%s': "
+                "unable to determine the reason for the removal.",
+                self.__class__.__name__,
+                ad["ClusterId"],
+                ad["ProcId"],
+            )
+            return None
+        return ad
+
+
+class JobAbortedByUserHandler(Handler):
+    """Handler of ClassAds for jobs deleted by the user."""
+
+    def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
+        if not ad["MyType"].endswith("AbortedEvent"):
+            _LOG.debug(
+                "Handler '%s': refusing to process the ad for the job '%s.%s': job not removed",
+                self.__class__.__name__,
+                ad["ClusterId"],
+                ad["ProcId"],
+            )
+            return None
+        if "Reason" in ad:
+            patterns = (
+                "Python-initiated action",  # DAGMan job removed by the user
+                "DAG Removed",  # payload job removed by the user
+                "OtherJobRemoveRequirements",  # a subdag job removed by the user
+            )
+            for patt in patterns:
+                if patt in ad["Reason"]:
+                    ad["ExitBySignal"] = False
+                    ad["ExitCode"] = 0
+                    break
+            else:
+                _LOG.debug(
+                    "Handler '%s': refusing to process the ad for the job '%s.%s': "
+                    "job not removed by the user: Reason = %s",
+                    self.__class__.__name__,
+                    ad["ClusterId"],
+                    ad["ProcId"],
+                    ad["Reason"],
+                )
+                return None
+        else:
+            _LOG.debug(
+                "Handler '%s': refusing to process the ad for the job '%s.%s': "
+                "unable to determine the reason for the removal.",
+                self.__class__.__name__,
+                ad["ClusterId"],
+                ad["ProcId"],
+            )
+            return None
+        return ad
+
+
 _handlers = [
+    JobAbortedByPeriodicRemoveHandler(),
+    JobAbortedByUserHandler(),
     JobHeldByUserHandler(),
     JobHeldBySignalHandler(),
     JobHeldByOtherHandler(),
