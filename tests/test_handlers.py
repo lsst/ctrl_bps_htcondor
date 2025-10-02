@@ -34,6 +34,8 @@ from typing import Any
 from lsst.ctrl.bps.htcondor.handlers import (
     Chain,
     Handler,
+    JobAbortedByPeriodicRemoveHandler,
+    JobAbortedByUserHandler,
     JobCompletedWithExecTicketHandler,
     JobCompletedWithoutExecTicketHandler,
     JobHeldByOtherHandler,
@@ -296,3 +298,122 @@ class JobHeldByUserHandlerTestCase(unittest.TestCase):
             result = self.handler.handle(ad)
         self.assertIsNone(result)
         self.assertIn("job not held", cm.output[0])
+
+
+class JobAbortedByPeriodicRemoveHandlerTestCase(unittest.TestCase):
+    """Test the handler for jobs deleted by periodic removal policy."""
+
+    def setUp(self):
+        self.ad = {
+            "ClusterId": 1,
+            "ProcId": 0,
+            "MyType": "JobAbortedEvent",
+            "Reason": "The job attribute PeriodicRemove expression 'foo' evaluated to TRUE",
+        }
+        self.handler = JobAbortedByPeriodicRemoveHandler()
+
+    def tearDown(self):
+        pass
+
+    def testHandling(self):
+        self.ad |= {"HoldReason": "Job raised a signal 9."}
+        result = self.handler.handle(self.ad)
+        self.assertIn("ExitBySignal", result)
+        self.assertTrue(result["ExitBySignal"])
+        self.assertIn("ExitSignal", result)
+        self.assertEqual(result["ExitSignal"], 9)
+
+    def testHandlingWithHoldReasonNoExitSignal(self):
+        self.ad |= {"HoldReason": "Job raised a signal."}
+        result = self.handler.handle(self.ad)
+        self.assertIn("ExitBySignal", result)
+        self.assertTrue(result["ExitBySignal"])
+        self.assertIn("ExitSignal", result)
+        self.assertEqual(result["ExitSignal"], -1)
+
+    def testHandlingWithoutHoldReason(self):
+        result = self.handler.handle(self.ad)
+        self.assertIn("ExitBySignal", result)
+        self.assertTrue(result["ExitBySignal"])
+        self.assertIn("ExitSignal", result)
+        self.assertEqual(result["ExitSignal"], -1)
+
+    def testNotHandlingJobNotRemoved(self):
+        self.ad["MyType"] = "foo"
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(self.ad)
+        self.assertIsNone(result)
+        self.assertIn("job not removed", cm.output[0])
+
+    def testNotHandlingJobNotRemovedByPeriodicRemoval(self):
+        self.ad["Reason"] = "DAG Abort"
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(self.ad)
+        self.assertIsNone(result)
+        self.assertIn("not removed by the periodic removal policy", cm.output[0])
+
+    def testNotHandlingNoReason(self):
+        del self.ad["Reason"]
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(self.ad)
+        self.assertIsNone(result)
+        self.assertIn("unable to determine the reason", cm.output[0])
+
+
+class JobAbortedByUserHandlerTestCase(unittest.TestCase):
+    """Test the handler for jobs deleted by the user."""
+
+    def setUp(self):
+        self.ad = {
+            "ClusterId": 1,
+            "ProcId": 0,
+            "MyType": "JobAbortedEvent",
+        }
+        self.handler = JobAbortedByUserHandler()
+
+    def tearDown(self):
+        pass
+
+    def testHandlingAbortedDagmanJob(self):
+        self.ad |= {"Reason": "Python-initiated action"}
+        result = self.handler.handle(self.ad)
+        self.assertIn("ExitBySignal", result)
+        self.assertFalse(result["ExitBySignal"])
+        self.assertIn("ExitCode", result)
+        self.assertEqual(result["ExitCode"], 0)
+
+    def testHandlingAbortedPayloadJob(self):
+        self.ad |= {"Reason": "DAG Removed"}
+        result = self.handler.handle(self.ad)
+        self.assertIn("ExitBySignal", result)
+        self.assertFalse(result["ExitBySignal"])
+        self.assertIn("ExitCode", result)
+        self.assertEqual(result["ExitCode"], 0)
+
+    def testHandlingAbortedSubdagJob(self):
+        self.ad |= {"Reason": "OtherJobRemoveRequirements = DAGManJobId =?= 78"}
+        result = self.handler.handle(self.ad)
+        self.assertIn("ExitBySignal", result)
+        self.assertFalse(result["ExitBySignal"])
+        self.assertIn("ExitCode", result)
+        self.assertEqual(result["ExitCode"], 0)
+
+    def testNotHandlingJobNotRemoved(self):
+        self.ad["MyType"] = "foo"
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(self.ad)
+        self.assertIsNone(result)
+        self.assertIn("job not removed", cm.output[0])
+
+    def testNotHandlingJobNotRemovedByUser(self):
+        self.ad |= {"Reason": "The job attribute PeriodicRemove expression 'foo' evaluated to TRUE"}
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(self.ad)
+        self.assertIsNone(result)
+        self.assertIn("job not removed", cm.output[0])
+
+    def testNotHandlingNoReason(self):
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            result = self.handler.handle(self.ad)
+        self.assertIsNone(result)
+        self.assertIn("unable to determine the reason", cm.output[0])
