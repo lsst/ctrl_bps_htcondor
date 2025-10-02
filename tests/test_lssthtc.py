@@ -70,7 +70,7 @@ class TestLsstHtc(unittest.TestCase):
         self.assertRegex(ver, r"^\d+\.\d+\.\d+$")
 
 
-class TweakJobInfoTestCase(unittest.TestCase):
+class HtcTweakJobInfoTestCase(unittest.TestCase):
     """Test the function responsible for massaging job information."""
 
     def setUp(self):
@@ -89,7 +89,7 @@ class TweakJobInfoTestCase(unittest.TestCase):
         self.log_file.close()
 
     def testDirectAssignments(self):
-        lssthtc._tweak_log_info(self.log_name, self.job)
+        lssthtc.htc_tweak_log_info(self.log_name, self.job)
         self.assertEqual(self.job["ClusterId"], self.job["Cluster"])
         self.assertEqual(self.job["ProcId"], self.job["Proc"])
         self.assertEqual(self.job["Iwd"], str(self.log_name.parent))
@@ -97,37 +97,37 @@ class TweakJobInfoTestCase(unittest.TestCase):
 
     def testJobStatusAssignmentJobAbortedEvent(self):
         job = self.job | {"MyType": "JobAbortedEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_name, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.REMOVED)
 
     def testJobStatusAssignmentExecuteEvent(self):
         job = self.job | {"MyType": "ExecuteEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_name, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.RUNNING)
 
     def testJobStatusAssignmentSubmitEvent(self):
         job = self.job | {"MyType": "SubmitEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_name, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.IDLE)
 
     def testJobStatusAssignmentJobHeldEvent(self):
         job = self.job | {"MyType": "JobHeldEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_name, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.HELD)
 
     def testJobStatusAssignmentJobTerminatedEvent(self):
         job = self.job | {"MyType": "JobTerminatedEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_name, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
 
     def testJobStatusAssignmentPostScriptTerminatedEvent(self):
         job = self.job | {"MyType": "PostScriptTerminatedEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_name, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
 
@@ -136,7 +136,7 @@ class TweakJobInfoTestCase(unittest.TestCase):
             "MyType": "JobTerminatedEvent",
             "ToE": {"ExitBySignal": False, "ExitCode": 1},
         }
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_name, job)
         self.assertIn("ExitBySignal", job)
         self.assertIs(job["ExitBySignal"], False)
         self.assertIn("ExitCode", job)
@@ -147,20 +147,20 @@ class TweakJobInfoTestCase(unittest.TestCase):
             "MyType": "JobHeldEvent",
         }
         with self.assertLogs(logger=logger, level="ERROR") as cm:
-            lssthtc._tweak_log_info(self.log_name, job)
+            lssthtc.htc_tweak_log_info(self.log_name, job)
         self.assertIn("Could not determine exit status", cm.output[0])
 
     def testLoggingUnknownLogEvent(self):
         job = self.job | {"MyType": "Foo"}
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
-            lssthtc._tweak_log_info(self.log_name, job)
+            lssthtc.htc_tweak_log_info(self.log_name, job)
         self.assertIn("Unknown log event", cm.output[1])
 
     def testMissingKey(self):
         job = self.job
         del job["Cluster"]
         with self.assertRaises(KeyError) as cm:
-            lssthtc._tweak_log_info(self.log_name, job)
+            lssthtc.htc_tweak_log_info(self.log_name, job)
         self.assertEqual(str(cm.exception), "'Cluster'")
 
 
