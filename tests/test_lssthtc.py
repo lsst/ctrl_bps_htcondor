@@ -95,6 +95,13 @@ class HtcTweakJobInfoTestCase(unittest.TestCase):
         self.assertEqual(self.job["Iwd"], str(self.log_dirname))
         self.assertEqual(self.job["Owner"], self.log_dirname.owner())
 
+    def testIncompatibleAdPassThru(self):
+        # Passing a job ad with insufficient information should be a no-op.
+        expected = {"foo": "bar"}
+        result = dict(expected)
+        lssthtc.htc_tweak_log_info(self.log_dirname, result)
+        self.assertEqual(result, expected)
+
     def testJobStatusAssignmentJobAbortedEvent(self):
         job = self.job | {"MyType": "JobAbortedEvent"}
         lssthtc.htc_tweak_log_info(self.log_dirname, job)
