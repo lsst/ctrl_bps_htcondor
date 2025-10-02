@@ -54,6 +54,7 @@ __all__ = [
     "htc_query_history",
     "htc_query_present",
     "htc_submit_dag",
+    "htc_tweak_log_info",
     "htc_version",
     "htc_write_attribs",
     "htc_write_condor_file",
@@ -1891,7 +1892,7 @@ def read_single_dag_log(log_filename: str | os.PathLike) -> tuple[str, dict[str,
         # only save latest DAG job
         dag_info = {wms_workflow_id: info[wms_workflow_id]}
         for job in dag_info.values():
-            _tweak_log_info(filename, job)
+            htc_tweak_log_info(filename, job)
 
     return wms_workflow_id, dag_info
 
@@ -1994,7 +1995,7 @@ def read_single_dag_nodes_log(filename: str | os.PathLike) -> dict[str, dict[str
 
     # Add more condor_q-like info to info parsed from log file.
     for job in info.values():
-        _tweak_log_info(filename, job)
+        htc_tweak_log_info(filename, job)
 
     return info
 
@@ -2091,7 +2092,7 @@ def write_dag_info(filename, dag_info):
         _LOG.debug("Persisting DAGMan job information failed: %s", exc)
 
 
-def _tweak_log_info(filename, job):
+def htc_tweak_log_info(filename, job):
     """Massage the given job info has same structure as if came from condor_q.
 
     Parameters
@@ -2102,7 +2103,7 @@ def _tweak_log_info(filename, job):
         A mapping between HTCondor job id and job information read from
         the log.
     """
-    _LOG.debug("_tweak_log_info: %s %s", filename, job)
+    _LOG.debug("htc_tweak_log_info: %s %s", filename, job)
 
     try:
         job["ClusterId"] = job["Cluster"]
