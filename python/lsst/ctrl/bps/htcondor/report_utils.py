@@ -697,12 +697,11 @@ def _get_exit_code_summary(jobs):
             exit_code = 0
             job_status = job_ad["JobStatus"]
             match job_status:
-                case htcondor.JobStatus.COMPLETED | htcondor.JobStatus.HELD:
+                case htcondor.JobStatus.COMPLETED | htcondor.JobStatus.HELD | htcondor.JobStatus.REMOVED:
                     exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
                 case (
                     htcondor.JobStatus.IDLE
                     | htcondor.JobStatus.RUNNING
-                    | htcondor.JobStatus.REMOVED
                     | htcondor.JobStatus.TRANSFERRING_OUTPUT
                     | htcondor.JobStatus.SUSPENDED
                 ):

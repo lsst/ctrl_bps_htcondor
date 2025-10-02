@@ -115,7 +115,10 @@ def _htc_job_status_to_wms_state(job):
         elif job_status == htcondor.JobStatus.RUNNING:
             wms_state = WmsStates.RUNNING
         elif job_status == htcondor.JobStatus.REMOVED:
-            wms_state = WmsStates.DELETED
+            if (job.get("ExitBySignal", False) and job.get("ExitSignal", 0)) or job.get("ExitCode", 0):
+                wms_state = WmsStates.FAILED
+            else:
+                wms_state = WmsStates.DELETED
         elif job_status == htcondor.JobStatus.COMPLETED:
             if (
                 (job.get("ExitBySignal", False) and job.get("ExitSignal", 0))
