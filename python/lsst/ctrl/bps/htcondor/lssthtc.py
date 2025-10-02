@@ -2099,6 +2099,12 @@ def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
     """
     _LOG.debug("htc_tweak_log_info: %s %s", wms_path, job)
 
+    # Use the presence of 'MyType' key as a proxy to determine if the job ad
+    # contains the info extracted from the event log. Exit early if it doesn't
+    # (e.g. it is a job ad for a pruned job).
+    if "MyType" not in job:
+        return
+
     try:
         job["ClusterId"] = job["Cluster"]
         job["ProcId"] = job["Proc"]
