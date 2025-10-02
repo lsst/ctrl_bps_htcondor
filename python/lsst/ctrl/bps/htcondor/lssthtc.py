@@ -1891,8 +1891,6 @@ def read_single_dag_log(log_filename: str | os.PathLike) -> tuple[str, dict[str,
 
         # only save latest DAG job
         dag_info = {wms_workflow_id: info[wms_workflow_id]}
-        for job in dag_info.values():
-            htc_tweak_log_info(filename, job)
 
     return wms_workflow_id, dag_info
 
@@ -1993,10 +1991,6 @@ def read_single_dag_nodes_log(filename: str | os.PathLike) -> dict[str, dict[str
                 _update_dicts(info[id_], event)
                 info[id_][f"{event.type.name.lower()}_time"] = event["EventTime"]
 
-    # Add more condor_q-like info to info parsed from log file.
-    for job in info.values():
-        htc_tweak_log_info(filename, job)
-
     return info
 
 
@@ -2092,18 +2086,18 @@ def write_dag_info(filename, dag_info):
         _LOG.debug("Persisting DAGMan job information failed: %s", exc)
 
 
-def htc_tweak_log_info(filename, job):
+def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
     """Massage the given job info has same structure as if came from condor_q.
 
     Parameters
     ----------
-    filename : `pathlib.Path`
-        Name of the DAGMan log.
+    wms_path : `str` | `os.PathLike`
+        Path containing an HTCondor event log file.
     job : `dict` [ `str`, `~typing.Any` ]
         A mapping between HTCondor job id and job information read from
         the log.
     """
-    _LOG.debug("htc_tweak_log_info: %s %s", filename, job)
+    _LOG.debug("htc_tweak_log_info: %s %s", wms_path, job)
 
     try:
         job["ClusterId"] = job["Cluster"]
@@ -2111,8 +2105,8 @@ def htc_tweak_log_info(filename, job):
     except KeyError as e:
         _LOG.error("Missing key %s in job: %s", str(e), job)
         raise
-    job["Iwd"] = str(filename.parent)
-    job["Owner"] = Path(filename).owner()
+    job["Iwd"] = str(wms_path)
+    job["Owner"] = Path(wms_path).owner()
 
     match job["MyType"]:
         case "ExecuteEvent":
