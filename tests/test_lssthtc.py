@@ -70,73 +70,86 @@ class TestLsstHtc(unittest.TestCase):
         self.assertRegex(ver, r"^\d+\.\d+\.\d+$")
 
 
-class TweakJobInfoTestCase(unittest.TestCase):
+class HtcTweakJobInfoTestCase(unittest.TestCase):
     """Test the function responsible for massaging job information."""
 
     def setUp(self):
-        self.log_file = tempfile.NamedTemporaryFile(prefix="test_", suffix=".log")
-        self.log_name = pathlib.Path(self.log_file.name)
+        self.log_dir = tempfile.TemporaryDirectory()
+        self.log_dirname = pathlib.Path(self.log_dir.name)
         self.job = {
             "Cluster": 1,
             "Proc": 0,
-            "Iwd": str(self.log_name.parent),
-            "Owner": self.log_name.owner(),
+            "Iwd": str(self.log_dirname),
+            "Owner": self.log_dirname.owner(),
             "MyType": None,
             "TerminatedNormally": True,
         }
 
     def tearDown(self):
-        self.log_file.close()
+        self.log_dir.cleanup()
 
     def testDirectAssignments(self):
-        lssthtc._tweak_log_info(self.log_name, self.job)
+        lssthtc.htc_tweak_log_info(self.log_dirname, self.job)
         self.assertEqual(self.job["ClusterId"], self.job["Cluster"])
         self.assertEqual(self.job["ProcId"], self.job["Proc"])
-        self.assertEqual(self.job["Iwd"], str(self.log_name.parent))
-        self.assertEqual(self.job["Owner"], self.log_name.owner())
+        self.assertEqual(self.job["Iwd"], str(self.log_dirname))
+        self.assertEqual(self.job["Owner"], self.log_dirname.owner())
+
+    def testIncompatibleAdPassThru(self):
+        # Passing a job ad with insufficient information should be a no-op.
+        expected = {"foo": "bar"}
+        result = dict(expected)
+        lssthtc.htc_tweak_log_info(self.log_dirname, result)
+        self.assertEqual(result, expected)
 
     def testJobStatusAssignmentJobAbortedEvent(self):
         job = self.job | {"MyType": "JobAbortedEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.REMOVED)
 
     def testJobStatusAssignmentExecuteEvent(self):
         job = self.job | {"MyType": "ExecuteEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.RUNNING)
 
     def testJobStatusAssignmentSubmitEvent(self):
         job = self.job | {"MyType": "SubmitEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.IDLE)
 
     def testJobStatusAssignmentJobHeldEvent(self):
         job = self.job | {"MyType": "JobHeldEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.HELD)
 
     def testJobStatusAssignmentJobTerminatedEvent(self):
         job = self.job | {"MyType": "JobTerminatedEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
 
     def testJobStatusAssignmentPostScriptTerminatedEvent(self):
         job = self.job | {"MyType": "PostScriptTerminatedEvent"}
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+
+    def testJobStatusAssignmentReleaseEvent(self):
+        job = self.job | {"MyType": "JobReleaseEvent"}
+        lssthtc.htc_tweak_log_info(self.log_dirname, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], htcondor.JobStatus.RUNNING)
 
     def testAddingExitStatusSuccess(self):
         job = self.job | {
             "MyType": "JobTerminatedEvent",
             "ToE": {"ExitBySignal": False, "ExitCode": 1},
         }
-        lssthtc._tweak_log_info(self.log_name, job)
+        lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertIn("ExitBySignal", job)
         self.assertIs(job["ExitBySignal"], False)
         self.assertIn("ExitCode", job)
@@ -147,20 +160,20 @@ class TweakJobInfoTestCase(unittest.TestCase):
             "MyType": "JobHeldEvent",
         }
         with self.assertLogs(logger=logger, level="ERROR") as cm:
-            lssthtc._tweak_log_info(self.log_name, job)
+            lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertIn("Could not determine exit status", cm.output[0])
 
     def testLoggingUnknownLogEvent(self):
         job = self.job | {"MyType": "Foo"}
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
-            lssthtc._tweak_log_info(self.log_name, job)
+            lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertIn("Unknown log event", cm.output[1])
 
     def testMissingKey(self):
         job = self.job
         del job["Cluster"]
         with self.assertRaises(KeyError) as cm:
-            lssthtc._tweak_log_info(self.log_name, job)
+            lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertEqual(str(cm.exception), "'Cluster'")
 
 
@@ -467,22 +480,14 @@ class ReadDagNodesLogTestCase(unittest.TestCase):
         with self.assertRaisesRegex(FileNotFoundError, "DAGMan node log not found in"):
             _ = lssthtc.read_dag_nodes_log(self.tmpdir)
 
-    def testBadFile(self):
-        with temporaryDirectory() as tmp_dir:
-            submit_dir = os.path.join(tmp_dir, "tiny_problems")
-            copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
-            results = lssthtc.read_dag_nodes_log(submit_dir)
-            self.assertEqual(results["9231.0"]["JobStatus"], lssthtc.JobStatus.COMPLETED)
-            self.assertEqual(results["9231.0"]["ExitCode"], 1)
-            self.assertEqual(len(results), 6)
-
     def testRegular(self):
         with temporaryDirectory() as tmp_dir:
             submit_dir = os.path.join(tmp_dir, "tiny_problems")
             copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
             results = lssthtc.read_dag_nodes_log(submit_dir)
-            self.assertEqual(results["9231.0"]["JobStatus"], lssthtc.JobStatus.COMPLETED)
-            self.assertEqual(results["9231.0"]["ExitCode"], 1)
+            self.assertEqual(results["9231.0"]["Cluster"], 9231)
+            self.assertEqual(results["9231.0"]["Proc"], 0)
+            self.assertEqual(results["9231.0"]["ToE"]["ExitCode"], 1)
             self.assertEqual(len(results), 6)
 
     def testSubdags(self):
@@ -494,10 +499,10 @@ class ReadDagNodesLogTestCase(unittest.TestCase):
             copytree(f"{TESTDIR}/data/group_running_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
             results = lssthtc.read_dag_nodes_log(submit_dir)
             # main dag
-            self.assertEqual(results["10094.0"]["JobStatus"], lssthtc.JobStatus.RUNNING)
+            self.assertEqual(results["10094.0"]["Cluster"], 10094)
             # subdag
-            self.assertEqual(results["10112.0"]["JobStatus"], lssthtc.JobStatus.COMPLETED)
-            self.assertEqual(results["10116.0"]["JobStatus"], lssthtc.JobStatus.RUNNING)
+            self.assertEqual(results["10112.0"]["Cluster"], 10112)
+            self.assertEqual(results["10116.0"]["Cluster"], 10116)
 
 
 class ReadNodeStatusTestCase(unittest.TestCase):
@@ -536,7 +541,6 @@ class ReadNodeStatusTestCase(unittest.TestCase):
         self.assertEqual(len(jobs), 7)
         self.assertEqual(jobs["9230.0"]["DAGNodeName"], "pipetaskInit")
         self.assertEqual(jobs["9230.0"]["wms_node_type"], lssthtc.WmsNodeType.PAYLOAD)
-        self.assertEqual(jobs["9230.0"]["JobStatus"], lssthtc.JobStatus.COMPLETED)
         found = [
             id_
             for id_ in jobs

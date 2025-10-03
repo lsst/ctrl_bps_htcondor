@@ -48,6 +48,7 @@ from .lssthtc import (
     WmsNodeType,
     condor_search,
     htc_check_dagman_output,
+    htc_tweak_log_info,
     pegasus_name_to_label,
     read_dag_info,
     read_dag_log,
@@ -362,6 +363,10 @@ def _get_info_from_path(wms_path: str | os.PathLike) -> tuple[str, dict[str, dic
             messages.append(message)
         wms_workflow_id = MISSING_ID
         jobs = {}
+
+    # Add more condor_q-like info.
+    for job in jobs.values():
+        htc_tweak_log_info(wms_path, job)
 
     message = "\n".join([msg for msg in messages if msg])
     _LOG.debug("wms_workflow_id = %s, jobs = %s", wms_workflow_id, jobs.keys())
@@ -692,12 +697,11 @@ def _get_exit_code_summary(jobs):
             exit_code = 0
             job_status = job_ad["JobStatus"]
             match job_status:
-                case htcondor.JobStatus.COMPLETED | htcondor.JobStatus.HELD:
+                case htcondor.JobStatus.COMPLETED | htcondor.JobStatus.HELD | htcondor.JobStatus.REMOVED:
                     exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
                 case (
                     htcondor.JobStatus.IDLE
                     | htcondor.JobStatus.RUNNING
-                    | htcondor.JobStatus.REMOVED
                     | htcondor.JobStatus.TRANSFERRING_OUTPUT
                     | htcondor.JobStatus.SUSPENDED
                 ):
