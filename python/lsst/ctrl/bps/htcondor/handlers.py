@@ -45,7 +45,7 @@ import abc
 import logging
 import re
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, overload
 
 _LOG = logging.getLogger(__name__)
 
@@ -86,13 +86,17 @@ class Chain(Sequence):
         List of handlers that will be used to initialize the chain.
     """
 
-    def __init__(self, handlers: Sequence[Handler] = None) -> None:
-        self._handlers = []
+    def __init__(self, handlers: Sequence[Handler] | None = None) -> None:
+        self._handlers: list[Handler] = []
         if handlers is not None:
             for handler in handlers:
                 self.append(handler)
 
-    def __getitem__(self, index: int) -> Handler:
+    @overload
+    def __getitem__(self, index: int) -> Handler: ...
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[Handler]: ...
+    def __getitem__(self, index):
         return self._handlers[index]
 
     def __len__(self) -> int:
