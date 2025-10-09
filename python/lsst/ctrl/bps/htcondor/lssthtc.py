@@ -54,6 +54,7 @@ __all__ = [
     "htc_query_history",
     "htc_query_present",
     "htc_submit_dag",
+    "htc_tweak_log_info",
     "htc_version",
     "htc_write_attribs",
     "htc_write_condor_file",
@@ -1890,8 +1891,6 @@ def read_single_dag_log(log_filename: str | os.PathLike) -> tuple[str, dict[str,
 
         # only save latest DAG job
         dag_info = {wms_workflow_id: info[wms_workflow_id]}
-        for job in dag_info.values():
-            _tweak_log_info(filename, job)
 
     return wms_workflow_id, dag_info
 
@@ -1992,10 +1991,6 @@ def read_single_dag_nodes_log(filename: str | os.PathLike) -> dict[str, dict[str
                 _update_dicts(info[id_], event)
                 info[id_][f"{event.type.name.lower()}_time"] = event["EventTime"]
 
-    # Add more condor_q-like info to info parsed from log file.
-    for job in info.values():
-        _tweak_log_info(filename, job)
-
     return info
 
 
@@ -2091,60 +2086,69 @@ def write_dag_info(filename, dag_info):
         _LOG.debug("Persisting DAGMan job information failed: %s", exc)
 
 
-def _tweak_log_info(filename, job):
+def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
     """Massage the given job info has same structure as if came from condor_q.
 
     Parameters
     ----------
-    filename : `pathlib.Path`
-        Name of the DAGMan log.
+    wms_path : `str` | `os.PathLike`
+        Path containing an HTCondor event log file.
     job : `dict` [ `str`, `~typing.Any` ]
         A mapping between HTCondor job id and job information read from
         the log.
     """
-    _LOG.debug("_tweak_log_info: %s %s", filename, job)
+    _LOG.debug("htc_tweak_log_info: %s %s", wms_path, job)
+
+    # Use the presence of 'MyType' key as a proxy to determine if the job ad
+    # contains the info extracted from the event log. Exit early if it doesn't
+    # (e.g. it is a job ad for a pruned job).
+    if "MyType" not in job:
+        return
 
     try:
         job["ClusterId"] = job["Cluster"]
         job["ProcId"] = job["Proc"]
-        job["Iwd"] = str(filename.parent)
-        job["Owner"] = filename.owner()
-
-        match job["MyType"]:
-            case "ExecuteEvent":
-                job["JobStatus"] = htcondor.JobStatus.RUNNING
-            case "JobTerminatedEvent" | "PostScriptTerminatedEvent":
-                job["JobStatus"] = htcondor.JobStatus.COMPLETED
-            case "SubmitEvent":
-                job["JobStatus"] = htcondor.JobStatus.IDLE
-            case "JobAbortedEvent":
-                job["JobStatus"] = htcondor.JobStatus.REMOVED
-            case "JobHeldEvent":
-                job["JobStatus"] = htcondor.JobStatus.HELD
-            case "JobReleaseEvent":
-                # Shows up as last event if a DAG job was held and released
-                # so assume job is running.  If regular job is released, there
-                # will be other events so JobReleaseEvent won't be the last
-                job["JobStatus"] = htcondor.JobStatus.RUNNING
-            case _:
-                _LOG.debug("Unknown log event type: %s", job["MyType"])
-                job["JobStatus"] = None
-
-        if job["JobStatus"] in {htcondor.JobStatus.COMPLETED, htcondor.JobStatus.HELD}:
-            new_job = HTC_JOB_AD_HANDLERS.handle(job)
-            if new_job is not None:
-                job = new_job
-            else:
-                _LOG.error("Could not determine exit status for job '%s.%s'", job["ClusterId"], job["ProcId"])
-
-        if "LogNotes" in job:
-            m = re.match(r"DAG Node: (\S+)", job["LogNotes"])
-            if m:
-                job["DAGNodeName"] = m.group(1)
-
     except KeyError as e:
         _LOG.error("Missing key %s in job: %s", str(e), job)
         raise
+    job["Iwd"] = str(wms_path)
+    job["Owner"] = Path(wms_path).owner()
+
+    match job["MyType"]:
+        case "ExecuteEvent":
+            job["JobStatus"] = htcondor.JobStatus.RUNNING
+        case "JobTerminatedEvent" | "PostScriptTerminatedEvent":
+            job["JobStatus"] = htcondor.JobStatus.COMPLETED
+        case "SubmitEvent":
+            job["JobStatus"] = htcondor.JobStatus.IDLE
+        case "JobAbortedEvent":
+            job["JobStatus"] = htcondor.JobStatus.REMOVED
+        case "JobHeldEvent":
+            job["JobStatus"] = htcondor.JobStatus.HELD
+        case "JobReleaseEvent":
+            # Shows up as the last event if a DAG job was held and released,
+            # so assume the job is running.  If a regular job is released,
+            # there will be other events, so JobReleaseEvent won't be the last.
+            job["JobStatus"] = htcondor.JobStatus.RUNNING
+        case _:
+            _LOG.debug("Unknown log event type: %s", job["MyType"])
+            job["JobStatus"] = None
+
+    if job["JobStatus"] in {
+        htcondor.JobStatus.COMPLETED,
+        htcondor.JobStatus.HELD,
+        htcondor.JobStatus.REMOVED,
+    }:
+        new_job = HTC_JOB_AD_HANDLERS.handle(job)
+        if new_job is not None:
+            job = new_job
+        else:
+            _LOG.error("Could not determine exit status for job '%s.%s'", job["ClusterId"], job["ProcId"])
+
+    if "LogNotes" in job:
+        m = re.match(r"DAG Node: (\S+)", job["LogNotes"])
+        if m:
+            job["DAGNodeName"] = m.group(1)
 
 
 def htc_check_dagman_output(wms_path: str | os.PathLike) -> str:
