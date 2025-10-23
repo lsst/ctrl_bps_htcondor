@@ -126,6 +126,7 @@ def _get_status_from_path(wms_path: str | os.PathLike) -> tuple[WmsStates, str]:
     if wms_workflow_id == MISSING_ID:
         state = WmsStates.UNKNOWN
     else:
+        htc_tweak_log_info(wms_path, dag_ad[wms_workflow_id])
         state = _htc_status_to_wms_state(dag_ad[wms_workflow_id])
 
     return state, message

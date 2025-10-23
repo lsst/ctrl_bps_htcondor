@@ -842,21 +842,23 @@ class GetStatusFromPathTestCase(unittest.TestCase):
         self.assertEqual(state, WmsStates.UNKNOWN)
         self.assertEqual(message, f"DAGMan log not found in {fake_path}.  Check path.")
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.report_utils._htc_status_to_wms_state")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.report_utils.read_dag_log")
-    def testSuccess(self, mock_read, mock_conversion):
-        dag_ads = {"100.0": {"JobStatus": lssthtc.JobStatus.COMPLETED, "ExitBySignal": False, "ExitCode": 0}}
-        mock_read.return_value = ("100.0", dag_ads)
-        mock_conversion.return_value = WmsStates.SUCCEEDED
+    def testSuccess(self):
+        with temporaryDirectory() as tmp_dir:
+            test_submit_dir = os.path.join(tmp_dir, "tiny_success")
+            copytree(f"{TESTDIR}/data/tiny_success", test_submit_dir)
+            state, message = report_utils._get_status_from_path(test_submit_dir)
 
-        fake_path = "/fake/path"
-        state, message = report_utils._get_status_from_path(fake_path)
+            self.assertEqual(state, WmsStates.SUCCEEDED)
+            self.assertEqual(message, "")
 
-        mock_read.assert_called_once_with(Path(fake_path))
-        mock_conversion.assert_called_once_with(dag_ads["100.0"])
+    def testFailure(self):
+        with temporaryDirectory() as tmp_dir:
+            test_submit_dir = os.path.join(tmp_dir, "tiny_problems")
+            copytree(f"{TESTDIR}/data/tiny_problems", test_submit_dir)
+            state, message = report_utils._get_status_from_path(test_submit_dir)
 
-        self.assertEqual(state, WmsStates.SUCCEEDED)
-        self.assertEqual(message, "")
+            self.assertEqual(state, WmsStates.FAILED)
+            self.assertEqual(message, "")
 
 
 if __name__ == "__main__":
