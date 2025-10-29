@@ -99,13 +99,16 @@ def _create_job(subdir_template, cached_values, generic_workflow, gwjob, out_pre
         "transfer_output_files": '""',  # Set to empty string to disable
         "transfer_executable": "False",
         "getenv": "True",
-        # Exceeding memory sometimes triggering SIGBUS or SIGSEGV error. Tell
-        # htcondor to put on hold any jobs which exited by a signal.
-        "on_exit_hold": "ExitBySignal == true",
-        "on_exit_hold_reason": (
-            'strcat("Job raised a signal ", string(ExitSignal), ". ", '
-            '"Handling signal as if job has gone over memory limit.")'
-        ),
+        # Exceeding memory sometimes triggers SIGBUS or SIGSEGV error. Tell
+        # htcondor to put on hold any jobs which exited by a signal. If
+        # executed in a bash script, like finalJob, the signals will become
+        # exit codes above 128 (exit code = 128 + signal number).
+        "on_exit_hold": "ExitBySignal == true || ExitCode > 128",
+        "on_exit_hold_reason": "ExitBySignal == true ? "
+        'strcat("Job raised a signal ", string(ExitSignal), '
+        '". Handling job as if it has gone over memory limit.") : '
+        'strcat("Job exit code (", string(ExitCode), ") > 128. '
+        'Handling job as if it has gone over memory limit.")',
         "on_exit_hold_subcode": "34",
     }
 
