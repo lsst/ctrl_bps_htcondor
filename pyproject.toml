@@ -24,7 +24,7 @@ classifiers = [
 ]
 keywords = ["lsst"]
 dependencies = [
-    "htcondor >= 8.8",
+    "htcondor >= 8.8, <25.0",
     "lsst-ctrl-bps",
     "lsst-daf-butler",
     "lsst-utils"
