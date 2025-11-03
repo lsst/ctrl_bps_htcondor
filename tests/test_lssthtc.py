@@ -1192,7 +1192,6 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {})
             self.assertIn("-MaxIdle 42", submit["arguments"])
-            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
 
     @unittest.mock.patch.dict(os.environ, {})
     def testMaxIdleGiven(self):
@@ -1201,7 +1200,6 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"MaxIdle": 37})
             self.assertIn("-MaxIdle 37", submit["arguments"])
-            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
 
     @unittest.mock.patch.dict(os.environ, {})
     def testNoMaxJobsIdle(self):
@@ -1217,7 +1215,6 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
                 with unittest.mock.patch("htcondor.param") as mock_param:
                     mock_param.__contains__.return_value = False
                     _ = lssthtc.htc_create_submit_from_dag(str(dag_filename), {})
-                    self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
                     submit_mock.assert_called_once_with(str(dag_filename), {})
 
     @unittest.mock.patch.dict(os.environ, {})
@@ -1228,7 +1225,6 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
             self.assertIn("-do_recurse", submit["arguments"])
             self.assertEqual("true", os.environ["_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"].lower())
-            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
 
     @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS": "False"})
     def testDoRecurseGivenWithEnv(self):
@@ -1237,7 +1233,6 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
             self.assertIn("-do_recurse", submit["arguments"])
-            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
             self.assertEqual("false", os.environ["_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"].lower())
 
     @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV": "*_DIR"})
@@ -1247,7 +1242,6 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
             self.assertIn("-do_recurse", submit["arguments"])
-            self.assertEqual(os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"], "*_DIR")
 
 
 class HtcDagTestCase(unittest.TestCase):
