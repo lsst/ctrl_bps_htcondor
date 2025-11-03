@@ -137,6 +137,15 @@ class DagmanConfigurator:
         self.config_path: Path | None = None
         self.prefix: Path | None = None
 
+    @property
+    def options(self) -> dict[str, Any]:
+        """Valid DAGMan configuration options (`dict` [`str`, `Any`])."""
+        return {
+            key: val
+            for key, val in self._options.model_dump().items()
+            if key not in self._options.model_extra
+        }
+
     def prepare(self, filename: Path | str, prefix: Path | str | None) -> None:
         """Write WMS-specific configuration to a file.
 
