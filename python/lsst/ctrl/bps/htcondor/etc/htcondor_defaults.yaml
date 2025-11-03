@@ -43,3 +43,7 @@ provisionResources: false
 overwriteJobFiles: true
 finalJob:
   overwriteJobFiles: false
+
+# Define the default DAGMan configuration.
+wmsConfig:
+  DAGMAN_MANAGER_JOB_APPEND_GETENV: "TRUE"  # must be a string, not a boolean

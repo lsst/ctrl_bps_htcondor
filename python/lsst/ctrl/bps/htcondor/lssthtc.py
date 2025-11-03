@@ -729,10 +729,6 @@ def htc_create_submit_from_dag(dag_filename: str, submit_options: dict[str, Any]
     # override DAGMAN_GENERATE_SUBDAG_SUBMITS as manual implies.
     # So setting it and the other bps required setting here as
     # environment variables if they don't exist.
-    var_name = "_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"
-    if var_name not in os.environ:
-        os.environ[var_name] = "True"
-
     if "do_recurse" in submit_options:
         var_name = "_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"
         if var_name not in os.environ:
