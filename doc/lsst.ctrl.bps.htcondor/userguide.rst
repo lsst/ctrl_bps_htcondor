@@ -150,6 +150,46 @@ available in your BPS configuration file. For example:
 .. __: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#bps-configuration-file
 .. __: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#supported-settings
 
+Configuring DAGMan
+^^^^^^^^^^^^^^^^^^
+
+`DAGMan`_ is a `HTCondor`_ tool that allows multiple jobs to be organized in
+workflows.  It orchestrates the execution of jobs in a workflow to satisfy their
+data dependencies. DAGman workflows are described in the DAG description files.
+
+`HTCondor`_ has many settings that affect the operation of `DAGMan`_. Any of
+these settings can be managed via the submit YAML by specifying their values
+in the ``wmsConfig`` section. For example, including the lines below in your
+submit YAML will instruct DAGMan to throttle the number of jobs DAGMan will
+submit at once for execution to 256:
+
+.. code-block:: YAML
+
+   wmsConfig:
+     DAGMAN_MAX_JOBS_IDLE: 256
+
+A complete list of the supported settings, their descriptions, and default
+values can be found `here`__.
+
+.. note::
+
+   Make sure to select the version of the documentation that corresponds to the
+   version of the HTCondor you're using.  Supported settings may vary between
+   different versions.
+
+When customizing DAGMan's settings, make sure the value you provide has the
+appropriate type.  Using incorrect value type will result in an error during
+the BPS submission.
+
+The settings are for the entire workflow, so the ``wmsConfig`` section can go
+at the root level or inside a ``site`` section, but not inside a ``pipetask``,
+``clusterorfinalJob`` section.
+
+If your main workflow contains sub-workflow defined in individual DAG
+description files, they will use the same configuration as the main workflow.
+
+.. __: https://htcondor.readthedocs.io/en/latest/admin-manual/configuration-macros.html#dagman-configuration-file-entries
+
 .. .. _htc-plugin-authenticating:
 
 .. Authenticating
@@ -629,6 +669,7 @@ complete your run.
 
 .. __: https://developer.lsst.io/usdf/batch.html#ctrl-bps-htcondor
 
+.. _DAGMan: https://htcondor.readthedocs.io/en/latest/automated-workflows/index.html#dagman-workflows
 .. _HTCondor: https://htcondor.readthedocs.io/en/latest/
 .. _Slurm: https://slurm.schedmd.com/overview.html
 .. _bps cancel: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#canceling-submitted-jobs
