@@ -1164,7 +1164,15 @@ class HTCDag(networkx.DiGraph):
         self.graph["dag_filename"] = os.path.join(dag_subdir, f"{self.graph['name']}.dag")
         full_filename = os.path.join(submit_path, self.graph["dag_filename"])
         os.makedirs(os.path.dirname(full_filename), exist_ok=True)
+
+        try:
+            dagman_config_path = Path(self.graph["attr"]["bps_wms_config_path"])
+        except KeyError:
+            dagman_config_path = None
         with open(full_filename, "w") as fh:
+            if dagman_config_path is not None:
+                fh.write(f"CONFIG {dag_rel_path / dagman_config_path}\n")
+
             for name, nodeval in self.nodes().items():
                 try:
                     job = nodeval["data"]
@@ -1177,6 +1185,8 @@ class HTCDag(networkx.DiGraph):
                         subdir = job.dagcmds["dir"]
                     else:
                         subdir = job_subdir
+                    if dagman_config_path is not None:
+                        job.subdag.add_attribs({"bps_wms_config_path": str(dagman_config_path)})
                     job.subdag.write(submit_path, subdir, dag_subdir, "../..")
                     fh.write(
                         f"SUBDAG EXTERNAL {job.name} {Path(job.subdag.graph['dag_filename']).name} "
