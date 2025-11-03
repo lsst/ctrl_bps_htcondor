@@ -185,10 +185,11 @@ class DagmanConfigurator:
         # BaseModel.model_dump() does not support excluding these fields during
         # serialization at the moment (Pydantic ver. 2.12), so we have to do it
         # manually.
-        options = self._options.model_dump(exclude_unset=True)
-        if self._options.model_extra:
-            for key in self._options.model_extra:
-                del options[key]
+        options = {
+            key: val
+            for key, val in self._options.model_dump(exclude_unset=True).items()
+            if key not in self._options.model_extra
+        }
         self.config_path.write_text("\n".join(f"{key} = {val}" for key, val in options.items()))
 
     def configure(self, dag: HTCDag) -> None:
