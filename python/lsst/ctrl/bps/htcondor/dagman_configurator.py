@@ -109,7 +109,7 @@ class DagmanConfigurator:
     ----------
     config : `lsst.ctrl.bps.BpsConfig`
         BPS configuration.
-    search_opts : `dict` [`str`, `object`], optional
+    search_opts : `dict` [`str`, `Any`], optional
         Options to use while searching the BPS configuration for values.
 
     Raises
@@ -131,7 +131,7 @@ class DagmanConfigurator:
         if self._options.model_extra:
             unknown_opts = [key.upper() for key in self._options.model_extra]
             _LOG.warning(
-                "Following WMS-specific configuration options were not recognized and will be ignored: %s.",
+                "The following WMS-specific config options were not recognized and will be ignored: %s.",
                 ", ".join(unknown_opts),
             )
         self.config_path: Path | None = None
@@ -139,7 +139,7 @@ class DagmanConfigurator:
 
     @property
     def options(self) -> dict[str, Any]:
-        """Valid DAGMan configuration options (`dict` [`str`, `Any`])."""
+        """DAGMan configuration options set via BPS (`dict` [`str`, `Any`])."""
         return {
             key: val
             for key, val in self._options.model_dump().items()
@@ -169,7 +169,7 @@ class DagmanConfigurator:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             _LOG.error(
-                "Cannot create WMS-specific configuration file '%s': %s",
+                "Could not write WMS-specific configuration file '%s': %s",
                 self.config_path,
                 exc.strerror,
             )
@@ -181,7 +181,7 @@ class DagmanConfigurator:
         # Notes
         # -----
         # The Pydantic model we are using to represent the DAGMan configuration
-        # allows for extra fields. However, it seems that
+        # options allows for extra fields. However, it seems that
         # BaseModel.model_dump() does not support excluding these fields during
         # serialization at the moment (Pydantic ver. 2.12), so we have to do it
         # manually.
@@ -192,7 +192,7 @@ class DagmanConfigurator:
         self.config_path.write_text("\n".join(f"{key} = {val}" for key, val in options.items()))
 
     def configure(self, dag: HTCDag) -> None:
-        """Add DAG configuration to the workflow.
+        """Add DAG configuration file to the workflow.
 
         Parameters
         ----------

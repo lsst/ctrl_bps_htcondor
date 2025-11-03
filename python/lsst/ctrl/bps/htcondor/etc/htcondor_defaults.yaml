@@ -46,4 +46,8 @@ finalJob:
 
 # Define the default DAGMan configuration.
 wmsConfig:
-  DAGMAN_MANAGER_JOB_APPEND_GETENV: "TRUE"  # must be a string, not a boolean
+  # A comma separated list of variable names to add to the DAGMan *.condor.sub
+  # file’s getenv option. If set to "TRUE" (a string, not a boolean!), DAGMan
+  # will effectively lift all environmental variables from the user's shell
+  # environment.
+  DAGMAN_MANAGER_JOB_APPEND_GETENV: "TRUE"

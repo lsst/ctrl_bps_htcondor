@@ -124,7 +124,7 @@ class HTCondorService(BaseWmsService):
             except KeyError:
                 _LOG.debug(
                     "No DAGMan-specific settings were found in BPS config; "
-                    "using local HTCondor configuration during DAG execution."
+                    "skipping writing DAG-specific configuration file."
                 )
             else:
                 configurator.prepare("dagman.conf", prefix=out_prefix)
