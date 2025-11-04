@@ -1465,7 +1465,17 @@ def count_jobs_in_single_dag(
     job_name_to_type: dict[str, WmsNodeType] = {}
     with open(filename) as fh:
         for line in fh:
-            job_name = ""
+            # Skip any line that contains commands irrelevant to job counting.
+            if not line.startswith(
+                (
+                    "JOB",
+                    "FINAL",
+                    "SERVICE",
+                    "SUBDAG EXTERNAL",
+                )
+            ):
+                continue
+
             m = re.match(
                 r"(?P<command>JOB|FINAL|SERVICE|SUBDAG EXTERNAL)\s+"
                 r'(?P<jobname>(?P<wms>wms_)?\S+)\s+"?(?P<subfile>\S+)"?\s*'
@@ -1521,9 +1531,9 @@ def count_jobs_in_single_dag(
 
                 job_name_to_label[job_name] = label
                 job_name_to_type[job_name] = job_type
-            elif not line.startswith(("VARS", "PARENT", "DOT", "NODE_STATUS_FILE", "SET_JOB_ATTR", "SCRIPT")):
-                # Only print warning if not a line wanting to skip
-                # Probably means problem with regex in above match pattern.
+            else:
+                # The line should, but didn't match the pattern above. Probably
+                # problems with regex.
                 _LOG.warning("Unexpected skipping of dag line: %s", line)
 
     return counts, job_name_to_label, job_name_to_type
