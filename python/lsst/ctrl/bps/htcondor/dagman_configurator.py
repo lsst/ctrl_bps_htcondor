@@ -124,7 +124,7 @@ class DagmanConfigurator:
         """DAGMan configuration options set via BPS (`dict` [`str`, `Any`])."""
         return {
             key: val
-            for key, val in self._options.model_dump().items()
+            for key, val in self._options.model_dump(exclude_unset=True).items()
             if key not in self._options.model_extra
         }
 
@@ -167,12 +167,7 @@ class DagmanConfigurator:
         # BaseModel.model_dump() does not support excluding these fields during
         # serialization at the moment (Pydantic ver. 2.12), so we have to do it
         # manually.
-        options = {
-            key: val
-            for key, val in self._options.model_dump(exclude_unset=True).items()
-            if key not in self._options.model_extra
-        }
-        self.config_path.write_text("\n".join(f"{key} = {val}" for key, val in options.items()))
+        self.config_path.write_text("\n".join(f"{key} = {val}" for key, val in self.options.items()))
 
     def configure(self, dag: HTCDag) -> None:
         """Add DAG configuration file to the workflow.
