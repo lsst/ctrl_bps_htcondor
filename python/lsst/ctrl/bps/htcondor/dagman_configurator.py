@@ -30,14 +30,11 @@
 __all__ = ["DagmanConfigurator"]
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
-try:
-    import htcondor
-except ModuleNotFoundError:
-    import htcondor2 as htcondor
-from packaging import version
+import htcondor
 from pydantic import AliasGenerator, ConfigDict, create_model
 
 from lsst.ctrl.bps import BpsConfig
@@ -64,28 +61,13 @@ _fields = {key.lower(): (type(val), val) for key, val in htcondor.param.items() 
 # A complete list of configuration options HTCondor supports can be found in
 # ``src/condor_utils/param_info.in`` in
 # `HTCondor GitHub repository <https://github.com/htcondor/htcondor>`_.
-#
-# It is assumed that these options only change between major LTS releases.
-_ver = version.parse(htcondor.__version__)
-match (_ver.major, _ver.minor):
-    case (24, 0):
-        _fields.update(
-            {
-                "dagman_debug": (str, ""),
-                "dagman_node_record_info": (str, ""),
-                "dagman_record_machine_attrs": (str, ""),
-            }
-        )
-    case (25, 0):
-        _fields.update(
-            {
-                "dagman_config_file": (str, ""),
-                "dagman_debug": (str, ""),
-                "dagman_insert_sub_file": (str, ""),
-                "dagman_node_record_info": (str, ""),
-                "dagman_record_machine_attrs": (str, ""),
-            }
-        )
+_fields.update(
+    {
+        "dagman_debug": (str, ""),
+        "dagman_node_record_info": (str, ""),
+        "dagman_record_machine_attrs": (str, ""),
+    }
+)
 
 # Dynamically create a Pydantic model encapsulating the DAGMan configuration
 # options gathered above.
@@ -146,7 +128,7 @@ class DagmanConfigurator:
             if key not in self._options.model_extra
         }
 
-    def prepare(self, filename: Path | str, prefix: Path | str | None) -> None:
+    def prepare(self, filename: os.PathLike | str, prefix: os.PathLike | str | None) -> None:
         """Write WMS-specific configuration to a file.
 
         Parameters
