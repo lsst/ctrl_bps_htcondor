@@ -897,8 +897,6 @@ def _generic_workflow_to_htcondor_dag(
         elif gwjob.node_type == GenericWorkflowNodeType.GROUP:
             gwjob = cast(GenericWorkflowGroup, gwjob)
             htc_job = _group_to_subdag(config, gwjob, out_prefix)
-            # In case DAGMAN_GENERATE_SUBDAG_SUBMITS is False,
-            dag.graph["submit_options"]["do_recurse"] = True
         else:
             raise RuntimeError(f"Unsupported generic workflow node type {gwjob.node_type} ({gwjob.name})")
         _LOG.debug("Calling adding job %s %s", htc_job.name, htc_job.label)

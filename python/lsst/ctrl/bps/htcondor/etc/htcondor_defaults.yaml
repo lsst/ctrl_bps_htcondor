@@ -51,3 +51,7 @@ wmsConfig:
   # will effectively lift all environmental variables from the user's shell
   # environment.
   DAGMAN_MANAGER_JOB_APPEND_GETENV: "TRUE"
+
+  # A boolean flag controlling whether DAGMan should generate submit files for
+  # nested DAGs automatically.
+  DAGMAN_GENERATE_SUBDAG_SUBMITS: true

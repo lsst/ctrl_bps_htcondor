@@ -725,15 +725,6 @@ def htc_create_submit_from_dag(dag_filename: str, submit_options: dict[str, Any]
     Use with HTCondor versions which support htcondor.Submit.from_dag(),
     i.e., 8.9.3 or newer.
     """
-    # Passing do_recurse as submit_option does not seem to
-    # override DAGMAN_GENERATE_SUBDAG_SUBMITS as manual implies.
-    # So setting it and the other bps required setting here as
-    # environment variables if they don't exist.
-    if "do_recurse" in submit_options:
-        var_name = "_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"
-        if var_name not in os.environ:
-            os.environ[var_name] = str(submit_options["do_recurse"])
-
     # Config and environment variables do not seem to override -MaxIdle
     # on the .dag.condor.sub's command line (broken in some 24.0.x versions).
     # Explicitly forward them as a submit_option if either exists.
