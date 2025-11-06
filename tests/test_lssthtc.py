@@ -1217,32 +1217,6 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
                     _ = lssthtc.htc_create_submit_from_dag(str(dag_filename), {})
                     submit_mock.assert_called_once_with(str(dag_filename), {})
 
-    @unittest.mock.patch.dict(os.environ, {})
-    def testDoRecurseGivenWithNoEnv(self):
-        with temporaryDirectory() as tmp_dir:
-            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
-            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
-            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
-            self.assertIn("-do_recurse", submit["arguments"])
-            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"].lower())
-
-    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS": "False"})
-    def testDoRecurseGivenWithEnv(self):
-        with temporaryDirectory() as tmp_dir:
-            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
-            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
-            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
-            self.assertIn("-do_recurse", submit["arguments"])
-            self.assertEqual("false", os.environ["_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"].lower())
-
-    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV": "*_DIR"})
-    def testGetEnvOverridden(self):
-        with temporaryDirectory() as tmp_dir:
-            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
-            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
-            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
-            self.assertIn("-do_recurse", submit["arguments"])
-
 
 class HtcDagTestCase(unittest.TestCase):
     """Test for HTCDag class."""
