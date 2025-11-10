@@ -27,7 +27,10 @@ dependencies = [
     "htcondor >= 8.8",
     "lsst-ctrl-bps",
     "lsst-daf-butler",
-    "lsst-utils"
+    "lsst-pipe-base",
+    "lsst-utils",
+    "packaging",
+    "pydantic >= 2, < 3.0",
 ]
 dynamic = ["version"]
 

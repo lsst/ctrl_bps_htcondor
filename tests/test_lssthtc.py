@@ -38,7 +38,9 @@ from shutil import copy2, copytree, ignore_patterns, rmtree, which
 
 import htcondor
 
-from lsst.ctrl.bps.htcondor import lssthtc
+from lsst.ctrl.bps import BpsConfig
+from lsst.ctrl.bps.htcondor import dagman_configurator, htcondor_config, lssthtc
+from lsst.daf.butler import Config
 from lsst.utils.tests import temporaryDirectory
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
@@ -1190,7 +1192,6 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {})
             self.assertIn("-MaxIdle 42", submit["arguments"])
-            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
 
     @unittest.mock.patch.dict(os.environ, {})
     def testMaxIdleGiven(self):
@@ -1199,7 +1200,6 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"MaxIdle": 37})
             self.assertIn("-MaxIdle 37", submit["arguments"])
-            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
 
     @unittest.mock.patch.dict(os.environ, {})
     def testNoMaxJobsIdle(self):
@@ -1215,37 +1215,90 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
                 with unittest.mock.patch("htcondor.param") as mock_param:
                     mock_param.__contains__.return_value = False
                     _ = lssthtc.htc_create_submit_from_dag(str(dag_filename), {})
-                    self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
                     submit_mock.assert_called_once_with(str(dag_filename), {})
 
-    @unittest.mock.patch.dict(os.environ, {})
-    def testDoRecurseGivenWithNoEnv(self):
-        with temporaryDirectory() as tmp_dir:
-            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
-            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
-            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
-            self.assertIn("-do_recurse", submit["arguments"])
-            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"].lower())
-            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
 
-    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS": "False"})
-    def testDoRecurseGivenWithEnv(self):
-        with temporaryDirectory() as tmp_dir:
-            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
-            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
-            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
-            self.assertIn("-do_recurse", submit["arguments"])
-            self.assertEqual("true", os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"].lower())
-            self.assertEqual("false", os.environ["_CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS"].lower())
+class HtcDagTestCase(unittest.TestCase):
+    """Test for HTCDag class."""
 
-    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV": "*_DIR"})
-    def testGetEnvOverridden(self):
+    def setUp(self):
+        job = lssthtc.HTCJob(name="test_job")
+        job.add_job_cmds(
+            {
+                "executable": "/usr/bin/echo",
+                "arguments": "foo",
+                "output": "test_job.$(Cluster).out",
+                "error": "test_job.$(Cluster).out",
+                "log": "test_job.$(Cluster).log",
+            }
+        )
+        job.subfile = f"{job.name}.sub"
+
+        self.dag = lssthtc.HTCDag(name="test_workflow")
+        self.dag.add_job(job)
+
+        self.subfile_expected = [
+            "executable=/usr/bin/echo\n",
+            "arguments=foo\n",
+            "output=test_job.$(Cluster).out\n",
+            "error=test_job.$(Cluster).out\n",
+            "log=test_job.$(Cluster).log\n",
+            "queue\n",
+        ]
+
+    def tearDown(self):
+        pass
+
+    def testWriteWithDagConfig(self):
         with temporaryDirectory() as tmp_dir:
-            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
-            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
-            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"do_recurse": True})
-            self.assertIn("-do_recurse", submit["arguments"])
-            self.assertEqual(os.environ["_CONDOR_DAGMAN_MANAGER_JOB_APPEND_GETENV"], "*_DIR")
+            config = BpsConfig(Config(htcondor_config.HTC_DEFAULTS_URI))
+            job = self.dag.nodes["test_job"]["data"]
+            wms_config_filename = "dagman.conf"
+            wms_configurator = dagman_configurator.DagmanConfigurator(config)
+            wms_configurator.prepare(wms_config_filename, prefix=tmp_dir)
+            wms_configurator.configure(self.dag)
+            dagfile_expected = [
+                f"CONFIG {wms_config_filename}\n",
+                f'JOB {job.name} "{job.subfile}"\n',
+                f"DOT {self.dag.name}.dot\n",
+                f"NODE_STATUS_FILE {self.dag.name}.node_status\n",
+                f'SET_JOB_ATTR bps_wms_config_path= "{wms_config_filename}"\n',
+            ]
+
+            self.dag.write(tmp_dir, "", "")
+
+            self.assertIn("submit_path", self.dag.graph)
+            self.assertEqual(self.dag.graph["submit_path"], tmp_dir)
+            self.assertIn("dag_filename", self.dag.graph)
+            self.assertEqual(self.dag.graph["dag_filename"], f"{self.dag.graph['name']}.dag")
+            with open(os.path.join(tmp_dir, self.dag.graph["dag_filename"]), encoding="utf-8") as f:
+                dagfile_actual = f.readlines()
+                self.assertEqual(dagfile_actual, dagfile_expected)
+            with open(os.path.join(tmp_dir, job.subfile), encoding="utf-8") as f:
+                subfile_actual = f.readlines()
+                self.assertEqual(subfile_actual, self.subfile_expected)
+
+    def testWriteWithoutDagConfig(self):
+        with temporaryDirectory() as tmp_dir:
+            job = self.dag.nodes["test_job"]["data"]
+            dagfile_expected = [
+                f'JOB {job.name} "{job.subfile}"\n',
+                f"DOT {self.dag.name}.dot\n",
+                f"NODE_STATUS_FILE {self.dag.name}.node_status\n",
+            ]
+
+            self.dag.write(tmp_dir, "", "")
+
+            self.assertIn("submit_path", self.dag.graph)
+            self.assertEqual(self.dag.graph["submit_path"], tmp_dir)
+            self.assertIn("dag_filename", self.dag.graph)
+            self.assertEqual(self.dag.graph["dag_filename"], f"{self.dag.graph['name']}.dag")
+            with open(os.path.join(tmp_dir, self.dag.graph["dag_filename"]), encoding="utf-8") as f:
+                dagfile_actual = f.readlines()
+                self.assertEqual(dagfile_actual, dagfile_expected)
+            with open(os.path.join(tmp_dir, job.subfile), encoding="utf-8") as f:
+                subfile_actual = f.readlines()
+                self.assertEqual(subfile_actual, self.subfile_expected)
 
 
 if __name__ == "__main__":

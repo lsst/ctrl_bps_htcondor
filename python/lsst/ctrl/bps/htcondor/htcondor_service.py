@@ -46,6 +46,7 @@ from lsst.daf.butler import Config
 from lsst.utils.timer import time_this
 
 from .common_utils import WmsIdType, _wms_id_to_cluster, _wms_id_to_dir, _wms_id_type
+from .dagman_configurator import DagmanConfigurator
 from .htcondor_config import HTC_DEFAULTS_URI
 from .htcondor_workflow import HTCondorWorkflow
 from .lssthtc import (
@@ -117,6 +118,17 @@ class HTCondorService(BaseWmsService):
                 provisioner.configure()
                 provisioner.prepare("provisioningJob.bash", prefix=out_prefix)
                 provisioner.provision(workflow.dag)
+
+            try:
+                configurator = DagmanConfigurator(config)
+            except KeyError:
+                _LOG.debug(
+                    "No DAGMan-specific settings were found in BPS config; "
+                    "skipping writing DAG-specific configuration file."
+                )
+            else:
+                configurator.prepare("dagman.conf", prefix=out_prefix)
+                configurator.configure(workflow.dag)
 
         with time_this(
             log=_LOG, level=logging.INFO, prefix=None, msg="Completed writing out HTCondor workflow"
