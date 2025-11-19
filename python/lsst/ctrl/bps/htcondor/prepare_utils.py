@@ -264,6 +264,7 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
     if gwjob.arguments:
         arguments = gwjob.arguments
         arguments = _replace_cmd_vars(arguments, gwjob)
+        arguments = _replace_wms_vars(arguments)
         arguments = _replace_file_vars(cached_vals["bpsUseShared"], arguments, generic_workflow, gwjob)
         arguments = _fix_env_var_syntax(arguments)
         jobcmds["arguments"] = arguments
@@ -273,6 +274,7 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
         for name, value in gwjob.environment.items():
             if isinstance(value, str):
                 value2 = _replace_cmd_vars(value, gwjob)
+                value2 = _replace_wms_vars(value)
                 value2 = _fix_env_var_syntax(value2)
                 value2 = htc_escape(value2)
                 env_str += f"{name}='{value2}' "  # Add single quotes to allow internal spaces
@@ -413,6 +415,30 @@ def _replace_cmd_vars(arguments, gwjob):
         _LOG.debug("arguments: %s\ncmdvals: %s", arguments, replacements)
         raise
     return arguments
+
+
+def _replace_wms_vars(orig_string: str) -> str:
+    """Replace special wms placeholders in given string.
+
+    Parameters
+    ----------
+    orig_string : `str`
+        String in which to replace wms placeholders.
+
+    Returns
+    -------
+    updated_string : `str`
+        Given string with wms placeholders replaced.
+    """
+    values = {"attemptNum": "$$([NumJobStarts])"}
+    updated_string = orig_string
+    for key in re.findall(r"<WMS:([^>]+)>", orig_string):
+        try:
+            updated_string = updated_string.replace(rf"<WMS:{key}>", values[key])
+        except KeyError:
+            _LOG.error("Unrecognized WMS placeholder: %s in %s", key, orig_string)
+            raise
+    return updated_string
 
 
 def _handle_job_inputs(
