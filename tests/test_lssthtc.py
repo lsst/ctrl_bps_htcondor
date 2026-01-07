@@ -724,6 +724,7 @@ class HtcWriteJobCommands(unittest.TestCase):
             "retry": 3,
             "retry_unless_exit": 1,
             "abort_dag_on": {"node_exit": 100, "abort_exit": 4},
+            "priority": 123,
         }
 
         truth = """SCRIPT DEFER 1 120 DEBUG debug_pre.txt ALL PRE job1 exec1 arg1 arg2
@@ -733,6 +734,7 @@ VARS job1 spaces="a space"
 PRE_SKIP job1 1
 RETRY job1 3 UNLESS-EXIT 1
 ABORT-DAG-ON job1 100 RETURN 4
+PRIORITY job1 123
 """
         mockfh = io.StringIO()
         lssthtc._htc_write_job_commands(mockfh, "job1", dag_cmds)
