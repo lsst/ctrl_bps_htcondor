@@ -234,6 +234,7 @@ HTC_VALID_JOB_DAG_KEYS = {
     "retry_unless_exit",
     "abort_dag_on",
     "abort_exit",
+    "priority",
 }
 HTC_VERSION = version.parse(htcondor.__version__)
 
@@ -881,6 +882,12 @@ def _htc_write_job_commands(stream, name, commands):
         print(
             f"ABORT-DAG-ON {name} {commands['abort_dag_on']['node_exit']}"
             f" RETURN {commands['abort_dag_on']['abort_exit']}",
+            file=stream,
+        )
+
+    if "priority" in commands and commands["priority"]:
+        print(
+            f"PRIORITY {name} {commands['priority']}",
             file=stream,
         )
 

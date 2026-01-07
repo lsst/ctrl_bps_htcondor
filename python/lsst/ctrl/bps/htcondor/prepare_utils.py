@@ -306,7 +306,11 @@ def _translate_dag_cmds(gwjob):
         DAGMan commands for the job.
     """
     # Values in the dag script that just are name mappings.
-    dag_translation = {"abort_on_value": "abort_dag_on", "abort_return_value": "abort_exit"}
+    dag_translation = {
+        "abort_on_value": "abort_dag_on",
+        "abort_return_value": "abort_exit",
+        "priority": "priority",
+    }
 
     dagcmds = {}
     for gwkey, htckey in dag_translation.items():

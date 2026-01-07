@@ -134,6 +134,19 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
         self.assertEqual(htc_commands["max_retries"], 0)
 
 
+class TranslateDagCmdsTestCase(unittest.TestCase):
+    """Test _translate_dag_cmds method."""
+
+    def setUp(self):
+        self.gw_exec = GenericWorkflowExec("test_exec", "/dummy/dir/pipetask")
+
+    def testPriority(self):
+        gwjob = GenericWorkflowJob("priority", "label1", executable=self.gw_exec)
+        gwjob.priority = 100
+        dag_commands = prepare_utils._translate_dag_cmds(gwjob)
+        self.assertEqual(dag_commands["priority"], 100)
+
+
 class GroupToSubdagTestCase(unittest.TestCase):
     """Test _group_to_subdag function."""
 
