@@ -35,6 +35,7 @@ from lsst.ctrl.bps import (
     BPS_DEFAULTS,
     BPS_SEARCH_ORDER,
     BpsConfig,
+    GenericWorkflow,
     GenericWorkflowExec,
     GenericWorkflowFile,
     GenericWorkflowJob,
@@ -132,6 +133,17 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
         remove = "JobStatus == 5 && (NumJobStarts > JobMaxRetries)"
         self.assertEqual(htc_commands["periodic_remove"], remove)
         self.assertEqual(htc_commands["max_retries"], 0)
+
+    def testArgumentsReplaceWmsVars(self):
+        gwjob = GenericWorkflowJob("job1", "label1", executable=self.gw_exec)
+        gw = GenericWorkflow("test1")
+        gw.add_job(gwjob)
+        gwjob.request_cpus = 1
+        gwjob.request_memory = 2048
+        gwjob.arguments = "run-qbb repo test.qg --summary /a/b/t/jobs/c/d/job-<WMS:attemptNum>-summary.json"
+        new_arguments = "run-qbb repo test.qg --summary /a/b/t/jobs/c/d/job-$$([NumJobStarts])-summary.json"
+        htc_commands = prepare_utils._translate_job_cmds(self.cached_vals, gw, gwjob)
+        self.assertEqual(htc_commands["arguments"], new_arguments)
 
 
 class TranslateDagCmdsTestCase(unittest.TestCase):
@@ -479,6 +491,27 @@ class CreateJobTestCase(unittest.TestCase):
         self.assertTrue(htc_job.cmds["error"].endswith(".out"))
         self.assertTrue(htc_job.cmds["output"].endswith(".out"))
         self.assertTrue(htc_job.cmds["log"].endswith(".log"))
+
+
+class ReplaceWmsVarsTestCase(unittest.TestCase):
+    """Test _replace_wms_vars function."""
+
+    def testNoWmsVar(self):
+        orig_string = "whatever <Other:notThere> whatnot"
+        updated_string = prepare_utils._replace_wms_vars(orig_string)
+        self.assertEqual(orig_string, updated_string)
+
+    def testAttemptNum(self):
+        orig_string = "whatever <WMS:attemptNum> whatnot"
+        updated_string = prepare_utils._replace_wms_vars(orig_string)
+        self.assertEqual("whatever $$([NumJobStarts]) whatnot", updated_string)
+
+    def testUnrecognized(self):
+        orig_string = "whatever <WMS:notThere> whatnot"
+        with self.assertLogs(level="INFO") as cm_log:
+            with self.assertRaises(KeyError):
+                _ = prepare_utils._replace_wms_vars(orig_string)
+        self.assertRegex(cm_log.output[0], "Unrecognized WMS placeholder: notThere")
 
 
 if __name__ == "__main__":
