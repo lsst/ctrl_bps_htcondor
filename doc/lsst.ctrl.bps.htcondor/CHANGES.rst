@@ -1,3 +1,31 @@
+lsst-ctrl-bps-htcondor v30.0.0 (2026-01-16)
+===========================================
+
+New Features
+------------
+
+- Added ability to bring the output files produced during job's execution back to the submit site. (`DM-48479 <https://rubinobs.atlassian.net/browse/DM-48479>`_)
+- Added ability to save job stdout/stderr across job retries by setting ``overwriteJobFiles`` to `False`` in the submit yaml. (`DM-51905 <https://rubinobs.atlassian.net/browse/DM-51905>`_)
+- Added a mechanism that lets the user configure DAGMan via submit YAML. (`DM-52778 <https://rubinobs.atlassian.net/browse/DM-52778>`_)
+- Added using the given priority as the DAG node priority in addition to the HTCondor job priority. (`DM-53753 <https://rubinobs.atlassian.net/browse/DM-53753>`_)
+
+
+Bug Fixes
+---------
+
+- Fixed bug causing ``bps status --id`` to always report ``MISFIT`` status.  Bug was introduced in DM-51868. (`DM-53014 <https://rubinobs.atlassian.net/browse/DM-53014>`_)
+- Fixed bug causing finalJob's memory to not be increased on retries like on regular payload jobs. (`DM-53053 <https://rubinobs.atlassian.net/browse/DM-53053>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Redirected payload's ``stderr`` and ``stdout`` to the same file (``*.out``) to reduce number of files the plugin creates during submission. (`DM-31879 <https://rubinobs.atlassian.net/browse/DM-31879>`_)
+- Added documentation on ``condor_tail`` and ``condor_ssh_to_job``. (`DM-50900 <https://rubinobs.atlassian.net/browse/DM-50900>`_)
+- Fixed issue with some failed jobs being reported as deleted when using ``bps report`` with HTCondor plugin. (`DM-51868 <https://rubinobs.atlassian.net/browse/DM-51868>`_)
+- Divided ``htcondor_service.py`` and ``test_htcondor_service.py`` into smaller files. (`DM-52552 <https://rubinobs.atlassian.net/browse/DM-52552>`_)
+
+
 lsst-ctrl-bps-htcondor v29.1.0 (2025-06-13)
 ===========================================
 

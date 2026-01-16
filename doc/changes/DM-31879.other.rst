@@ -1,1 +1,0 @@
-Redirected payload's ``stderr`` and ``stdout`` to the same file (``*.out``) to reduce number of files the plugin creates during submission.
