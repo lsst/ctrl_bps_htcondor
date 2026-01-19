@@ -1,1 +1,0 @@
-Added a mechanism that lets the user configure DAGMan via submit YAML.
