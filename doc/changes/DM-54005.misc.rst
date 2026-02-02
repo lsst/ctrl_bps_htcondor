@@ -1,1 +1,1 @@
-Switched docs action to use ``sphinxutils``.
+Switched docs action to use ``sphinxutils``.  Bumped minimum Python version to 3.12.
