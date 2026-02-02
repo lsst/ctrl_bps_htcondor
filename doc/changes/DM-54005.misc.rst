@@ -1,0 +1,1 @@
+Switched docs action to use ``sphinxutils``.

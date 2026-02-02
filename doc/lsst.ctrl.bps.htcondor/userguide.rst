@@ -1,3 +1,6 @@
+User Guide
+==========
+
 .. _htc-plugin-overview:
 
 Overview
@@ -6,7 +9,7 @@ Overview
 LSST Batch Processing Service (BPS) allows large-scale workflows to execute in
 well-managed fashion, potentially in multiple environments.  The service is
 provided by the `ctrl_bps`_ package.  ``ctrl_bps_htcondor`` is a plugin
-allowing `ctrl_bps` to execute workflows on computational resources managed by
+allowing ``ctrl_bps`` to execute workflows on computational resources managed by
 `HTCondor`_.
 
 .. _htc-plugin-preqs:
@@ -89,8 +92,8 @@ Job Environment
 ^^^^^^^^^^^^^^^
 
 By default, the htcondor jobs copy the environment from the shell in which
-`bps submit` was executed.  To set or override an environment variable via
-submission yaml, use an `environment` section.  Other yaml values and pre-existing
+``bps submit`` was executed.  To set or override an environment variable via
+submission yaml, use an ``environment`` section.  Other yaml values and pre-existing
 environment variables can be used.  Some examples:
 
 .. code-block:: YAML
@@ -104,7 +107,7 @@ environment variables can be used.  Some examples:
 
 .. note::
 
-   The `environment` section has to be at the root level.  There is no
+   The ``environment`` section has to be at the root level.  There is no
    way to change the environment inside another level (e.g., per site,
    per cluster, per pipeline task)
 
@@ -397,11 +400,11 @@ by ``provisioningMaxIdleTime`` (default value: 15 min., see below) or maximum
 wall time is reached.
 
 The provisioning job is expected to run as long as the workflow.  If the job
-dies, the job status will be `FAILED`.  If the job just completed successfully,
-the job status will be `SUCCEEDED` with a message saying it ended early (which
+dies, the job status will be ``FAILED``.  If the job just completed successfully,
+the job status will be ``SUCCEEDED`` with a message saying it ended early (which
 may or may not cause a problem since existing glideins could remain running).
 To get more information about either of these cases, check the job output
-and error files in the `jobs/provisioningJob` subdirectory.
+and error files in the ``jobs/provisioningJob`` subdirectory.
 
 
 If the automatic provisioning of the resources is enabled, the script that the

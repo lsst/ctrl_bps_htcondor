@@ -5,7 +5,7 @@ New Features
 ------------
 
 - Added ability to bring the output files produced during job's execution back to the submit site. (`DM-48479 <https://rubinobs.atlassian.net/browse/DM-48479>`_)
-- Added ability to save job stdout/stderr across job retries by setting ``overwriteJobFiles`` to `False`` in the submit yaml. (`DM-51905 <https://rubinobs.atlassian.net/browse/DM-51905>`_)
+- Added ability to save job stdout/stderr across job retries by setting ``overwriteJobFiles`` to ``false`` in the submit yaml. (`DM-51905 <https://rubinobs.atlassian.net/browse/DM-51905>`_)
 - Added a mechanism that lets the user configure DAGMan via submit YAML. (`DM-52778 <https://rubinobs.atlassian.net/browse/DM-52778>`_)
 - Added using the given priority as the DAG node priority in addition to the HTCondor job priority. (`DM-53753 <https://rubinobs.atlassian.net/browse/DM-53753>`_)
 

@@ -491,7 +491,7 @@ def htc_write_attribs(stream, attrs):
 
     Parameters
     ----------
-    stream : `~io.TextIOBase`
+    stream : `~typing.TextIO`
         Output text stream (typically an open file).
     attrs : `dict`
         HTCondor job attributes (dictionary of attribute key, value).
@@ -824,7 +824,7 @@ def _htc_write_job_commands(stream, name, commands):
 
     Parameters
     ----------
-    stream : `~io.TextIOBase`
+    stream : `~typing.TextIO`
         Writeable text stream (typically an opened file).
     name : `str`
         Job name.
@@ -981,7 +981,7 @@ class HTCJob:
 
         Parameters
         ----------
-        stream : `IO` or `str`
+        stream : `~typing.TextIO`
             Output Stream.
         dag_rel_path : `str`
             Relative path of dag to submit directory.
@@ -1009,7 +1009,7 @@ class HTCJob:
 
         Parameters
         ----------
-        fh : `~io.TextIOBase`
+        fh : `~typing.TextIO`
             Output stream.
         """
         printer = pprint.PrettyPrinter(indent=4, stream=fh)
@@ -1023,8 +1023,9 @@ class HTCDag(networkx.DiGraph):
 
     Parameters
     ----------
-    data : networkx.DiGraph.data
-        Initial graph.
+    data : `~typing.Any`
+        Initial graph data of any format that is supported
+        by the to_network_graph() function.
     name : `str`
         Name for DAG.
     """
@@ -1216,7 +1217,7 @@ class HTCDag(networkx.DiGraph):
 
         Parameters
         ----------
-        fh : `io.IO` or `str`
+        fh : `typing.IO`
             Where to dump DAG info as text.
         """
         for key, value in self.graph:
@@ -1660,7 +1661,7 @@ def read_dag_status(wms_path: str | os.PathLike) -> dict[str, Any]:
 
     Parameters
     ----------
-    wms_path : `str` or `os.PathLike
+    wms_path : `str` or `os.PathLike`
         Path that includes node status file for a run.
 
     Returns
