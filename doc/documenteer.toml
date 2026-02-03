@@ -1,0 +1,21 @@
+[project]
+title = "lsst-ctrl-bps-htcondor"
+
+[project.python]
+package = "lsst-ctrl-bps-htcondor"
+
+[build]
+clean = true
+
+[sphinx]
+extensions = [
+    "sphinx_click"
+]
+nitpick_ignore_regex = [
+    ["py:obj", 'htcondor\..*'],
+]
+
+[sphinx.intersphinx.projects]
+python = "https://docs.python.org/3"
+lsst = "https://pipelines.lsst.io/v/daily/"
+networkx = "https://networkx.org/documentation/stable/"

@@ -100,7 +100,7 @@ class HTCondorService(BaseWmsService):
 
         Returns
         -------
-        workflow : `lsst.ctrl.bps.wms.htcondor.HTCondorWorkflow`
+        workflow : `lsst.ctrl.bps.htcondor.HTCondorWorkflow`
             HTCondor workflow ready to be run.
         """
         _LOG.debug("out_prefix = '%s'", out_prefix)
@@ -141,7 +141,7 @@ class HTCondorService(BaseWmsService):
 
         Parameters
         ----------
-        workflow : `lsst.ctrl.bps.BaseWorkflow`
+        workflow : `lsst.ctrl.bps.htcondor.HTCondorWorkflow`
             A single HTCondor workflow to submit.  run_id is updated after
             successful submission to WMS.
         **kwargs : `~typing.Any`
