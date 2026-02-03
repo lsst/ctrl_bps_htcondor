@@ -1,3 +1,17 @@
+lsst-ctrl-bps-htcondor v30.0.1 (2026-02-03)
+===========================================
+
+Dropped support for Python 3.11.
+Tested with Python 3.14.
+
+Other Changes and Additions
+---------------------------
+
+- - Switched docs action to use ``sphinxutils``.
+  - Bumped minimum Python version to 3.12.
+  - Dropped ``black`` and ``isort`` sections from ``pyproject.toml``. (`DM-54005 <https://rubinobs.atlassian.net/browse/DM-54005>`_)
+
+
 lsst-ctrl-bps-htcondor v30.0.0 (2026-01-16)
 ===========================================
 
