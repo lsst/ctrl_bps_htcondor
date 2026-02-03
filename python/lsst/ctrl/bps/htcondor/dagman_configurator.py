@@ -91,7 +91,7 @@ class DagmanConfigurator:
     ----------
     config : `lsst.ctrl.bps.BpsConfig`
         BPS configuration.
-    search_opts : `dict` [`str`, `Any`], optional
+    search_opts : `dict` [`str`, `~typing.Any`], optional
         Options to use while searching the BPS configuration for values.
 
     Raises

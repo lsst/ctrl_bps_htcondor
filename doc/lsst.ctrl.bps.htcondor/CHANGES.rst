@@ -178,8 +178,8 @@ Other Changes and Additions
 - Make HTCondor treat all jobs exiting with a signal as if they ran out of memory. (`DM-32968 <https://rubinobs.atlassian.net/browse/DM-32968>`_)
 - Make HTCondor plugin pass a group and user attribute to any batch systems that require such attributes for accounting purposes. (`DM-33887 <https://rubinobs.atlassian.net/browse/DM-33887>`_)
 
-ctrl_bps v23.0.0 (2021-12-10)
-=============================
+lsst-ctrl-bps-htcondor v23.0.0 (2021-12-10)
+===========================================
 
 New Features
 ------------

@@ -244,7 +244,7 @@ class RestrictedDict(MutableMapping):
 
     Parameters
     ----------
-    valid_keys : `Container`
+    valid_keys : `~collections.abc.Container`
         Strings that are valid keys.
     init_data : `dict` or `RestrictedDict`, optional
         Initial data.
@@ -513,7 +513,7 @@ def htc_write_condor_file(
 
     Parameters
     ----------
-    filename : `str` or os.PathLike
+    filename : `str` or `os.PathLike`
         Filename for the HTCondor submit file.
     job_name : `str`
         Job name to use in submit file.
@@ -1304,7 +1304,7 @@ def condor_query(constraint=None, schedds=None, query_func=htc_query_present, **
         HTCondor schedulers which to query for job information. If None
         (default), the query will be run against the history file of
         the local scheduler only.
-    query_func : callable
+    query_func : `~collections.abc.Callable`
         An query function which takes following arguments:
 
         - ``schedds``: Schedulers to query (`list` [`htcondor.Schedd`]).
