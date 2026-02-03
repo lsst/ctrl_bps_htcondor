@@ -26,6 +26,7 @@ provisioning:
             --maximum-wall-clock {provisioningMaxWallTime} \
             --glidein-shutdown {provisioningMaxIdleTime} \
             --queue {provisioningQueue} \
+            --nodeset {nodeset} \
             {provisioningExtraOptions} \
             {provisioningPlatform}
         sleep {provisioningCheckInterval}

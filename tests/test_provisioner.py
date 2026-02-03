@@ -155,6 +155,7 @@ class ProvisionerTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             self.config[".provisioning.provisioningMaxWallTime"] = 3600
             self.config[".provisioning.provisioningScriptConfigPath"] = f"{tmpdir}/condor-info.py"
+            self.config[".bps_defined.nodeset"] = "20260129T163505Z"
 
             provisioner = Provisioner(self.config)
             provisioner.configure()
