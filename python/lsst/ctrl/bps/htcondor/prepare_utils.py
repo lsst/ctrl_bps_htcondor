@@ -48,6 +48,7 @@ from lsst.ctrl.bps.bps_utils import create_count_summary
 from .lssthtc import (
     HTCDag,
     HTCJob,
+    _update_dicts,
     condor_status,
     htc_escape,
 )
@@ -134,9 +135,19 @@ def _create_job(subdir_template, cached_values, generic_workflow, gwjob, out_pre
         _handle_job_outputs(generic_workflow, gwjob.name, cached_values["bpsUseShared"], out_prefix)
     )
 
+    # If specified, add nodeset to the job
+    if "nodeset" in cached_values:
+        htc_job.add_job_attrs({"JobNodeset": cached_values["nodeset"]})
+        clause = f'( Target.Nodeset == "{cached_values["nodeset"]}" )'
+        if "requirements" in htc_job_cmds:
+            htc_job_cmds["requirements"] = f"({htc_job_cmds['requirements']}) && {clause}"
+        else:
+            htc_job_cmds["requirements"] = clause
+
     # Add the job cmds dict to the job object.
     htc_job.add_job_cmds(htc_job_cmds)
 
+    # Add job-related cmds to the DAG (e.g., VARS)
     htc_job.add_dag_cmds(_translate_dag_cmds(gwjob))
 
     # Add job attributes to job.
@@ -285,9 +296,9 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
     # Add extra "pass-thru" job commands
     if gwjob.profile:
         for key, val in gwjob.profile.items():
-            jobcmds[key] = htc_escape(val)
+            jobcmds[key] = val
     for key, val in cached_vals["profile"].items():
-        jobcmds[key] = htc_escape(val)
+        jobcmds[key] = val
 
     return jobcmds
 
@@ -720,14 +731,23 @@ def _gather_site_values(config, compute_site):
     if found:
         site_values["accountingUser"] = value
 
-    key = f".site.{compute_site}.profile.condor"
-    if key in config:
-        for subkey, val in config[key].items():
-            if subkey.startswith("+"):
-                site_values["attrs"][subkey[1:]] = val
-            else:
-                site_values["profile"][subkey] = val
+    found, nodeset = config.search("nodeset", opt=search_opts)
+    if found:
+        site_values["nodeset"] = nodeset
 
+    searchobj = config[f".site.{compute_site}.profile.condor"]
+    if searchobj:
+        search_opts["searchobj"] = searchobj
+        search_opts["replaceVars"] = True
+        for key in searchobj:
+            if key.startswith("+"):
+                _, val = config.search(key, opt=search_opts)
+                site_values["attrs"][key[1:]] = val
+            else:
+                _, val = config.search(key, opt=search_opts)
+                site_values["profile"][key] = val
+
+    _LOG.debug("site_values = %s", site_values)
     return site_values
 
 
@@ -751,7 +771,7 @@ def _gather_label_values(config: BpsConfig, label: str) -> dict[str, Any]:
 
     search_opts = {}
     profile_key = ""
-    if label == "finalJob":
+    if label == "finalJob" and "finalJob" in config:
         search_opts["searchobj"] = config["finalJob"]
         profile_key = ".finalJob.profile.condor"
     elif label in config["cluster"]:
@@ -883,7 +903,7 @@ def _generic_workflow_to_htcondor_dag(
                 site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
             if gwjob.label not in cached_values:
                 cached_values[gwjob.label] = deepcopy(site_values[gwjob.compute_site])
-                cached_values[gwjob.label].update(_gather_label_values(config, gwjob.label))
+                _update_dicts(cached_values[gwjob.label], _gather_label_values(config, gwjob.label))
                 _LOG.debug("cached: %s= %s", gwjob.label, cached_values[gwjob.label])
             htc_job = _create_job(
                 subdir_template[gwjob.label],
@@ -949,7 +969,7 @@ def _generic_workflow_to_htcondor_dag(
             site_values[final.compute_site] = _gather_site_values(config, final.compute_site)
         if final.label not in cached_values:
             cached_values[final.label] = deepcopy(site_values[final.compute_site])
-            cached_values[final.label].update(_gather_label_values(config, final.label))
+            _update_dicts(cached_values[final.label], _gather_label_values(config, final.label))
         final_htjob = _create_job(
             subdir_template[final.label],
             cached_values[final.label],

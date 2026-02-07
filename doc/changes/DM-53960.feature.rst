@@ -1,0 +1,2 @@
+Added ``nodeset`` keyword in submit yaml to specify the nodeset name for the jobs to match specific glideins.
+When submit yaml requests to do automatic provisioning, automatically set nodeset name to the run's timestamp thus restricting the run's jobs to the glideins started by the automatic provisioning.

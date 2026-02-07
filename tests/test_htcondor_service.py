@@ -28,16 +28,17 @@
 """Unit tests for the HTCondor WMS service class and related functions."""
 
 import logging
+import tempfile
 import unittest
+from pathlib import Path
 
 import htcondor
 
-from lsst.ctrl.bps import (
-    BpsConfig,
-    WmsStates,
-)
+from lsst.ctrl.bps import BpsConfig, WmsStates
 from lsst.ctrl.bps.htcondor import htcondor_service
 from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
+from lsst.ctrl.bps.tests.gw_test_utils import make_3_label_workflow
+from lsst.daf.butler import Config
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 
@@ -168,3 +169,58 @@ class HTCondorServiceTestCase(unittest.TestCase):
 
         self.assertEqual(state, WmsStates.UNKNOWN)
         self.assertEqual(message, "Invalid job id")
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_workflow.HTCondorWorkflow.write")
+    def testPrepare(self, mock_write):
+        generic_workflow = make_3_label_workflow("test1", True)
+        config = BpsConfig(
+            {
+                "bpsUseShared": True,
+                "overwriteJobFiles": False,
+                "memoryLimit": 491520,
+                "profile": {},
+                "attrs": {},
+                "nodeset": "set1",
+            }
+        )
+
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            htc_workflow = self.service.prepare(config, generic_workflow, tmpdir)
+            mock_write.assert_called_once()
+            self.assertEqual(len(htc_workflow.dag), 19)  # 3 visit * 2 detectors * 3 labels + init
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_workflow.HTCondorWorkflow.write")
+    def testPrepareProvision(self, mock_write):
+        # Leaves testing provisioning code to test_provisioner.py.
+        # Just checking HTCondorService.prepare bits (like nodeset).
+        timestamp = "20260130T211713Z"
+        generic_workflow = make_3_label_workflow("test1", True)
+        config = BpsConfig(
+            {
+                "bpsUseShared": True,
+                "overwriteJobFiles": False,
+                "profile": {"requirements": "dummy_val == 3"},
+                "attrs": {},
+                "nodeset": "set1",  # this shouldn't be used with auto-provisioning
+                "provisionResources": True,
+                "provisioning": {"provisioningMaxWallTime": 1200},
+                "bps_defined": {"timestamp": timestamp},
+            },
+            defaults=Config(HTC_DEFAULTS_URI),
+        )
+
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            prov_config = Path(f"{tmpdir}/condor-info.py")
+            config[".provisioning.provisioningScriptConfigPath"] = str(prov_config)
+            config[".provisioning.provisioningScriptConfig"] = "foo"
+
+            htc_workflow = self.service.prepare(config, generic_workflow, tmpdir)
+            mock_write.assert_called_once()
+            self.assertEqual(config[".bps_defined.nodeset"], timestamp)
+            self.assertEqual(len(htc_workflow.dag), 19)  # 3 visit * 2 dets * 3 labels + init
+            self.assertIsNotNone(htc_workflow.dag.graph["service_job"])
+
+            prov_script = Path(tmpdir) / "provisioningJob.bash"
+            self.assertTrue(prov_script.is_file())
+            script_contents = prov_script.read_text()
+            self.assertIn(f"--nodeset {timestamp}", script_contents)

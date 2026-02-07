@@ -133,6 +133,27 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
         self.assertEqual(htc_commands["periodic_remove"], remove)
         self.assertEqual(htc_commands["max_retries"], 0)
 
+    def testProfileJobCommands(self):
+        requirement_str = 'Machine == "node01.cluster.local"'
+        gwjob = GenericWorkflowJob("requirements", "label1", executable=self.gw_exec)
+        gwjob.request_memory = 2048
+        gwjob.memory_multiplier = 1
+        gwjob.number_of_retries = 0
+        gwjob.profile = {"requirements": requirement_str}
+        htc_commands = prepare_utils._translate_job_cmds(self.cached_vals, None, gwjob)
+        self.assertEqual(htc_commands["requirements"], requirement_str)
+
+    def testProfileCached(self):
+        requirement_str = 'Machine == "node01.cluster.local"'
+        gwjob = GenericWorkflowJob("requirements", "label1", executable=self.gw_exec)
+        gwjob.request_memory = 2048
+        gwjob.memory_multiplier = 1
+        gwjob.number_of_retries = 0
+        cached_vals = dict(self.cached_vals)
+        cached_vals["profile"] = {"requirements": requirement_str}
+        htc_commands = prepare_utils._translate_job_cmds(cached_vals, None, gwjob)
+        self.assertEqual(htc_commands["requirements"], requirement_str)
+
 
 class TranslateDagCmdsTestCase(unittest.TestCase):
     """Test _translate_dag_cmds method."""
@@ -186,6 +207,56 @@ class GatherSiteValuesTestCase(unittest.TestCase):
         compute_site = "notThere"
         results = prepare_utils._gather_site_values(config, compute_site)
         self.assertEqual(results["memoryLimit"], BPS_DEFAULTS["memoryLimit"])
+
+    def testGlobalNodeset(self):
+        config = BpsConfig(
+            {"nodeset": "global_node_set_{campaign}", "campaign": "DRP"},
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        compute_site = "fr"
+        results = prepare_utils._gather_site_values(config, compute_site)
+        self.assertEqual(results["nodeset"], "global_node_set_DRP")
+
+    def testSiteNodeset(self):
+        config = BpsConfig(
+            {
+                "nodeset": "global_node_set_{campaign}",
+                "campaign": "DRP",
+                "site": {"fr": {"nodeset": "fr_node_set_{campaign}"}},
+            },
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        compute_site = "fr"
+        results = prepare_utils._gather_site_values(config, compute_site)
+        self.assertEqual(results["nodeset"], "fr_node_set_DRP")
+
+    def testAttrsProfile(self):
+        test_values = {
+            "bpsNodeset": "DEVSET",
+            "site": {
+                "mycomputer": {
+                    "profile": {
+                        "condor": {
+                            "requirements": '( TARGET.Nodeset == "{bpsNodeset}" )',
+                            "+JobNodeset": "{bpsNodeset}",
+                        }
+                    }
+                }
+            },
+        }
+        config = BpsConfig(
+            test_values,
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        results = prepare_utils._gather_site_values(config, "mycomputer")
+        self.assertEqual(results["profile"], {"requirements": '( TARGET.Nodeset == "DEVSET" )'})
+        self.assertEqual(results["attrs"], {"JobNodeset": "DEVSET"})
 
 
 class GatherLabelValuesTestCase(unittest.TestCase):
@@ -458,9 +529,9 @@ class CreateJobTestCase(unittest.TestCase):
 
     def setUp(self):
         self.generic_workflow = make_3_label_workflow("test1", True)
+        self.template = "{label}/{tract}/{patch}/{band}/{subfilter}/{physical_filter}/{visit}/{exposure}"
 
     def testNoOverwrite(self):
-        template = "{label}/{tract}/{patch}/{band}/{subfilter}/{physical_filter}/{visit}/{exposure}"
         cached_values = {
             "bpsUseShared": True,
             "overwriteJobFiles": False,
@@ -470,7 +541,9 @@ class CreateJobTestCase(unittest.TestCase):
         }
         gwjob = self.generic_workflow.get_final()
         out_prefix = "submit"
-        htc_job = prepare_utils._create_job(template, cached_values, self.generic_workflow, gwjob, out_prefix)
+        htc_job = prepare_utils._create_job(
+            self.template, cached_values, self.generic_workflow, gwjob, out_prefix
+        )
         self.assertEqual(htc_job.name, gwjob.name)
         self.assertEqual(htc_job.label, gwjob.label)
         self.assertIn("NumJobStarts", htc_job.cmds["output"])
@@ -479,6 +552,40 @@ class CreateJobTestCase(unittest.TestCase):
         self.assertTrue(htc_job.cmds["error"].endswith(".out"))
         self.assertTrue(htc_job.cmds["output"].endswith(".out"))
         self.assertTrue(htc_job.cmds["log"].endswith(".log"))
+
+    def testNodesetWithNoRequirements(self):
+        cached_values = {
+            "bpsUseShared": True,
+            "overwriteJobFiles": False,
+            "memoryLimit": 491520,
+            "profile": {},
+            "attrs": {},
+            "nodeset": "set1",
+        }
+        gwjob = self.generic_workflow.get_job("label1_10002_11")
+        out_prefix = "temp"
+        htc_job = prepare_utils._create_job(
+            self.template, cached_values, self.generic_workflow, gwjob, out_prefix
+        )
+        self.assertEqual(htc_job.cmds["requirements"], '( Target.Nodeset == "set1" )')
+        self.assertEqual(htc_job.attrs["JobNodeset"], "set1")
+
+    def testNodesetWithRequirements(self):
+        cached_values = {
+            "bpsUseShared": True,
+            "overwriteJobFiles": False,
+            "memoryLimit": 491520,
+            "profile": {"requirements": "dummy_val == 3"},
+            "attrs": {},
+            "nodeset": "set1",
+        }
+        gwjob = self.generic_workflow.get_job("label1_10002_11")
+        out_prefix = "temp"
+        htc_job = prepare_utils._create_job(
+            self.template, cached_values, self.generic_workflow, gwjob, out_prefix
+        )
+        self.assertEqual(htc_job.cmds["requirements"], '(dummy_val == 3) && ( Target.Nodeset == "set1" )')
+        self.assertEqual(htc_job.attrs["JobNodeset"], "set1")
 
 
 if __name__ == "__main__":

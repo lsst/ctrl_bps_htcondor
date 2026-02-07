@@ -105,6 +105,14 @@ class HTCondorService(BaseWmsService):
         """
         _LOG.debug("out_prefix = '%s'", out_prefix)
         with time_this(log=_LOG, level=logging.INFO, prefix=None, msg="Completed HTCondor workflow creation"):
+            _, enable_provisioning = config.search("provisionResources")
+
+            # If bps is doing provisioning, force a unique nodeset
+            # to reduce complications if user also manually does
+            # provisioning.
+            if enable_provisioning:
+                config[".bps_defined.nodeset"] = config[".bps_defined.timestamp"]
+
             workflow = HTCondorWorkflow.from_generic_workflow(
                 config,
                 generic_workflow,
@@ -112,7 +120,6 @@ class HTCondorService(BaseWmsService):
                 f"{self.__class__.__module__}.{self.__class__.__name__}",
             )
 
-            _, enable_provisioning = config.search("provisionResources")
             if enable_provisioning:
                 provisioner = Provisioner(config)
                 provisioner.configure()
