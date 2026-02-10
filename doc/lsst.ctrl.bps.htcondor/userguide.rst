@@ -138,17 +138,20 @@ that compute site is running a non-HTCondor system, by sending "pilot jobs", or
 **glideins**, to remote batch systems.
 
 Nodes for HTCondor's glideins can be allocated with help of `ctrl_execute`_.
-Once you allocated the nodes, you can specify the site where there are
-available in your BPS configuration file. For example:
+If you want to restrict a run's jobs to particular glideins:
+#. Add ``--nodeset <nodeset name>`` to the ``allocateNodes.py`` command.
+#. Add ``nodeset: <nodeset name>`` to the BPS configuration file.
 
-.. code-block:: YAML
+The ``nodeset`` name is not case-sensitive, but it cannot contain spaces.  It
+will be used in the batch job names, so it is recommended that the name be
+short and meaningful.
 
-   site:
-     acsws02:
-       profile:
-         condor:
-           requirements: '(ALLOCATED_NODE_SET == &quot;${NODESET}&quot;)'
-           +JOB_NODE_SET: '&quot;${NODESET}&quot;'
+.. warning::
+
+   If :ref:`bps provisioning <htc-plugin-provisioning>` is turned on, the
+   ``nodeset`` will be automatically set to the run timestamp overriding
+   any ``nodeset`` value in the submit yaml.
+
 
 .. __: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#bps-configuration-file
 .. __: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#supported-settings
@@ -358,6 +361,12 @@ e.g., 3600, 10:00:00.
 This will instruct **ctrl_bps_htcondor** to include a service job that will run
 alongside the other payload jobs in the workflow that should automatically
 create and maintain glideins required for the payload jobs to run.
+
+.. note::
+
+   When using automatic provisioning, the run's jobs will only run on the
+   glideins provisioned by bps.  One should not manually run
+   ``allocateNodes.py`` in addition to the automatic provisioning.
 
 If you enable automatic provisioning of resources, you will see the status of
 the provisioning job in the output of the ``bps report --id <ID>`` command.

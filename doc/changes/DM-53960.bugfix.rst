@@ -1,0 +1,1 @@
+Fixed passing of expert-level HTCondor job settings from submit yaml's ``profile.condor`` section.
