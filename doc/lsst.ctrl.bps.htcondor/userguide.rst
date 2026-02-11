@@ -139,6 +139,7 @@ that compute site is running a non-HTCondor system, by sending "pilot jobs", or
 
 Nodes for HTCondor's glideins can be allocated with help of `ctrl_execute`_.
 If you want to restrict a run's jobs to particular glideins:
+
 #. Add ``--nodeset <nodeset name>`` to the ``allocateNodes.py`` command.
 #. Add ``nodeset: <nodeset name>`` to the BPS configuration file.
 
