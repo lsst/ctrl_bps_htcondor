@@ -819,7 +819,7 @@ def htc_create_submit_from_file(submit_file):
     return htcondor.Submit(descriptors)
 
 
-def _htc_write_job_commands(stream, name, commands):
+def _htc_write_job_commands(stream, name, commands, node_type="JOB"):
     """Output the DAGMan job lines for single job in DAG.
 
     Parameters
@@ -830,6 +830,8 @@ def _htc_write_job_commands(stream, name, commands):
         Job name.
     commands : `RestrictedDict`
         DAG commands for a job.
+    node_type : `str`, optional
+        Type of DAGMan node (JOB, FINAL, SERVICE). Defaults to "JOB".
     """
     # Note: optional pieces of commands include a space at the beginning.
     #       also making sure values aren't empty strings as placeholders.
@@ -872,24 +874,26 @@ def _htc_write_job_commands(stream, name, commands):
     if "pre_skip" in commands and commands["pre_skip"]:
         print(f"PRE_SKIP {name} {commands['pre_skip']}", file=stream)
 
-    if "retry" in commands and commands["retry"]:
-        print(f"RETRY {name} {commands['retry']}", end="", file=stream)
-        if "retry_unless_exit" in commands:
-            print(f" UNLESS-EXIT {commands['retry_unless_exit']}", end="", file=stream)
-        print("", file=stream)  # Since previous prints don't include new line
+    # FINAL node cannot have a DAGMan retry, abort-dag-on, priority, category
+    if node_type != "FINAL":
+        if "retry" in commands and commands["retry"]:
+            print(f"RETRY {name} {commands['retry']}", end="", file=stream)
+            if "retry_unless_exit" in commands and commands["retry_unless_exit"]:
+                print(f" UNLESS-EXIT {commands['retry_unless_exit']}", end="", file=stream)
+            print("", file=stream)  # Since previous prints don't include new line
 
-    if "abort_dag_on" in commands and commands["abort_dag_on"]:
-        print(
-            f"ABORT-DAG-ON {name} {commands['abort_dag_on']['node_exit']}"
-            f" RETURN {commands['abort_dag_on']['abort_exit']}",
-            file=stream,
-        )
+        if "abort_dag_on" in commands and commands["abort_dag_on"]:
+            print(
+                f"ABORT-DAG-ON {name} {commands['abort_dag_on']['node_exit']}"
+                f" RETURN {commands['abort_dag_on']['abort_exit']}",
+                file=stream,
+            )
 
-    if "priority" in commands and commands["priority"]:
-        print(
-            f"PRIORITY {name} {commands['priority']}",
-            file=stream,
-        )
+        if "priority" in commands and commands["priority"]:
+            print(
+                f"PRIORITY {name} {commands['priority']}",
+                file=stream,
+            )
 
 
 class HTCJob:
@@ -1002,7 +1006,7 @@ class HTCJob:
 
         print(job_line, file=stream)
         if self.dagcmds:
-            _htc_write_job_commands(stream, self.name, self.dagcmds)
+            _htc_write_job_commands(stream, self.name, self.dagcmds, command_name)
 
     def dump(self, fh):
         """Dump job information to output stream.

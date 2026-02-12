@@ -771,6 +771,39 @@ RETRY job1 3
         lssthtc._htc_write_job_commands(mockfh, "job2", dag_cmds)
         self.assertEqual(mockfh.getvalue(), "")
 
+    def testFinal(self):
+        self.maxDiff = None
+        dag_cmds = {
+            "pre": {
+                "defer": {"status": 1, "time": 120},
+                "debug": {"filename": "debug_pre.txt", "type": "ALL"},
+                "executable": "exec1",
+                "arguments": "arg1 arg2",
+            },
+            "post": {
+                "defer": {"status": 2, "time": 180},
+                "debug": {"filename": "debug_post.txt", "type": "ALL"},
+                "executable": "exec2",
+                "arguments": "arg3 arg4",
+            },
+            "vars": {"num": 8, "spaces": "a space"},
+            "pre_skip": "1",
+            "retry": 3,
+            "retry_unless_exit": 1,
+            "abort_dag_on": {"node_exit": 100, "abort_exit": 4},
+            "priority": 123,
+        }
+
+        truth = """SCRIPT DEFER 1 120 DEBUG debug_pre.txt ALL PRE finalJob exec1 arg1 arg2
+SCRIPT DEFER 2 180 DEBUG debug_post.txt ALL POST finalJob exec2 arg3 arg4
+VARS finalJob num="8"
+VARS finalJob spaces="a space"
+PRE_SKIP finalJob 1
+"""
+        mockfh = io.StringIO()
+        lssthtc._htc_write_job_commands(mockfh, "finalJob", dag_cmds, "FINAL")
+        self.assertEqual(mockfh.getvalue(), truth)
+
 
 class HTCBackupFilesSinglePathTestCase(unittest.TestCase):
     """Test htc_backup_files_single_path function."""

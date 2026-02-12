@@ -1,0 +1,1 @@
+Fixed bug breaking use of global or finalJob-specific priority.  Bug was introduced on `DM-53753 <https://rubinobs.atlassian.net/browse/DM-53753>`_.
