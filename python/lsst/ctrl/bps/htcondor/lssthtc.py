@@ -2162,6 +2162,11 @@ def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
             _LOG.debug("Unknown log event type: %s", job["MyType"])
             job["JobStatus"] = None
 
+    # Use available information to add either ``ExitCode`` or ``ExitSignal``
+    # attribute that captures respectively job's exit status (if it finished
+    # on its own accord) or its exit signal (if it was terminated by
+    # a signal). Also, include a flag ``ExitBySignal`` to make distinguishing
+    # between these two cases easy later on.
     if job["JobStatus"] in {
         htcondor.JobStatus.COMPLETED,
         htcondor.JobStatus.HELD,
