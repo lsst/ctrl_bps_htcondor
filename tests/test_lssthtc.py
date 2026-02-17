@@ -140,11 +140,17 @@ class HtcTweakJobInfoTestCase(unittest.TestCase):
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
 
-    def testJobStatusAssignmentReleaseEvent(self):
+    def testJobStatusAssignmentReleaseEventMainDagJob(self):
         job = self.job | {"MyType": "JobReleaseEvent"}
         lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
         self.assertEqual(job["JobStatus"], htcondor.JobStatus.RUNNING)
+
+    def testJobStatusAssignmentReleaseEventForNodeJob(self):
+        job = self.job | {"MyType": "JobReleaseEvent", "DAGNodeName": "test_payload_job"}
+        lssthtc.htc_tweak_log_info(self.log_dirname, job)
+        self.assertTrue("JobStatus" in job)
+        self.assertEqual(job["JobStatus"], None)
 
     def testAddingExitStatusSuccess(self):
         job = self.job | {

@@ -2133,6 +2133,11 @@ def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
     job["Iwd"] = str(wms_path)
     job["Owner"] = Path(wms_path).owner()
 
+    if "LogNotes" in job:
+        m = re.match(r"DAG Node: (\S+)", job["LogNotes"])
+        if m:
+            job["DAGNodeName"] = m.group(1)
+
     match job["MyType"]:
         case "ExecuteEvent":
             job["JobStatus"] = htcondor.JobStatus.RUNNING
@@ -2145,14 +2150,23 @@ def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
         case "JobHeldEvent":
             job["JobStatus"] = htcondor.JobStatus.HELD
         case "JobReleaseEvent":
-            # Shows up as the last event if a DAG job was held and released,
-            # so assume the job is running.  If a regular job is released,
-            # there will be other events, so JobReleaseEvent won't be the last.
-            job["JobStatus"] = htcondor.JobStatus.RUNNING
+            # If the job managing the execution of the root DAG is held and
+            # released this will be the last event showing up in its
+            # job event log even if the job is still running. If this is
+            # the last event for a job corresponding to the workflow node
+            # (either a normal payload job or the job managing the execution
+            # of an inner DAG), its final status will be determined later
+            # using node status log (see _htc_status_to_wms_state()).
+            job["JobStatus"] = htcondor.JobStatus.RUNNING if "DAGNodeName" not in job else None
         case _:
             _LOG.debug("Unknown log event type: %s", job["MyType"])
             job["JobStatus"] = None
 
+    # Use available information to add either "ExitCode" or "ExitSignal"
+    # attribute that captures respectively job's exit status (if it finished
+    # on its own accord) or its exit signal (if it was terminated by
+    # a signal). Also, include a flag "ExitBySignal" to make distinguishing
+    # between these two cases easy later on.
     if job["JobStatus"] in {
         htcondor.JobStatus.COMPLETED,
         htcondor.JobStatus.HELD,
@@ -2163,11 +2177,6 @@ def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
             job = new_job
         else:
             _LOG.error("Could not determine exit status for job '%s.%s'", job["ClusterId"], job["ProcId"])
-
-    if "LogNotes" in job:
-        m = re.match(r"DAG Node: (\S+)", job["LogNotes"])
-        if m:
-            job["DAGNodeName"] = m.group(1)
 
 
 def htc_check_dagman_output(wms_path: str | os.PathLike) -> str:
