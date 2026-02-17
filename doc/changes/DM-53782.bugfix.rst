@@ -1,0 +1,1 @@
+Fixed a bug causing the plugin to report some idle jobs as running.
