@@ -2152,20 +2152,20 @@ def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
         case "JobReleaseEvent":
             # If the job managing the execution of the root DAG is held and
             # released this will be the last event showing up in its
-            # job event log *even if the job is still running*.  If this is
+            # job event log even if the job is still running. If this is
             # the last event for a job corresponding to the workflow node
             # (either a normal payload job or the job managing the execution
             # of an inner DAG), its final status will be determined later
-            # using node status log (see ``_htc_status_to_wms_state()``).
+            # using node status log (see _htc_status_to_wms_state()).
             job["JobStatus"] = htcondor.JobStatus.RUNNING if "DAGNodeName" not in job else None
         case _:
             _LOG.debug("Unknown log event type: %s", job["MyType"])
             job["JobStatus"] = None
 
-    # Use available information to add either ``ExitCode`` or ``ExitSignal``
+    # Use available information to add either "ExitCode" or "ExitSignal"
     # attribute that captures respectively job's exit status (if it finished
     # on its own accord) or its exit signal (if it was terminated by
-    # a signal). Also, include a flag ``ExitBySignal`` to make distinguishing
+    # a signal). Also, include a flag "ExitBySignal" to make distinguishing
     # between these two cases easy later on.
     if job["JobStatus"] in {
         htcondor.JobStatus.COMPLETED,
