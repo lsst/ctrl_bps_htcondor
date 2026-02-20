@@ -375,6 +375,7 @@ class SummarizeDagTestCase(unittest.TestCase):
             )
 
     def test_subdags(self):
+        self.maxDiff = None
         with temporaryDirectory() as tmp_dir:
             submit_dir = os.path.join(tmp_dir, "group_running_1")
             copytree(f"{TESTDIR}/data/group_running_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))

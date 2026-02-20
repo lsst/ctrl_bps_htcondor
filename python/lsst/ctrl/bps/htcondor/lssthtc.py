@@ -978,7 +978,10 @@ class HTCJob:
         if not subfile.is_absolute():
             subfile = Path(submit_path) / subfile
         if not subfile.exists():
+            _LOG.debug("Writing subfile: %s", subfile)
             htc_write_condor_file(subfile, self.name, self.cmds, self.attrs)
+        else:
+            _LOG.debug("Using existing subfile: %s", subfile)
 
     def write_dag_commands(self, stream, dag_rel_path, command_name="JOB"):
         """Write DAG commands for single job to output stream.
@@ -1179,18 +1182,22 @@ class HTCDag(networkx.DiGraph):
                     _LOG.error("Job %s doesn't have data (keys: %s).", name, nodeval.keys())
                     raise
                 if job.subdag:
-                    dag_subdir = f"subdags/{job.name}"
+                    if job.subfile:
+                        this_dag_rel_path = ""
+                    else:
+                        this_dag_rel_path = "../.."
+                        dag_subdir = f"subdags/{job.name}"
                     if "dir" in job.dagcmds:
                         subdir = job.dagcmds["dir"]
                     else:
                         subdir = job_subdir
                     if dagman_config_path is not None:
                         job.subdag.add_attribs({"bps_wms_config_path": str(dagman_config_path)})
-                    job.subdag.write(submit_path, subdir, dag_subdir, "../..")
-                    fh.write(
-                        f"SUBDAG EXTERNAL {job.name} {Path(job.subdag.graph['dag_filename']).name} "
-                        f"DIR {dag_subdir}\n"
-                    )
+                    job.subdag.write(submit_path, subdir, dag_subdir, this_dag_rel_path)
+                    fh.write(f"SUBDAG EXTERNAL {job.name} {Path(job.subdag.graph['dag_filename']).name}")
+                    if dag_subdir:
+                        fh.write(f" DIR {dag_subdir}")
+                    fh.write("\n")
                     if job.dagcmds:
                         _htc_write_job_commands(fh, job.name, job.dagcmds)
                 else:
