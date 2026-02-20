@@ -383,7 +383,10 @@ def htc_backup_files(
         raise FileNotFoundError(f"Directory {path} not found")
 
     # Initialize the backup counter.
-    rescue_dags = list(path.glob("*.rescue[0-9][0-9][0-9]"))
+    # If using control DAG, don't want to include nested DAGs.
+    rescue_dags = list(path.glob("*_ctrl.dag.rescue[0-9][0-9][0-9]"))
+    if not rescue_dags:
+        rescue_dags = list(path.glob("*.rescue[0-9][0-9][0-9]"))
     counter = min(len(rescue_dags), limit)
 
     # Create the backup directory and move select files there.
@@ -1007,7 +1010,10 @@ class HTCJob:
         if not subfile.is_absolute():
             subfile = Path(submit_path) / subfile
         if not subfile.exists():
+            _LOG.debug("Writing subfile: %s", subfile)
             htc_write_condor_file(subfile, self.name, self.cmds, self.attrs)
+        else:
+            _LOG.debug("Using existing subfile: %s", subfile)
 
     def write_dag_commands(self, stream, dag_rel_path, command_name="JOB"):
         """Write DAG commands for single job to output stream.
@@ -1208,18 +1214,22 @@ class HTCDag(networkx.DiGraph):
                     _LOG.error("Job %s doesn't have data (keys: %s).", name, nodeval.keys())
                     raise
                 if job.subdag:
-                    dag_subdir = f"subdags/{job.name}"
+                    if job.subfile:
+                        this_dag_rel_path = ""
+                    else:
+                        this_dag_rel_path = "../.."
+                        dag_subdir = f"subdags/{job.name}"
                     if "dir" in job.dagcmds:
                         subdir = job.dagcmds["dir"]
                     else:
                         subdir = job_subdir
                     if dagman_config_path is not None:
                         job.subdag.add_attribs({"bps_wms_config_path": str(dagman_config_path)})
-                    job.subdag.write(submit_path, subdir, dag_subdir, "../..")
-                    fh.write(
-                        f"SUBDAG EXTERNAL {job.name} {Path(job.subdag.graph['dag_filename']).name} "
-                        f"DIR {dag_subdir}\n"
-                    )
+                    job.subdag.write(submit_path, subdir, dag_subdir, this_dag_rel_path)
+                    fh.write(f"SUBDAG EXTERNAL {job.name} {Path(job.subdag.graph['dag_filename']).name}")
+                    if dag_subdir:
+                        fh.write(f" DIR {dag_subdir}")
+                    fh.write("\n")
                     if job.dagcmds:
                         _htc_write_job_commands(fh, job.name, job.dagcmds)
                 else:
@@ -1969,12 +1979,19 @@ def read_dag_log(wms_path: str | os.PathLike) -> tuple[str, dict[str, Any]]:
 
     path = Path(wms_path)
     if path.exists():
-        try:
-            filename = next(path.glob("*.dag.dagman.log"))
-        except StopIteration as exc:
-            raise FileNotFoundError(f"DAGMan log not found in {wms_path}") from exc
-        _LOG.debug("dag node log filename: %s", filename)
-        wms_workflow_id, dag_info = read_single_dag_log(filename)
+        # Can be more than one dag file in directory.  Assume one
+        # with lowest ID is main DAG
+        ids = []
+        for filename in path.glob("*.dag.dagman.log"):
+            _LOG.debug("dag log filename: %s", filename)
+            single_id, single_dag_info = read_single_dag_log(filename)
+            _update_dicts(dag_info, single_dag_info)
+            ids.append(single_id)
+        if ids:
+            wms_workflow_id = min(ids)
+
+    if wms_workflow_id == MISSING_ID:
+        raise FileNotFoundError(f"DAGMan log not found in {wms_path}")
 
     return wms_workflow_id, dag_info
 
@@ -2079,7 +2096,7 @@ def read_dag_nodes_log(wms_path: str | os.PathLike) -> dict[str, dict[str, Any]]
     return info
 
 
-def read_dag_info(wms_path: str | os.PathLike) -> dict[str, dict[str, Any]]:
+def read_dag_info(wms_path: str | os.PathLike) -> tuple[Path, dict[str, dict[str, Any]]]:
     """Read custom DAGMan job information from the file.
 
     Parameters
@@ -2089,6 +2106,8 @@ def read_dag_info(wms_path: str | os.PathLike) -> dict[str, dict[str, Any]]:
 
     Returns
     -------
+    filename : `pathlib.Path`
+        Name of file containing the dag information.
     dag_info : `dict` [`str`, `dict` [`str`, `~typing.Any`]]
         HTCondor job information.
 
@@ -2108,22 +2127,23 @@ def read_dag_info(wms_path: str | os.PathLike) -> dict[str, dict[str, Any]]:
             dag_info = json.load(fh)
     except (OSError, PermissionError) as exc:
         _LOG.debug("Retrieving DAGMan job information failed: %s", exc)
-    return dag_info
+    return filename, dag_info
 
 
-def write_dag_info(filename, dag_info):
+def write_dag_info(filename: str, schedd_dag_info: dict[str, dict[str, Any]]):
     """Write custom job information about DAGMan job.
 
     Parameters
     ----------
     filename : `str`
-        Name of the file where the information will be stored.
-    dag_info : `dict` [`str` `dict` [`str`, `~typing.Any`]]
+        Name of the file where the information will be stored.  If not given,
+        creates a filename using bps_run value.
+    schedd_dag_info : `dict` [`str` `dict` [`str`, `~typing.Any`]]
         Information about the DAGMan job.
     """
-    schedd_name = next(iter(dag_info))
-    dag_id = next(iter(dag_info[schedd_name]))
-    dag_ad = dag_info[schedd_name][dag_id]
+    _LOG.debug("schedd_dag_info = %s", schedd_dag_info)
+    schedd_name, dag_info = next(iter(schedd_dag_info.items()))
+    dag_id, dag_ad = next(iter(dag_info.items()))
     ad = {"ClusterId": dag_ad["ClusterId"], "GlobalJobId": dag_ad["GlobalJobId"]}
     ad.update({key: val for key, val in dag_ad.items() if key.startswith("bps")})
     try:
@@ -2132,6 +2152,8 @@ def write_dag_info(filename, dag_info):
             json.dump(info, fh)
     except (KeyError, OSError, PermissionError) as exc:
         _LOG.debug("Persisting DAGMan job information failed: %s", exc)
+
+    return filename
 
 
 def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:

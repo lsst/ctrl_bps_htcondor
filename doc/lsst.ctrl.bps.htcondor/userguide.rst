@@ -628,6 +628,22 @@ For more information about expressions, see HTCondor documentation:
    2 held <submit dir>/*.nodes.log``.
 
 
+.. _htc_submit_as_batch:
+
+Submit Stages as Batch Jobs
+---------------------------
+
+When BPS uses batch jobs for submission, HTC handles them much the same
+way it handles payload jobs.  There will be a ``jobs`` subdir for each of
+them which will contain the standard output/error and HTCondor job log.
+If you have to provision resources for the payload jobs, these new jobs
+will also need resources provisioned.
+
+Noticable differences in the HTCondor-level details include a second
+``*.dag`` file in the submit directory and a second ``condor_dagman``
+job in the queue.  This is sub-DAG handles the payload workflow and
+isn't created until the ``preparePayloadWorkflow`` job executes.
+
 .. _htc-plugin-troubleshooting:
 
 Troubleshooting

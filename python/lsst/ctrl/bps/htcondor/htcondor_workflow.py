@@ -35,9 +35,10 @@ import os
 
 from lsst.ctrl.bps import (
     BaseWmsWorkflow,
+    BpsConfig,
 )
 
-from .prepare_utils import _generic_workflow_to_htcondor_dag
+from .prepare_utils import _generic_workflow_to_htcondor_dag, _update_job_summary
 
 _LOG = logging.getLogger(__name__)
 
@@ -87,3 +88,17 @@ class HTCondorWorkflow(BaseWmsWorkflow):
 
         # Write down the workflow in HTCondor format.
         self.dag.write(out_prefix, job_subdir="jobs/{self.label}")
+
+    def add_to_parent_workflow(self, config: BpsConfig) -> None:
+        """Add self to parent workflow.
+
+        Parameters
+        ----------
+        config : `lsst.ctrl.bps.BpsConfig`
+            Configuration.
+        """
+        _update_job_summary(
+            self.name,
+            self.dag.graph["attr"]["bps_job_summary"],
+            config[".bps_defined.submitPath"],
+        )

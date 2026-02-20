@@ -59,6 +59,7 @@ from .lssthtc import (
     htc_create_submit_from_file,
     htc_submit_dag,
     htc_version,
+    read_dag_info,
     read_dag_status,
     write_dag_info,
 )
@@ -180,10 +181,10 @@ class HTCondorService(BaseWmsService):
             _LOG.info("Submitting from directory: %s", os.getcwd())
             schedd_dag_info = htc_submit_dag(sub)
             if schedd_dag_info:
-                write_dag_info(f"{dag.name}.info.json", schedd_dag_info)
+                _, dag_info = next(iter(schedd_dag_info.items()))
+                dag_id, dag_ad = next(iter(dag_info.items()))
 
-                _, dag_info = schedd_dag_info.popitem()
-                _, dag_ad = dag_info.popitem()
+                write_dag_info(f"{dag_ad['bps_run']}.info.json", schedd_dag_info)
 
                 dag.run_id = f"{dag_ad['ClusterId']}.{dag_ad['ProcId']}"
                 workflow.run_id = dag.run_id
@@ -256,6 +257,14 @@ class HTCondorService(BaseWmsService):
                 "Cannot determine the execution status of the workflow, continuing with restart regardless"
             )
 
+        # In the case of lazy DAGs, workflow summaries can change at
+        # runtime.  So read the workflow's info.json file before moving
+        # it to backup dir and use to update the summaries later before
+        # writing the new info.json file.
+        dag_info_filename, old_dag_schedd_info = read_dag_info(wms_path)
+        old_dag_info = next(iter(old_dag_schedd_info.values()))
+        old_dag_ad = next(iter(old_dag_info.values()))
+
         _LOG.info("Backing up select HTCondor files from previous run attempt")
         rescue_files = sorted(wms_path.glob("*.rescue[0-9][0-9][0-9]"))
         last_rescue_file = Path(rescue_files[-1]) if rescue_files else None
@@ -284,7 +293,12 @@ class HTCondorService(BaseWmsService):
                 if schedd_dag_info:
                     dag_info = next(iter(schedd_dag_info.values()))
                     dag_ad = next(iter(dag_info.values()))
-                    write_dag_info(f"{dag_ad['bps_run']}.info.json", schedd_dag_info)
+
+                    # Just in case lazy DAGs, update the summaries.
+                    dag_ad["bps_job_summary"] = old_dag_ad["bps_job_summary"]
+                    dag_ad["bps_run_quanta"] = old_dag_ad["bps_run_quanta"]
+
+                    write_dag_info(dag_info_filename, schedd_dag_info)
                     run_id = f"{dag_ad['ClusterId']}.{dag_ad['ProcId']}"
                     run_name = dag_ad["bps_run"]
                 else:

@@ -229,6 +229,7 @@ def _wms_id_to_cluster(wms_id):
     schedd_ad = None
     cluster_id = None
     id_type = _wms_id_type(wms_id)
+    _LOG.debug("id_type = %s", id_type.name)
     if id_type == WmsIdType.LOCAL:
         schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
         cluster_id = int(float(wms_id))
@@ -244,7 +245,7 @@ def _wms_id_to_cluster(wms_id):
             cluster_id = int(float(job_id))
     elif id_type == WmsIdType.PATH:
         try:
-            job_info = read_dag_info(wms_id)
+            _, job_info = read_dag_info(wms_id)
         except (FileNotFoundError, PermissionError, OSError):
             pass
         else:

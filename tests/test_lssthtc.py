@@ -36,8 +36,10 @@ import unittest
 from shutil import copy2, copytree, ignore_patterns, rmtree, which
 
 import htcondor
+from dag_test_utils import make_lazy_dag
 
 from lsst.ctrl.bps import BpsConfig
+from lsst.ctrl.bps.bps_utils import chdir
 from lsst.ctrl.bps.htcondor import dagman_configurator, htcondor_config, lssthtc
 from lsst.daf.butler import Config
 from lsst.utils.tests import temporaryDirectory
@@ -374,6 +376,7 @@ class SummarizeDagTestCase(unittest.TestCase):
             )
 
     def test_subdags(self):
+        self.maxDiff = None
         with temporaryDirectory() as tmp_dir:
             submit_dir = os.path.join(tmp_dir, "group_running_1")
             copytree(f"{TESTDIR}/data/group_running_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
@@ -1419,7 +1422,9 @@ class ReadDagInfoTestCase(unittest.TestCase):
     def testSuccess(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/tiny_success/tiny_success.info.json", tmp_dir)
-            results = lssthtc.read_dag_info(tmp_dir)
+            filename, results = lssthtc.read_dag_info(tmp_dir)
+            self.assertIn("info.json", str(filename))
+            self.assertTrue(pathlib.Path(filename).is_file())
 
         truth = {
             "test02": {
@@ -1450,7 +1455,7 @@ class ReadDagInfoTestCase(unittest.TestCase):
             with unittest.mock.patch("lsst.ctrl.bps.htcondor.lssthtc.open") as mocked_open:
                 mocked_open.side_effect = PermissionError
                 with self.assertLogs("lsst.ctrl.bps.htcondor", level="DEBUG") as cm:
-                    results = lssthtc.read_dag_info(tmp_dir)
+                    _, results = lssthtc.read_dag_info(tmp_dir)
                 self.assertIn("Retrieving DAGMan job information failed:", cm.output[-1])
                 self.assertEqual({}, results)
 
@@ -1677,6 +1682,115 @@ class HtcDagTestCase(unittest.TestCase):
             with open(os.path.join(tmp_dir, job.subfile), encoding="utf-8") as f:
                 subfile_actual = f.readlines()
                 self.assertEqual(subfile_actual, self.subfile_expected)
+
+    def testWriteLazySubdag(self):
+        self.maxDiff = None
+        dag, truth_files = make_lazy_dag("test1", True)
+        with temporaryDirectory() as tmp_dir:
+            dag.write(tmp_dir, "", "")
+
+            # self.assertIn("submit_path", dag.graph)
+            # self.assertEqual(dag.graph["submit_path"], tmp_dir)
+            # self.assertIn("dag_filename", dag.graph)
+            # self.assertEqual(dag.graph["dag_filename"], "test1.dag")
+            all_files = []
+            for root, _, files in pathlib.Path(tmp_dir).walk():
+                relroot = pathlib.Path(root).relative_to(tmp_dir)
+                all_files.extend([str(relroot / f) for f in files])
+            self.assertEqual(sorted(all_files), sorted(truth_files))
+
+    @staticmethod
+    def _make_simple_job(name):
+        job = lssthtc.HTCJob(name=name)
+        job.add_job_cmds({"executable": "/usr/bin/echo", "arguments": name})
+        job.subfile = f"{name}.sub"
+        return job
+
+    def testWriteEdgesAndSpecialJobs(self):
+        self.maxDiff = None
+        dag = lssthtc.HTCDag(name="test_special")
+        dag.add_attribs({"bps_run": "myrun"})
+        dag.add_job(self._make_simple_job("jobA"))
+        dag.add_job(self._make_simple_job("jobB"))
+        dag.add_job_relationships(["jobA"], ["jobB"])
+        dag.add_final_job(self._make_simple_job("finalJob"))
+        dag.add_service_job(self._make_simple_job("svc"))
+
+        dagfile_expected = [
+            'JOB jobA "jobA.sub"\n',
+            'JOB jobB "jobB.sub"\n',
+            "PARENT jobA CHILD jobB\n",
+            f"NODE_STATUS_FILE {dag.name}.node_status\n",
+            'SET_JOB_ATTR bps_run= "myrun"\n',
+            'FINAL finalJob "finalJob.sub"\n',
+            'SERVICE svc "svc.sub"\n',
+        ]
+
+        with temporaryDirectory() as tmp_dir:
+            dag.write(tmp_dir, "", "")
+            with open(os.path.join(tmp_dir, dag.graph["dag_filename"]), encoding="utf-8") as f:
+                self.assertEqual(f.readlines(), dagfile_expected)
+            # Submit files are written for regular and special jobs.
+            for subfile in ("jobA.sub", "jobB.sub", "finalJob.sub", "svc.sub"):
+                self.assertTrue(os.path.exists(os.path.join(tmp_dir, subfile)))
+
+    def testWriteDagSubdir(self):
+        # A non-empty dag_subdir places the .dag file (and DIR clause) under
+        # that subdirectory, creating it as needed.
+        dag = lssthtc.HTCDag(name="test_subdir")
+        dag.add_job(self._make_simple_job("jobA"))
+
+        with temporaryDirectory() as tmp_dir:
+            dag.write(tmp_dir, "", "daglevel")
+            self.assertEqual(dag.graph["dag_filename"], "daglevel/test_subdir.dag")
+            self.assertTrue(os.path.exists(os.path.join(tmp_dir, "daglevel", "test_subdir.dag")))
+
+    def testWriteMissingJobData(self):
+        # A node without the "data" key should raise KeyError.
+        dag = lssthtc.HTCDag(name="test_baddata")
+        dag.add_node("orphan")  # no data=... provided
+        with temporaryDirectory() as tmp_dir:
+            with self.assertRaises(KeyError):
+                dag.write(tmp_dir, "", "")
+
+
+class WriteDagInfoTestCase(unittest.TestCase):
+    """Test for write_dag_info function."""
+
+    def setUp(self):
+        self.run = "u_testuser_DM-53494_20260220T001651Z"
+        self.data = {
+            "mycomputer": {
+                "24390.0": {
+                    "ClusterId": 24390,
+                    "GlobalJobId": "mycomputer#24390.0#1771546612",
+                    "bps_run": self.run,
+                    "bps_isjob": "True",
+                    "bps_payload": "DM-53494",
+                    "bps_project": "dev",
+                    "bps_runsite": "site1",
+                    "bps_campaign": "ci_rc2",
+                    "bps_operator": "testuser",
+                    "bps_run_quanta": "",
+                    "bps_job_summary": "buildQuantumGraph:1;preparePayloadWorkflow:1;dummyJob:1",
+                    "bps_wms_service": "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorService",
+                    "bps_wms_workflow": "lsst.ctrl.bps.htcondor.htcondor_workflow.HTCondorWorkflow",
+                    "bps_wms_config_path": "dagman.conf",
+                }
+            }
+        }
+
+    def testWrite(self):
+        with temporaryDirectory() as tmp_dir:
+            with chdir(tmp_dir):
+                path = pathlib.Path(tmp_dir) / "test.info.json"
+                filename = lssthtc.write_dag_info(path, self.data)
+                self.assertTrue(path.is_file(), f"File not found at {path}")
+                self.assertEqual(filename, path)
+
+                read_filename, read_data = lssthtc.read_dag_info(tmp_dir)
+                self.assertEqual(read_filename, path)
+                self.assertEqual(read_data, self.data)
 
 
 if __name__ == "__main__":

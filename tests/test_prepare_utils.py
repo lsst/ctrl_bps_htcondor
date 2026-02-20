@@ -30,6 +30,9 @@
 import logging
 import os
 import unittest
+from copy import deepcopy
+
+from networkx import is_isomorphic
 
 from lsst.ctrl.bps import (
     BPS_DEFAULTS,
@@ -40,8 +43,15 @@ from lsst.ctrl.bps import (
     GenericWorkflowFile,
     GenericWorkflowJob,
 )
-from lsst.ctrl.bps.htcondor import prepare_utils
-from lsst.ctrl.bps.tests.gw_test_utils import make_3_label_workflow, make_3_label_workflow_groups_sort
+from lsst.ctrl.bps.htcondor import lssthtc, prepare_utils
+from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
+from lsst.ctrl.bps.tests.gw_test_utils import (
+    make_3_label_workflow,
+    make_3_label_workflow_groups_sort,
+    make_lazy_workflow,
+)
+from lsst.daf.butler import Config
+from lsst.utils.tests import temporaryDirectory
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 
@@ -165,6 +175,103 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
         new_arguments = "run-qbb repo test.qg --summary /a/b/t/jobs/c/d/job-$$([NumJobStarts])-summary.json"
         htc_commands = prepare_utils._translate_job_cmds(self.cached_vals, gw, gwjob)
         self.assertEqual(htc_commands["arguments"], new_arguments)
+
+
+class TranslateCommandLineTestCase(unittest.TestCase):
+    """Test _translate_command_line method."""
+
+    def setUp(self):
+        self.gw_exec = GenericWorkflowExec("test_exec", "/dummy/dir/pipetask")
+        self.cached_vals = {"bpsUseShared": True}
+
+    def _make_job(self, name="job1", executable=None, arguments=None):
+        gwjob = GenericWorkflowJob(name, "label1", executable=executable or self.gw_exec)
+        gw = GenericWorkflow("test1")
+        gw.add_job(gwjob)
+        if arguments is not None:
+            gwjob.arguments = arguments
+        return gw, gwjob
+
+    def testMakeCommandBasic(self):
+        # Default bpsMakeCommand (True), no executable transfer, no arguments.
+        gw, gwjob = self._make_job()
+        jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["getenv"], "True")
+        self.assertEqual(jobcmds["executable"], "/dummy/dir/pipetask")
+        self.assertNotIn("transfer_executable", jobcmds)
+        self.assertNotIn("arguments", jobcmds)
+
+    def testMakeCommandTransferExecutable(self):
+        gw_exec = GenericWorkflowExec("test_exec", "/dummy/dir/pipetask", transfer_executable=True)
+        gw, gwjob = self._make_job(executable=gw_exec)
+        jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["transfer_executable"], "True")
+        self.assertEqual(jobcmds["executable"], "/dummy/dir/pipetask")
+
+    def testMakeCommandExecutableEnvVar(self):
+        # Environment placeholders in the executable are converted to HTCondor
+        # env syntax when the executable is not transferred.
+        gw_exec = GenericWorkflowExec("test_exec", "<ENV:CTRL_BPS_DIR>/bin/pipetask")
+        gw, gwjob = self._make_job(executable=gw_exec)
+        jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["executable"], "$ENV(CTRL_BPS_DIR)/bin/pipetask")
+
+    def testMakeCommandArguments(self):
+        # Arguments should have cmd, wms, file, and env placeholders replaced.
+        gw, gwjob = self._make_job(arguments="run <FILE:qg> --attempt <WMS:attemptNum> {opt}")
+        gwjob.cmdvals = {"opt": "X"}
+        gwfile = GenericWorkflowFile("qg", src_uri="/path/to/test.qg", wms_transfer=True, job_shared=True)
+        gw.add_job_inputs(gwjob.name, [gwfile])
+        jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["arguments"], "run /path/to/test.qg --attempt $$([NumJobStarts]) X")
+
+    def testPayloadCommandBasic(self):
+        # bpsMakeCommand False wraps the payloadCommand in /bin/bash -c.
+        gw, gwjob = self._make_job(arguments="pipetask run")
+        cached_vals = {
+            "bpsUseShared": True,
+            "bpsMakeCommand": False,
+            "payloadCommand": "setup; {gwjobCommand}",
+        }
+        jobcmds = prepare_utils._translate_command_line(cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["executable"], "/bin/bash")
+        self.assertEqual(jobcmds["transfer_executable"], "False")
+        self.assertNotIn("getenv", jobcmds)
+        self.assertEqual(jobcmds["arguments"], "-c 'setup; /dummy/dir/pipetask pipetask run'")
+
+    def testPayloadCommandStripsNewlines(self):
+        gw, gwjob = self._make_job(arguments="run")
+        cached_vals = {
+            "bpsUseShared": True,
+            "bpsMakeCommand": False,
+            "payloadCommand": "setup;\n{gwjobCommand}",
+        }
+        jobcmds = prepare_utils._translate_command_line(cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["arguments"], "-c 'setup;/dummy/dir/pipetask run'")
+
+    def testPayloadCommandExecutableEnvVar(self):
+        # Environment placeholders in the executable use shell syntax here.
+        gw_exec = GenericWorkflowExec("test_exec", "<ENV:CTRL_BPS_DIR>/bin/pipetask")
+        gw, gwjob = self._make_job(executable=gw_exec, arguments="go")
+        cached_vals = {"bpsUseShared": True, "bpsMakeCommand": False, "payloadCommand": "{gwjobCommand}"}
+        jobcmds = prepare_utils._translate_command_line(cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["arguments"], "-c '${CTRL_BPS_DIR}/bin/pipetask go'")
+
+    def testPayloadCommandTransferExecutable(self):
+        # Transferred executable is added to the job inputs and chmod'd.
+        gw_exec = GenericWorkflowExec("test_exec", "/dummy/dir/pipetask", transfer_executable=True)
+        gw, gwjob = self._make_job(executable=gw_exec, arguments="sub")
+        cached_vals = {"bpsUseShared": True, "bpsMakeCommand": False, "payloadCommand": "{gwjobCommand}"}
+        jobcmds = prepare_utils._translate_command_line(cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["arguments"], "-c 'chmod u+x pipetask; ./pipetask sub'")
+        input_names = [f.name for f in gw.get_job_inputs(gwjob.name, data=True)]
+        self.assertIn("test_exec", input_names)
+
+    def testEnvironment(self):
+        gw, gwjob = self._make_job()
+        gwjob.environment = {"TEST_INT": 1, "TEST_STR": "TWO"}
+        jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["environment"], "TEST_INT=1 TEST_STR='TWO'")
 
 
 class TranslateDagCmdsTestCase(unittest.TestCase):
@@ -629,6 +736,139 @@ class ReplaceWmsVarsTestCase(unittest.TestCase):
             with self.assertRaises(KeyError):
                 _ = prepare_utils._replace_wms_vars(orig_string)
         self.assertRegex(cm_log.output[0], "Unrecognized WMS placeholder: notThere")
+
+
+class UpdateJobSummaryTestCase(unittest.TestCase):
+    """Test _update_job_summary function."""
+
+    def setUp(self):
+        self.run = "u_testuser_DM-53494_20260220T001651Z"
+        self.filename = f"{self.run}_ctrl.info.json"
+        self.data = {
+            "mycomputer": {
+                "24390.0": {
+                    "ClusterId": 24390,
+                    "GlobalJobId": "mycomputer#24390.0#1771546612",
+                    "bps_run": f"{self.run}_ctrl",
+                    "bps_isjob": "True",
+                    "bps_payload": "DM-53494",
+                    "bps_project": "dev",
+                    "bps_runsite": "site1",
+                    "bps_campaign": "ci_rc2",
+                    "bps_operator": "testuser",
+                    "bps_run_quanta": "",
+                    "bps_job_summary": "buildQuantumGraph:1;preparePayloadWorkflow:1;dummyJob:1",
+                    "bps_wms_service": "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorService",
+                    "bps_wms_workflow": "lsst.ctrl.bps.htcondor.htcondor_workflow.HTCondorWorkflow",
+                    "bps_wms_config_path": "dagman.conf",
+                }
+            }
+        }
+        self.mapping = f"{self.run}:preparePayloadWorkflow"
+        self.add_summary = "pipetaskInit:1;isr:6;finalJob:1"
+
+    def testLazyMapping(self):
+        dag_info = deepcopy(self.data)
+        dag_info["mycomputer"]["24390.0"]["bps_lazy_mapping"] = self.mapping
+        with temporaryDirectory() as tmp_dir:
+            lssthtc.write_dag_info(f"{tmp_dir}/{self.filename}", dag_info)
+
+            prepare_utils._update_job_summary(self.run, self.add_summary, str(tmp_dir))
+
+            _, results = lssthtc.read_dag_info(str(tmp_dir))
+            self.assertEqual(
+                results["mycomputer"]["24390.0"]["bps_job_summary"],
+                f"buildQuantumGraph:1;preparePayloadWorkflow:1;{self.add_summary};dummyJob:1",
+            )
+
+    def testNoLazyMapping(self):
+        # No bps_lazy_mapping at all
+        with temporaryDirectory() as tmp_dir:
+            lssthtc.write_dag_info(f"{tmp_dir}/{self.filename}", self.data)
+
+            prepare_utils._update_job_summary(self.run, self.add_summary, str(tmp_dir))
+
+            _, results = lssthtc.read_dag_info(str(tmp_dir))
+            self.assertEqual(
+                results["mycomputer"]["24390.0"]["bps_job_summary"],
+                f"{self.data['mycomputer']['24390.0']['bps_job_summary']};{self.add_summary}",
+            )
+
+    def testNoEntryLazyMapping(self):
+        # bps_lazy_mapping exists, but doesn't include this job
+        dag_info = deepcopy(self.data)
+        dag_info["mycomputer"]["24390.0"]["bps_lazy_mapping"] = "other:preparePayloadWorkflow"
+        with temporaryDirectory() as tmp_dir:
+            lssthtc.write_dag_info(f"{tmp_dir}/{self.filename}", dag_info)
+
+            prepare_utils._update_job_summary(self.run, self.add_summary, str(tmp_dir))
+
+            _, results = lssthtc.read_dag_info(str(tmp_dir))
+            self.assertEqual(
+                results["mycomputer"]["24390.0"]["bps_job_summary"],
+                f"{self.data['mycomputer']['24390.0']['bps_job_summary']};{self.add_summary}",
+            )
+
+
+class ReplaceCmdVarsTestCase(unittest.TestCase):
+    """Test _replace_cmd_vars function."""
+
+    def testKeyError(self):
+        gwjob = GenericWorkflowJob("job1", "label1")
+        with self.assertLogs(level="DEBUG") as cm_log:
+            with self.assertRaisesRegex(KeyError, ".*notthere.*"):
+                _ = prepare_utils._replace_cmd_vars("{notthere}", gwjob)
+            self.assertRegex(cm_log.output[0], ".*replacement for 'notthere' not provided.*")
+
+
+class GenericWorkflowToHTCondorDAG(unittest.TestCase):
+    """Test _generic_workflow_to_htcondor_dag function."""
+
+    def testRegularWorkflow(self):
+        timestamp = "20260130T211713Z"
+        generic_workflow = make_3_label_workflow("test1", True)
+        config = BpsConfig(
+            {
+                "bpsUseShared": True,
+                "overwriteJobFiles": False,
+                "profile": {"requirements": "dummy_val == 3"},
+                "attrs": {},
+                "nodeset": "set1",  # this shouldn't be used with auto-provisioning
+                "provisionResources": True,
+                "provisioning": {"provisioningMaxWallTime": 1200},
+                "bps_defined": {"timestamp": timestamp},
+            },
+            defaults=Config(HTC_DEFAULTS_URI),
+        )
+
+        results = prepare_utils._generic_workflow_to_htcondor_dag(config, generic_workflow, "/mock_dir")
+        self.assertTrue(generic_workflow.run_attrs.items() <= results.graph["attr"].items())
+        self.assertIsNotNone(results.graph["final_job"])
+        self.assertTrue(is_isomorphic(results, generic_workflow))
+
+    def testLazyWorkflow(self):
+        timestamp = "20260130T211713Z"
+        generic_workflow = make_lazy_workflow("test1", True)
+        config = BpsConfig(
+            {
+                "bpsUseShared": True,
+                "overwriteJobFiles": False,
+                "profile": {"requirements": "dummy_val == 3"},
+                "attrs": {},
+                "nodeset": "set1",  # this shouldn't be used with auto-provisioning
+                "provisionResources": True,
+                "provisioning": {"provisioningMaxWallTime": 1200},
+                "bps_defined": {"timestamp": timestamp},
+            },
+            defaults=Config(HTC_DEFAULTS_URI),
+        )
+
+        results = prepare_utils._generic_workflow_to_htcondor_dag(config, generic_workflow, "/mock_dir")
+        self.assertTrue(generic_workflow.run_attrs.items() <= results.graph["attr"].items())
+        self.assertIsNotNone(results.graph["final_job"])
+        # Can't test isomorphic because HTCDag will have additional job for
+        # the lazy dagman job.
+        self.assertTrue(generic_workflow.nodes <= results.nodes)
 
 
 if __name__ == "__main__":

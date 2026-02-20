@@ -347,7 +347,7 @@ def _get_info_from_path(wms_path: str | os.PathLike) -> tuple[str, dict[str, dic
         # (instead of sneakily using HTCondor's one), the lack of that file
         # should be treated as seriously as lack of any other file.
         try:
-            job_info = read_dag_info(wms_path)
+            _, job_info = read_dag_info(wms_path)
         except FileNotFoundError as exc:
             message = f"Warn: Some information may not be available: {exc}"
             messages.append(message)
@@ -543,7 +543,7 @@ def _summary_report(user, hist, pass_thru, schedds=None):
         # * bps_isjob == 'True' isn't getting set for DAG jobs that are
         #   manually restarted.
         # * Any job with DAGManJobID isn't a DAG job
-        constraint = 'bps_isjob == "True" && JobUniverse == 7'
+        constraint = 'bps_isjob == "True" && JobUniverse == 7 && DAGManJobID =?= Undefined'
         if user:
             constraint += f' && (Owner == "{user}" || bps_operator == "{user}")'
 
