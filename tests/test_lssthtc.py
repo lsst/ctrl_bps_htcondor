@@ -37,8 +37,10 @@ import unittest
 from shutil import copy2, copytree, ignore_patterns, rmtree, which
 
 import htcondor
+from dag_test_utils import make_lazy_dag
 
 from lsst.ctrl.bps import BpsConfig
+from lsst.ctrl.bps.bps_utils import chdir
 from lsst.ctrl.bps.htcondor import dagman_configurator, htcondor_config, lssthtc
 from lsst.daf.butler import Config
 from lsst.utils.tests import temporaryDirectory
@@ -375,6 +377,7 @@ class SummarizeDagTestCase(unittest.TestCase):
             )
 
     def test_subdags(self):
+        self.maxDiff = None
         with temporaryDirectory() as tmp_dir:
             submit_dir = os.path.join(tmp_dir, "group_running_1")
             copytree(f"{TESTDIR}/data/group_running_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
@@ -835,7 +838,6 @@ class HTCBackupFilesSinglePathTestCase(unittest.TestCase):
             self.assertEqual(
                 set(result_submit),
                 {
-                    "./tiny_success.dag.dagman.log",
                     "./tiny_success.dag.dagman.out",
                     "./tiny_success.dag",
                 },
@@ -847,6 +849,7 @@ class HTCBackupFilesSinglePathTestCase(unittest.TestCase):
                 set(result_backup),
                 {
                     "./tiny_success.info.json",
+                    "./tiny_success.dag.dagman.log",
                     "./tiny_success.dag.metrics",
                     "./tiny_success.dag.nodes.log",
                     "./tiny_success.node_status",
@@ -877,10 +880,10 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             self.assertEqual(
                 set(result_submit),
                 {
-                    "./tiny_success.dag.dagman.log",
                     "./tiny_success.dag.dagman.out",
                     "./tiny_success.dag",
                     "000/tiny_success.info.json",
+                    "000/tiny_success.dag.dagman.log",
                     "000/tiny_success.dag.metrics",
                     "000/tiny_success.dag.nodes.log",
                     "000/tiny_success.node_status",
@@ -903,11 +906,11 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             self.assertEqual(
                 set(result_submit),
                 {
-                    "./tiny_problems.dag.dagman.log",
                     "./tiny_problems.dag.dagman.out",
                     "./tiny_problems.dag",
                     "./tiny_problems.dag.rescue001",
                     "001/tiny_problems.info.json",
+                    "001/tiny_problems.dag.dagman.log",
                     "001/tiny_problems.dag.metrics",
                     "001/tiny_problems.dag.nodes.log",
                     "001/tiny_problems.node_status",
@@ -928,11 +931,11 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             self.assertEqual(
                 set(result_submit),
                 {
-                    "./tiny_problems.dag.dagman.log",
                     "./tiny_problems.dag.dagman.out",
                     "./tiny_problems.dag",
                     "./tiny_problems.dag.rescue001",
                     "subdir/001/tiny_problems.info.json",
+                    "subdir/001/tiny_problems.dag.dagman.log",
                     "subdir/001/tiny_problems.dag.metrics",
                     "subdir/001/tiny_problems.dag.nodes.log",
                     "subdir/001/tiny_problems.node_status",
@@ -952,11 +955,11 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             self.assertEqual(
                 set(result_submit),
                 {
-                    "./tiny_problems.dag.dagman.log",
                     "./tiny_problems.dag.dagman.out",
                     "./tiny_problems.dag",
                     "./tiny_problems.dag.rescue001",
                     "reldir/001/tiny_problems.info.json",
+                    "reldir/001/tiny_problems.dag.dagman.log",
                     "reldir/001/tiny_problems.dag.metrics",
                     "reldir/001/tiny_problems.dag.nodes.log",
                     "reldir/001/tiny_problems.node_status",
@@ -977,30 +980,30 @@ class HTCBackupFilesTestCase(unittest.TestCase):
                 set(result_submit),
                 {
                     "./group_failed_1.dag",
-                    "./group_failed_1.dag.dagman.log",
                     "./group_failed_1.dag.dagman.out",
                     "./group_failed_1.dag.rescue001",
                     "subdags/wms_group_order1_val1a/group_order1_val1a.dag",
-                    "subdags/wms_group_order1_val1a/group_order1_val1a.dag.dagman.log",
                     "subdags/wms_group_order1_val1a/group_order1_val1a.dag.dagman.out",
                     "subdags/wms_group_order1_val1b/group_order1_val1b.dag",
-                    "subdags/wms_group_order1_val1b/group_order1_val1b.dag.dagman.log",
                     "subdags/wms_group_order1_val1b/group_order1_val1b.dag.dagman.out",
                     "subdags/wms_group_order1_val1b/group_order1_val1b.dag.rescue001",
                     "subdags/wms_group_order1_val1c/group_order1_val1c.dag",
-                    "subdags/wms_group_order1_val1c/group_order1_val1c.dag.dagman.log",
                     "subdags/wms_group_order1_val1c/group_order1_val1c.dag.dagman.out",
                     "001/group_failed_1.dag.nodes.log",
+                    "001/group_failed_1.dag.dagman.log",
                     "001/group_failed_1.info.json",
                     "001/group_failed_1.node_status",
+                    "001/subdags/wms_group_order1_val1a/group_order1_val1a.dag.dagman.log",
                     "001/subdags/wms_group_order1_val1a/group_order1_val1a.dag.nodes.log",
                     "001/subdags/wms_group_order1_val1a/group_order1_val1a.node_status",
                     "001/subdags/wms_group_order1_val1a/wms_group_order1_val1a.dag.post.out",
                     "001/subdags/wms_group_order1_val1a/wms_group_order1_val1a.status.txt",
+                    "001/subdags/wms_group_order1_val1b/group_order1_val1b.dag.dagman.log",
                     "001/subdags/wms_group_order1_val1b/group_order1_val1b.dag.nodes.log",
                     "001/subdags/wms_group_order1_val1b/group_order1_val1b.node_status",
                     "001/subdags/wms_group_order1_val1b/wms_group_order1_val1b.status.txt",
                     "001/subdags/wms_group_order1_val1b/wms_group_order1_val1b.dag.post.out",
+                    "001/subdags/wms_group_order1_val1c/group_order1_val1c.dag.dagman.log",
                     "001/subdags/wms_group_order1_val1c/group_order1_val1c.dag.nodes.log",
                     "001/subdags/wms_group_order1_val1c/group_order1_val1c.node_status",
                     "001/subdags/wms_group_order1_val1c/wms_group_order1_val1c.dag.post.out",
@@ -1125,7 +1128,9 @@ class ReadDagInfoTestCase(unittest.TestCase):
     def testSuccess(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/tiny_success/tiny_success.info.json", tmp_dir)
-            results = lssthtc.read_dag_info(tmp_dir)
+            filename, results = lssthtc.read_dag_info(tmp_dir)
+            self.assertIn("info.json", str(filename))
+            self.assertTrue(pathlib.Path(filename).is_file())
 
         truth = {
             "test02": {
@@ -1156,7 +1161,7 @@ class ReadDagInfoTestCase(unittest.TestCase):
             with unittest.mock.patch("lsst.ctrl.bps.htcondor.lssthtc.open") as mocked_open:
                 mocked_open.side_effect = PermissionError
                 with self.assertLogs("lsst.ctrl.bps.htcondor", level="DEBUG") as cm:
-                    results = lssthtc.read_dag_info(tmp_dir)
+                    _, results = lssthtc.read_dag_info(tmp_dir)
                 self.assertIn("Retrieving DAGMan job information failed:", cm.output[-1])
                 self.assertEqual({}, results)
 
@@ -1340,6 +1345,74 @@ class HtcDagTestCase(unittest.TestCase):
             with open(os.path.join(tmp_dir, job.subfile), encoding="utf-8") as f:
                 subfile_actual = f.readlines()
                 self.assertEqual(subfile_actual, self.subfile_expected)
+
+    def testWriteLazySubdag(self):
+        self.maxDiff = None
+        dag, truth_files = make_lazy_dag("test1", True)
+        with temporaryDirectory() as tmp_dir:
+            dag.write(tmp_dir, "", "")
+
+            # self.assertIn("submit_path", dag.graph)
+            # self.assertEqual(dag.graph["submit_path"], tmp_dir)
+            # self.assertIn("dag_filename", dag.graph)
+            # self.assertEqual(dag.graph["dag_filename"], "test1.dag")
+            all_files = []
+            for root, _, files in pathlib.Path(tmp_dir).walk():
+                relroot = pathlib.Path(root).relative_to(tmp_dir)
+                all_files.extend([str(relroot / f) for f in files])
+            self.assertEqual(sorted(all_files), sorted(truth_files))
+
+
+class WriteDagInfoTestCase(unittest.TestCase):
+    """Test for write_dag_info function."""
+
+    def setUp(self):
+        self.run = "u_testuser_DM-53494_20260220T001651Z"
+        self.data = {
+            "mycomputer": {
+                "24390.0": {
+                    "ClusterId": 24390,
+                    "GlobalJobId": "mycomputer#24390.0#1771546612",
+                    "bps_run": self.run,
+                    "bps_isjob": "True",
+                    "bps_payload": "DM-53494",
+                    "bps_project": "dev",
+                    "bps_runsite": "site1",
+                    "bps_campaign": "ci_rc2",
+                    "bps_operator": "testuser",
+                    "bps_run_quanta": "",
+                    "bps_job_summary": "buildQuantumGraph:1;preparePayloadWorkflow:1;dummyJob:1",
+                    "bps_wms_service": "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorService",
+                    "bps_wms_workflow": "lsst.ctrl.bps.htcondor.htcondor_workflow.HTCondorWorkflow",
+                    "bps_wms_config_path": "dagman.conf",
+                }
+            }
+        }
+
+    def testWriteWithFilename(self):
+        with temporaryDirectory() as tmp_dir:
+            with chdir(tmp_dir):
+                path = pathlib.Path(tmp_dir) / "test.info.json"
+                filename = lssthtc.write_dag_info(self.data, path)
+                self.assertTrue(path.is_file(), f"File not found at {path}")
+                self.assertEqual(filename, path)
+
+                read_filename, read_data = lssthtc.read_dag_info(tmp_dir)
+                self.assertEqual(read_filename, path)
+                self.assertEqual(read_data, self.data)
+
+    def testWriteWithoutFilename(self):
+        with temporaryDirectory() as tmp_dir:
+            with chdir(tmp_dir):
+                filename = lssthtc.write_dag_info(self.data)
+                self.assertTrue(filename.is_file(), f"File not found at {filename}")
+
+                path = pathlib.Path(tmp_dir) / filename
+                self.assertTrue(path.is_file(), f"File not found at {path}")
+
+                read_filename, read_data = lssthtc.read_dag_info(tmp_dir)
+                self.assertEqual(read_filename, path)
+                self.assertEqual(read_data, self.data)
 
 
 if __name__ == "__main__":

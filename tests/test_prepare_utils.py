@@ -30,6 +30,9 @@
 import logging
 import os
 import unittest
+from copy import deepcopy
+
+from networkx import is_isomorphic
 
 from lsst.ctrl.bps import (
     BPS_DEFAULTS,
@@ -40,8 +43,15 @@ from lsst.ctrl.bps import (
     GenericWorkflowFile,
     GenericWorkflowJob,
 )
-from lsst.ctrl.bps.htcondor import prepare_utils
-from lsst.ctrl.bps.tests.gw_test_utils import make_3_label_workflow, make_3_label_workflow_groups_sort
+from lsst.ctrl.bps.htcondor import lssthtc, prepare_utils
+from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
+from lsst.ctrl.bps.tests.gw_test_utils import (
+    make_3_label_workflow,
+    make_3_label_workflow_groups_sort,
+    make_lazy_workflow,
+)
+from lsst.daf.butler import Config
+from lsst.utils.tests import temporaryDirectory
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 
@@ -619,6 +629,139 @@ class ReplaceWmsVarsTestCase(unittest.TestCase):
             with self.assertRaises(KeyError):
                 _ = prepare_utils._replace_wms_vars(orig_string)
         self.assertRegex(cm_log.output[0], "Unrecognized WMS placeholder: notThere")
+
+
+class UpdateJobSummaryTestCase(unittest.TestCase):
+    """Test _update_job_summary function."""
+
+    def setUp(self):
+        self.run = "u_testuser_DM-53494_20260220T001651Z"
+        self.filename = f"{self.run}_ctrl.info.json"
+        self.data = {
+            "mycomputer": {
+                "24390.0": {
+                    "ClusterId": 24390,
+                    "GlobalJobId": "mycomputer#24390.0#1771546612",
+                    "bps_run": f"{self.run}_ctrl",
+                    "bps_isjob": "True",
+                    "bps_payload": "DM-53494",
+                    "bps_project": "dev",
+                    "bps_runsite": "site1",
+                    "bps_campaign": "ci_rc2",
+                    "bps_operator": "testuser",
+                    "bps_run_quanta": "",
+                    "bps_job_summary": "buildQuantumGraph:1;preparePayloadWorkflow:1;dummyJob:1",
+                    "bps_wms_service": "lsst.ctrl.bps.htcondor.htcondor_service.HTCondorService",
+                    "bps_wms_workflow": "lsst.ctrl.bps.htcondor.htcondor_workflow.HTCondorWorkflow",
+                    "bps_wms_config_path": "dagman.conf",
+                }
+            }
+        }
+        self.mapping = f"{self.run}:preparePayloadWorkflow"
+        self.add_summary = "pipetaskInit:1;isr:6;finalJob:1"
+
+    def testLazyMapping(self):
+        dag_info = deepcopy(self.data)
+        dag_info["mycomputer"]["24390.0"]["bps_lazy_mapping"] = self.mapping
+        with temporaryDirectory() as tmp_dir:
+            lssthtc.write_dag_info(dag_info, f"{tmp_dir}/{self.filename}")
+
+            prepare_utils._update_job_summary(self.run, self.add_summary, str(tmp_dir))
+
+            _, results = lssthtc.read_dag_info(str(tmp_dir))
+            self.assertEqual(
+                results["mycomputer"]["24390.0"]["bps_job_summary"],
+                f"buildQuantumGraph:1;preparePayloadWorkflow:1;{self.add_summary};dummyJob:1",
+            )
+
+    def testNoLazyMapping(self):
+        # No bps_lazy_mapping at all
+        with temporaryDirectory() as tmp_dir:
+            lssthtc.write_dag_info(self.data, f"{tmp_dir}/{self.filename}")
+
+            prepare_utils._update_job_summary(self.run, self.add_summary, str(tmp_dir))
+
+            _, results = lssthtc.read_dag_info(str(tmp_dir))
+            self.assertEqual(
+                results["mycomputer"]["24390.0"]["bps_job_summary"],
+                f"{self.data['mycomputer']['24390.0']['bps_job_summary']};{self.add_summary}",
+            )
+
+    def testNoEntryLazyMapping(self):
+        # bps_lazy_mapping exists, but doesn't include this job
+        dag_info = deepcopy(self.data)
+        dag_info["mycomputer"]["24390.0"]["bps_lazy_mapping"] = "other:preparePayloadWorkflow"
+        with temporaryDirectory() as tmp_dir:
+            lssthtc.write_dag_info(dag_info, f"{tmp_dir}/{self.filename}")
+
+            prepare_utils._update_job_summary(self.run, self.add_summary, str(tmp_dir))
+
+            _, results = lssthtc.read_dag_info(str(tmp_dir))
+            self.assertEqual(
+                results["mycomputer"]["24390.0"]["bps_job_summary"],
+                f"{self.data['mycomputer']['24390.0']['bps_job_summary']};{self.add_summary}",
+            )
+
+
+class ReplaceCmdVarsTestCase(unittest.TestCase):
+    """Test _replace_cmd_vars function."""
+
+    def testKeyError(self):
+        gwjob = GenericWorkflowJob("job1", "label1")
+        with self.assertLogs(level="DEBUG") as cm_log:
+            with self.assertRaisesRegex(KeyError, ".*notthere.*"):
+                _ = prepare_utils._replace_cmd_vars("{notthere}", gwjob)
+            self.assertRegex(cm_log.output[0], ".*replacement for 'notthere' not provided.*")
+
+
+class GenericWorkflowToHTCondorDAG(unittest.TestCase):
+    """Test _generic_workflow_to_htcondor_dag function."""
+
+    def testRegularWorkflow(self):
+        timestamp = "20260130T211713Z"
+        generic_workflow = make_3_label_workflow("test1", True)
+        config = BpsConfig(
+            {
+                "bpsUseShared": True,
+                "overwriteJobFiles": False,
+                "profile": {"requirements": "dummy_val == 3"},
+                "attrs": {},
+                "nodeset": "set1",  # this shouldn't be used with auto-provisioning
+                "provisionResources": True,
+                "provisioning": {"provisioningMaxWallTime": 1200},
+                "bps_defined": {"timestamp": timestamp},
+            },
+            defaults=Config(HTC_DEFAULTS_URI),
+        )
+
+        results = prepare_utils._generic_workflow_to_htcondor_dag(config, generic_workflow, "/mock_dir")
+        self.assertTrue(generic_workflow.run_attrs.items() <= results.graph["attr"].items())
+        self.assertIsNotNone(results.graph["final_job"])
+        self.assertTrue(is_isomorphic(results, generic_workflow))
+
+    def testLazyWorkflow(self):
+        timestamp = "20260130T211713Z"
+        generic_workflow = make_lazy_workflow("test1", True)
+        config = BpsConfig(
+            {
+                "bpsUseShared": True,
+                "overwriteJobFiles": False,
+                "profile": {"requirements": "dummy_val == 3"},
+                "attrs": {},
+                "nodeset": "set1",  # this shouldn't be used with auto-provisioning
+                "provisionResources": True,
+                "provisioning": {"provisioningMaxWallTime": 1200},
+                "bps_defined": {"timestamp": timestamp},
+            },
+            defaults=Config(HTC_DEFAULTS_URI),
+        )
+
+        results = prepare_utils._generic_workflow_to_htcondor_dag(config, generic_workflow, "/mock_dir")
+        self.assertTrue(generic_workflow.run_attrs.items() <= results.graph["attr"].items())
+        self.assertIsNotNone(results.graph["final_job"])
+        # Can't test isomorphic because HTCDag will have additional job for
+        # the lazy dagman job.
+        self.assertTrue(generic_workflow.nodes <= results.nodes)
 
 
 if __name__ == "__main__":

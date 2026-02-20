@@ -175,7 +175,7 @@ class HTCondorService(BaseWmsService):
             _LOG.info("Submitting from directory: %s", os.getcwd())
             schedd_dag_info = htc_submit_dag(sub)
             if schedd_dag_info:
-                write_dag_info(f"{dag.name}.info.json", schedd_dag_info)
+                write_dag_info(schedd_dag_info)
 
                 _, dag_info = schedd_dag_info.popitem()
                 _, dag_ad = dag_info.popitem()
@@ -275,7 +275,7 @@ class HTCondorService(BaseWmsService):
                 if schedd_dag_info:
                     dag_info = next(iter(schedd_dag_info.values()))
                     dag_ad = next(iter(dag_info.values()))
-                    write_dag_info(f"{dag_ad['bps_run']}.info.json", schedd_dag_info)
+                    write_dag_info(schedd_dag_info)
                     run_id = f"{dag_ad['ClusterId']}.{dag_ad['ProcId']}"
                     run_name = dag_ad["bps_run"]
                 else:
