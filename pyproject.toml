@@ -23,7 +23,7 @@ classifiers = [
 ]
 keywords = ["lsst"]
 dependencies = [
-    "htcondor >= 8.8",
+    "htcondor >= 8.8, <25.0",
     "lsst-ctrl-bps",
     "lsst-daf-butler",
     "lsst-pipe-base",
@@ -39,8 +39,7 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 test = [
-    "pytest >= 3.2",
-    "pytest-openfiles >= 0.5.0"
+    "pytest >= 3.2"
 ]
 
 [tool.setuptools.packages.find]
