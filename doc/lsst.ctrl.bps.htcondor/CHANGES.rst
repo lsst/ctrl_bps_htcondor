@@ -1,3 +1,22 @@
+lsst-ctrl-bps-htcondor v30.0.4 (2026-02-23)
+===========================================
+
+New Features
+------------
+
+- Added ``nodeset`` keyword in submit yaml to specify the nodeset name for the jobs to match specific glideins.
+  When submit yaml requests to do automatic provisioning, automatically set nodeset name to the run's timestamp thus restricting the run's jobs to the glideins started by the automatic provisioning. (`DM-53960 <https://rubinobs.atlassian.net/browse/DM-53960>`_)
+
+
+Bug Fixes
+---------
+
+- Fixed a bug causing the plugin to report some idle jobs as running. (`DM-53782 <https://rubinobs.atlassian.net/browse/DM-53782>`_)
+- Fixed a bug breaking use of global or ``finalJob``-specific priority.
+  Bug was introduced on `DM-53753 <https://rubinobs.atlassian.net/browse/DM-53753>`_. (`DM-53927 <https://rubinobs.atlassian.net/browse/DM-53927>`_)
+- Fixed passing of expert-level HTCondor job settings from submit yaml's ``profile.condor`` section. (`DM-53960 <https://rubinobs.atlassian.net/browse/DM-53960>`_)
+- Fixed formatting in glidein section instructions. (`DM-54104 <https://rubinobs.atlassian.net/browse/DM-54104>`_)
+
 lsst-ctrl-bps-htcondor v30.0.1 (2026-02-03)
 ===========================================
 
