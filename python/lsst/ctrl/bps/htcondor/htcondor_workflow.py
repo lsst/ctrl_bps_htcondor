@@ -35,8 +35,10 @@ import os
 
 from lsst.ctrl.bps import (
     BaseWmsWorkflow,
+    BpsConfig,
 )
 
+from .lssthtc import read_dag_info, write_dag_info
 from .prepare_utils import _generic_workflow_to_htcondor_dag
 
 _LOG = logging.getLogger(__name__)
@@ -87,3 +89,55 @@ class HTCondorWorkflow(BaseWmsWorkflow):
 
         # Write down the workflow in HTCondor format.
         self.dag.write(out_prefix, job_subdir="jobs/{self.label}")
+
+    def add_to_parent_workflow(self, config: BpsConfig, submit_path: str):
+        """Add self to parent workflow.
+
+        Parameters
+        ----------
+        config : `lsst.ctrl.bps.BpsConfig`
+            Configuration.
+        submit_path : `str`
+            Root directory to be used for WMS workflow inputs and outputs
+            as well as internal WMS files.
+        """
+        _LOG.debug("submit_path = %s", submit_path)
+        dag_info = read_dag_info(submit_path)
+        _LOG.debug("dag_info = %s", dag_info)
+        schedd_name = next(iter(dag_info))
+        dag_values = next(iter(dag_info[schedd_name].values()))
+        _LOG.debug("dag_values = %s", dag_values)
+
+        # Get lazy mapping and the job that generated this dag
+        generator_name = None
+        lazy_mapping = dag_values.get("lazy_mapping", None)
+        if lazy_mapping:  # find this workflow's prepare job
+            for part in lazy_mapping.split(";"):
+                dag_name, generator_name = part.split(":")
+                if dag_name == self.name:
+                    break
+
+        # Update bps_job_summary
+        _LOG.debug(
+            "Before replace, name = %s, bps_job_summary = %s, add summary = %s",
+            self.name,
+            dag_values["bps_job_summary"],
+            self.dag.graph["attr"]["bps_job_summary"],
+        )
+        if generator_name:
+            generator_summary = f"{generator_name}:1"
+            dag_values["bps_job_summary"] = dag_values["bps_job_summary"].replace(
+                generator_summary, f"{generator_summary};{self.dag.graph['attr']['bps_job_summary']}"
+            )
+        else:
+            # just append to end of bps_job_summary
+            dag_values["bps_job_summary"] += f";{self.dag.graph['attr']['bps_job_summary']}"
+
+        _LOG.debug(
+            "After replace, name = %s, bps_job_summary = %s",
+            self.name,
+            dag_values["bps_job_summary"],
+        )
+
+        # Save updated bps_job_summary
+        write_dag_info(f"{submit_path}/{dag_values['bps_run']}.info.json", dag_info)

@@ -891,13 +891,16 @@ def _generic_workflow_to_htcondor_dag(
     else:
         subdir_template = tmp_template
 
+    # Save list of lazy group jobs for later extra handling.
+    lazy_groups = []
+
     # Create all DAG jobs
     site_values = {}  # Cache compute site specific values to reduce config lookups.
     cached_values = {}  # Cache label-specific values to reduce config lookups.
     # Note: Can't use get_job_by_label because those only include payload jobs.
     for job_name in generic_workflow:
         gwjob = generic_workflow.get_job(job_name)
-        if gwjob.node_type == GenericWorkflowNodeType.PAYLOAD:
+        if gwjob.node_type in [GenericWorkflowNodeType.PAYLOAD, GenericWorkflowNodeType.LAZY_GROUP]:
             gwjob = cast(GenericWorkflowJob, gwjob)
             if gwjob.compute_site not in site_values:
                 site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
@@ -926,11 +929,17 @@ def _generic_workflow_to_htcondor_dag(
         _LOG.debug("Calling adding job %s %s", htc_job.name, htc_job.label)
         dag.add_job(htc_job)
 
+        # Have to add the placeholder job for the workflow
+        if gwjob.node_type == GenericWorkflowNodeType.LAZY_GROUP:
+            lazy_groups.append(gwjob.name)
+
     # Add job dependencies to the DAG (be careful with wms_ jobs)
     for job_name in generic_workflow:
         gwjob = generic_workflow.get_job(job_name)
         parent_name = (
-            gwjob.name if gwjob.node_type == GenericWorkflowNodeType.PAYLOAD else f"wms_{gwjob.name}"
+            gwjob.name
+            if gwjob.node_type in [GenericWorkflowNodeType.PAYLOAD, GenericWorkflowNodeType.LAZY_GROUP]
+            else f"wms_{gwjob.name}"
         )
         successor_jobs = [generic_workflow.get_job(j) for j in generic_workflow.successors(job_name)]
         children_names = []
@@ -955,12 +964,16 @@ def _generic_workflow_to_htcondor_dag(
                 parent_name = check_job.name
         else:
             for sjob in successor_jobs:
-                if sjob.node_type == GenericWorkflowNodeType.PAYLOAD:
+                if sjob.node_type in [GenericWorkflowNodeType.PAYLOAD, GenericWorkflowNodeType.LAZY_GROUP]:
                     children_names.append(sjob.name)
                 else:
                     children_names.append(f"wms_{sjob.name}")
 
         dag.add_job_relationships([parent_name], children_names)
+
+    # Go back and add placeholder jobs for the lazy group dags
+    for lazy_group_name in lazy_groups:
+        _add_lazy_placeholder(lazy_group_name, generic_workflow, dag, out_prefix)
 
     # If final job exists in generic workflow, create DAG final job
     final = generic_workflow.get_final()
@@ -990,3 +1003,48 @@ def _generic_workflow_to_htcondor_dag(
         raise TypeError(f"Invalid type for GenericWorkflow.get_final() results ({type(final)})")
 
     return dag
+
+
+def _add_lazy_placeholder(
+    prepare_job_name: str, generic_workflow: GenericWorkflow, dag: HTCDag, out_prefix: str
+):
+    _LOG.debug("prepare_job_name = %s", prepare_job_name)
+
+    # Make a fake job for the placeholder workflow
+    job1 = HTCJob("placeholder")
+    job1.add_job_cmds(
+        {
+            "executable": "/usr/bin/echo",
+            "arguments": '"BPS internal error - placeholder DAG was not replaced."',
+        }
+    )
+    job1.add_job_attrs({"bps_job_name": "placeholder", "bps_job_label": "placeholder"})
+    job1.add_job_attrs(generic_workflow.run_attrs)
+
+    # TODO - Placeholder dag name needs to be the run name because that's
+    # currently what the bps code will name the workflow.  Needs to be made
+    # more generic.
+    placeholder_dag_name = generic_workflow.name.replace("_ctrl", "")
+    placeholder_dag = HTCDag(name=placeholder_dag_name)
+    _LOG.debug("dag name = %s", placeholder_dag.graph["name"])
+    placeholder_dag.add_attribs(generic_workflow.run_attrs)
+    placeholder_dag.add_job(job1)
+
+    # To help ordering in bps report, save info so can figure out where
+    # to put jobs in lazy dag in bps_job_label
+    dag.add_attribs({"bps_lazy_mapping": f"{placeholder_dag.name}:{prepare_job_name}"})
+
+    # The subdag job to be added to the control dag
+    dag_job = HTCJob("wms_lazy_payload", "wms_lazy_payload")
+    dag_job.subfile = f"{placeholder_dag.name}.condor.sub"
+    dag_job.subdag = placeholder_dag
+
+    dag.add_job(dag_job)
+
+    # Update edges inserting between prepare job and any following jobs.
+    successor_jobs = list(dag.successors(prepare_job_name))
+    for job in successor_jobs:
+        dag.add_edge(dag_job.name, job)
+        dag.remove_edge(prepare_job_name, job)
+
+    dag.add_edge(prepare_job_name, dag_job.name)
