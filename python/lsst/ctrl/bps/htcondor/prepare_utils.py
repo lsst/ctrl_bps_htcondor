@@ -676,7 +676,7 @@ def _create_request_memory_expr(memory, multiplier, limit):
     expr = (
         f"({was_mem_exceeded}) "
         f"? min({{int({memory} * pow({multiplier}, NumJobStarts)), {limit}}}) "
-        f": max({{{memory}, MemoryUsage ?: 0}})"
+        f": min({{max({{{memory}, MemoryUsage ?: 0}}), {limit}}})"
     )
     return expr
 

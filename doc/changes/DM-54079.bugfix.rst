@@ -1,0 +1,1 @@
+Modified the HTCondor ClassAd expression managing job's memory requests between restarts so the request never exceeds the memory limit defined by the ``memoryLimit`` setting.
