@@ -36,7 +36,7 @@ import tempfile
 import unittest
 from shutil import copy2, copytree, ignore_patterns, rmtree, which
 
-import htcondor
+import htcondor2 as htcondor
 
 from lsst.ctrl.bps import BpsConfig
 from lsst.ctrl.bps.htcondor import dagman_configurator, htcondor_config, lssthtc

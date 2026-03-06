@@ -32,7 +32,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import htcondor
+import htcondor2 as htcondor
 
 from lsst.ctrl.bps import BpsConfig, WmsStates
 from lsst.ctrl.bps.htcondor import htcondor_service
@@ -83,7 +83,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
         self.assertEqual(self.service.defaults_uri, HTC_DEFAULTS_URI)
         self.assertFalse(self.service.defaults_uri.isdir())
 
-    @unittest.mock.patch.object(htcondor.SecMan, "ping", return_value=PING_SUCCESS)
+    @unittest.mock.patch.object(htcondor, "ping", return_value=PING_SUCCESS)
     @unittest.mock.patch.object(htcondor.Collector, "locate", return_value=LOCATE_SUCCESS)
     def testPingSuccess(self, mock_locate, mock_ping):
         status, message = self.service.ping(None)
@@ -92,18 +92,18 @@ class HTCondorServiceTestCase(unittest.TestCase):
 
     def testPingFailure(self):
         with unittest.mock.patch("htcondor.Collector.locate") as locate_mock:
-            locate_mock.side_effect = htcondor.HTCondorLocateError()
+            locate_mock.side_effect = htcondor.HTCondorException("Unable to locate local daemon.")
             status, message = self.service.ping(None)
             self.assertEqual(status, 1)
-            self.assertEqual(message, "Could not locate Schedd service.")
+            self.assertEqual(message, "Problem with the Schedd service: Unable to locate local daemon.")
 
     @unittest.mock.patch.object(htcondor.Collector, "locate", return_value=LOCATE_SUCCESS)
     def testPingPermission(self, mock_locate):
         with unittest.mock.patch("htcondor.SecMan.ping") as ping_mock:
-            ping_mock.side_effect = htcondor.HTCondorIOError()
+            ping_mock.side_effect = htcondor.HTCondorException("Failed to start command.")
             status, message = self.service.ping(None)
             self.assertEqual(status, 1)
-            self.assertEqual(message, "Permission problem with Schedd service.")
+            self.assertEqual(message, "Problem with the Schedd service: Failed to start command.")
 
     @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._get_status_from_id")
     @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._locate_schedds")

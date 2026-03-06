@@ -33,7 +33,7 @@ import unittest
 from pathlib import Path
 from shutil import copy2, copytree
 
-import htcondor
+import htcondor2 as htcondor
 
 from lsst.ctrl.bps import (
     WmsSpecificInfo,

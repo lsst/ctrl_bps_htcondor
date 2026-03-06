@@ -33,7 +33,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-import htcondor
+import htcondor2 as htcondor
 
 from lsst.ctrl.bps import (
     WmsJobReport,

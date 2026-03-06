@@ -84,8 +84,8 @@ from enum import IntEnum, auto
 from pathlib import Path
 from typing import Any, TextIO
 
-import classad
-import htcondor
+import classad2 as classad
+import htcondor as htcondor
 import networkx
 from deprecated.sphinx import deprecated
 from packaging import version
@@ -236,7 +236,10 @@ HTC_VALID_JOB_DAG_KEYS = {
     "abort_exit",
     "priority",
 }
-HTC_VERSION = version.parse(htcondor.__version__)
+
+# Version of the HTCondor API, not necessarily the same as the version
+# of the HTCondor daemons.
+HTC_VERSION = version.parse(re.match(r"\$CondorVersion:\s+(\d+\.\d+\.\d+)\s", htcondor.version()).group(1))
 
 
 class RestrictedDict(MutableMapping):

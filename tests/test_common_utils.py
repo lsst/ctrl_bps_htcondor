@@ -32,7 +32,7 @@ import os
 import unittest
 from pathlib import Path
 
-import htcondor
+import htcondor2 as htcondor
 
 from lsst.ctrl.bps import (
     WmsStates,

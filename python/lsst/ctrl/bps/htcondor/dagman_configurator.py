@@ -34,7 +34,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import htcondor
+import htcondor2 as htcondor
 from pydantic import AliasGenerator, ConfigDict, create_model
 
 from lsst.ctrl.bps import BpsConfig

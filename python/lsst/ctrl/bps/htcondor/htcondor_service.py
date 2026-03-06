@@ -34,7 +34,7 @@ import logging
 import os
 from pathlib import Path
 
-import htcondor
+import htcondor2 as htcondor
 from packaging import version
 
 from lsst.ctrl.bps import (
@@ -564,17 +564,13 @@ class HTCondorService(BaseWmsService):
             Any message from WMS (e.g., error details).
         """
         coll = htcondor.Collector()
-        secman = htcondor.SecMan()
         status = 0
         message = ""
         _LOG.info("Not verifying that compute resources exist.")
         try:
             for daemon_type in [htcondor.DaemonTypes.Schedd, htcondor.DaemonTypes.Collector]:
-                _ = secman.ping(coll.locate(daemon_type))
-        except htcondor.HTCondorLocateError:
+                _ = htcondor.ping(coll.locate(daemon_type))
+        except htcondor.HTCondorException as e:
             status = 1
-            message = f"Could not locate {daemon_type} service."
-        except htcondor.HTCondorIOError:
-            status = 1
-            message = f"Permission problem with {daemon_type} service."
+            message = f"Problem with the {daemon_type} service: {str(e)}."
         return status, message
