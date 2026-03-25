@@ -195,6 +195,12 @@ at the root level or inside a ``site`` section, but not inside a ``pipetask``,
 If your main workflow contains sub-workflow defined in individual DAG
 description files, they will use the same configuration as the main workflow.
 
+Miscellaneous
+^^^^^^^^^^^^^
+
+* ``saveHTCdot`` - true/false.  Whether condor_dagman outputs a DOT
+  representation of the workflow DAG.
+
 .. __: https://htcondor.readthedocs.io/en/latest/admin-manual/configuration-macros.html#dagman-configuration-file-entries
 
 .. .. _htc-plugin-authenticating:
