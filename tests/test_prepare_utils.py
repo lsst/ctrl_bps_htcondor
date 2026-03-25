@@ -730,6 +730,7 @@ class GenericWorkflowToHTCondorDAG(unittest.TestCase):
                 "provisionResources": True,
                 "provisioning": {"provisioningMaxWallTime": 1200},
                 "bps_defined": {"timestamp": timestamp},
+                "saveHTCdot": True,
             },
             defaults=Config(HTC_DEFAULTS_URI),
         )
@@ -738,6 +739,7 @@ class GenericWorkflowToHTCondorDAG(unittest.TestCase):
         self.assertTrue(generic_workflow.run_attrs.items() <= results.graph["attr"].items())
         self.assertIsNotNone(results.graph["final_job"])
         self.assertTrue(is_isomorphic(results, generic_workflow))
+        self.assertTrue(results.graph["write_dot"])
 
     def testLazyWorkflow(self):
         timestamp = "20260130T211713Z"
@@ -762,6 +764,7 @@ class GenericWorkflowToHTCondorDAG(unittest.TestCase):
         # Can't test isomorphic because HTCDag will have additional job for
         # the lazy dagman job.
         self.assertTrue(generic_workflow.nodes <= results.nodes)
+        self.assertFalse(results.graph["write_dot"])
 
 
 if __name__ == "__main__":

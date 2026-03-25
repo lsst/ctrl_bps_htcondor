@@ -1306,7 +1306,6 @@ class HtcDagTestCase(unittest.TestCase):
             dagfile_expected = [
                 f"CONFIG {wms_config_filename}\n",
                 f'JOB {job.name} "{job.subfile}"\n',
-                f"DOT {self.dag.name}.dot\n",
                 f"NODE_STATUS_FILE {self.dag.name}.node_status\n",
                 f'SET_JOB_ATTR bps_wms_config_path= "{wms_config_filename}"\n',
             ]
@@ -1329,7 +1328,6 @@ class HtcDagTestCase(unittest.TestCase):
             job = self.dag.nodes["test_job"]["data"]
             dagfile_expected = [
                 f'JOB {job.name} "{job.subfile}"\n',
-                f"DOT {self.dag.name}.dot\n",
                 f"NODE_STATUS_FILE {self.dag.name}.node_status\n",
             ]
 
@@ -1349,13 +1347,13 @@ class HtcDagTestCase(unittest.TestCase):
     def testWriteLazySubdag(self):
         self.maxDiff = None
         dag, truth_files = make_lazy_dag("test1", True)
+        dag.graph["write_dot"] = True
         with temporaryDirectory() as tmp_dir:
             dag.write(tmp_dir, "", "")
+            with open(os.path.join(tmp_dir, dag.graph["dag_filename"]), encoding="utf-8") as f:
+                dagfile_actual = f.readlines()
+                self.assertIn("DOT test1.dot\n", dagfile_actual)
 
-            # self.assertIn("submit_path", dag.graph)
-            # self.assertEqual(dag.graph["submit_path"], tmp_dir)
-            # self.assertIn("dag_filename", dag.graph)
-            # self.assertEqual(dag.graph["dag_filename"], "test1.dag")
             all_files = []
             for root, _, files in pathlib.Path(tmp_dir).walk():
                 relroot = pathlib.Path(root).relative_to(tmp_dir)

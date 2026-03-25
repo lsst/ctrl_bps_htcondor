@@ -1207,7 +1207,10 @@ class HTCDag(networkx.DiGraph):
 
             for edge in self.edges():
                 print(f"PARENT {edge[0]} CHILD {edge[1]}", file=fh)
-            print(f"DOT {self.name}.dot", file=fh)
+
+            if self.graph.get("write_dot", False):
+                print(f"DOT {self.name}.dot", file=fh)
+
             print(f"NODE_STATUS_FILE {self.name}.node_status", file=fh)
 
             # Add bps attributes to dag submission

@@ -918,8 +918,11 @@ def _generic_workflow_to_htcondor_dag(
             "bps_job_summary": create_count_summary(generic_workflow.job_counts),
         }
     )
-
     _, tmp_template = config.search("subDirTemplate", opt={"replaceVars": False, "default": ""})
+
+    _, save_htc_dot = config.search("saveHTCdot", opt={"default": False})
+    dag.graph["write_dot"] = save_htc_dot
+
     if isinstance(tmp_template, str):
         subdir_template = defaultdict(lambda: tmp_template)
     else:
