@@ -1,3 +1,18 @@
+lsst-ctrl-bps-htcondor v30.0.6 (2026-04-07)
+===========================================
+
+New Features
+------------
+
+- Implemented ``wmsAttemptNum`` when specified in the command arguments or environment values. (`DM-53292 <https://rubinobs.atlassian.net/browse/DM-53292>`_)
+
+
+Bug Fixes
+---------
+
+- Modified the HTCondor ClassAd expression managing job's memory requests between restarts so the request never exceeds the memory limit defined by the ``memoryLimit`` setting. (`DM-54079 <https://rubinobs.atlassian.net/browse/DM-54079>`_)
+
+
 lsst-ctrl-bps-htcondor v30.0.4 (2026-02-23)
 ===========================================
 
