@@ -128,9 +128,9 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
         htc_commands = prepare_utils._translate_job_cmds(self.cached_vals, None, gwjob)
         release = (
             "JobStatus == 5 && NumJobStarts <= JobMaxRetries && "
-            "(HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 || "
+            "(HoldReasonCode =?= 12 || (HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 || "
             "HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34) && "
-            "min({int(2048 * pow(2, NumJobStarts - 1)), 32768}) < 32768"
+            "min({int(2048 * pow(2, NumJobStarts - 1)), 32768}) < 32768)"
         )
         self.assertEqual(htc_commands["periodic_release"], release)
 
@@ -230,32 +230,6 @@ class GatherSiteValuesTestCase(unittest.TestCase):
         results = prepare_utils._gather_site_values(config, compute_site)
         self.assertEqual(results["memoryLimit"], BPS_DEFAULTS["memoryLimit"])
 
-    def testGlobalNodeset(self):
-        config = BpsConfig(
-            {"nodeset": "global_node_set_{campaign}", "campaign": "DRP"},
-            search_order=BPS_SEARCH_ORDER,
-            defaults=BPS_DEFAULTS,
-            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
-        )
-        compute_site = "fr"
-        results = prepare_utils._gather_site_values(config, compute_site)
-        self.assertEqual(results["nodeset"], "global_node_set_DRP")
-
-    def testSiteNodeset(self):
-        config = BpsConfig(
-            {
-                "nodeset": "global_node_set_{campaign}",
-                "campaign": "DRP",
-                "site": {"fr": {"nodeset": "fr_node_set_{campaign}"}},
-            },
-            search_order=BPS_SEARCH_ORDER,
-            defaults=BPS_DEFAULTS,
-            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
-        )
-        compute_site = "fr"
-        results = prepare_utils._gather_site_values(config, compute_site)
-        self.assertEqual(results["nodeset"], "fr_node_set_DRP")
-
     def testAttrsProfile(self):
         test_values = {
             "bpsNodeset": "DEVSET",
@@ -286,7 +260,6 @@ class GatherLabelValuesTestCase(unittest.TestCase):
 
     def testClusterLabel(self):
         # Test cluster value overrides pipetask.
-        label = "label1"
         config = BpsConfig(
             {
                 "cluster": {
@@ -297,12 +270,13 @@ class GatherLabelValuesTestCase(unittest.TestCase):
                     }
                 },
                 "pipetask": {"label1": {"releaseExpr": "pipetask_val"}},
+                "site": {"site1": {}},
             },
             search_order=BPS_SEARCH_ORDER,
             defaults=BPS_DEFAULTS,
             wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
         )
-        results = prepare_utils._gather_label_values(config, label)
+        results = prepare_utils._gather_label_values(config, "label1", "site1")
         self.assertEqual(
             results,
             {
@@ -310,6 +284,9 @@ class GatherLabelValuesTestCase(unittest.TestCase):
                 "profile": {"prof_val1": 3},
                 "releaseExpr": "cluster_val",
                 "overwriteJobFiles": False,
+                "bpsMakeCommand": True,
+                "bpsUseShared": True,
+                "memoryLimit": 491520,
             },
         )
 
@@ -323,57 +300,114 @@ class GatherLabelValuesTestCase(unittest.TestCase):
                         "overwriteJobFiles": False,
                         "profile": {"condor": {"prof_val1": 3}},
                     }
-                }
+                },
+                "site": {"site1": {}},
             },
             search_order=BPS_SEARCH_ORDER,
             defaults=BPS_DEFAULTS,
             wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
         )
-        results = prepare_utils._gather_label_values(config, label)
+        results = prepare_utils._gather_label_values(config, label, "site1")
         self.assertEqual(
             results,
             {
                 "attrs": {},
+                "bpsMakeCommand": True,
+                "bpsUseShared": True,
+                "memoryLimit": 491520,
+                "overwriteJobFiles": False,
                 "profile": {"prof_val1": 3},
                 "releaseExpr": "pipetask_val",
-                "overwriteJobFiles": False,
             },
         )
 
     def testNoSection(self):
         label = "notThere"
         config = BpsConfig(
-            {},
+            {"site": {"site1": {}}},
             search_order=BPS_SEARCH_ORDER,
             defaults=BPS_DEFAULTS,
             wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
         )
-        results = prepare_utils._gather_label_values(config, label)
-        self.assertEqual(results, {"attrs": {}, "profile": {}, "overwriteJobFiles": True})
+        results = prepare_utils._gather_label_values(config, label, "site1")
+        self.assertEqual(
+            results,
+            {
+                "attrs": {},
+                "profile": {},
+                "overwriteJobFiles": True,
+                "bpsMakeCommand": True,
+                "bpsUseShared": True,
+                "memoryLimit": 491520,
+            },
+        )
 
     def testNoOverwriteSpecified(self):
         label = "notthere"
         config = BpsConfig(
-            {},
+            {"site": {"site1": {}}},
             search_order=BPS_SEARCH_ORDER,
             defaults={},
             wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
         )
-        results = prepare_utils._gather_label_values(config, label)
-        self.assertEqual(results, {"attrs": {}, "profile": {}, "overwriteJobFiles": True})
+        results = prepare_utils._gather_label_values(config, label, "nosite")
+        self.assertEqual(
+            results,
+            {
+                "attrs": {},
+                "profile": {},
+                "overwriteJobFiles": True,
+                "bpsMakeCommand": True,
+                "bpsUseShared": False,
+            },
+        )
 
     def testFinalJob(self):
         label = "finalJob"
         config = BpsConfig(
-            {"finalJob": {"profile": {"condor": {"prof_val2": 6, "+attr_val1": 5}}}},
+            {"site": {"site1": {}}, "finalJob": {"profile": {"condor": {"prof_val2": 6, "+attr_val1": 5}}}},
             search_order=BPS_SEARCH_ORDER,
             defaults=BPS_DEFAULTS,
             wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
         )
-        results = prepare_utils._gather_label_values(config, label)
+        results = prepare_utils._gather_label_values(config, label, "site1")
         self.assertEqual(
-            results, {"attrs": {"attr_val1": 5}, "profile": {"prof_val2": 6}, "overwriteJobFiles": False}
+            results,
+            {
+                "attrs": {"attr_val1": 5},
+                "profile": {"prof_val2": 6},
+                "overwriteJobFiles": False,
+                "bpsMakeCommand": True,
+                "bpsUseShared": True,
+                "memoryLimit": 491520,
+            },
         )
+
+    def testGlobalNodeset(self):
+        config = BpsConfig(
+            {"nodeset": "global_node_set_{campaign}", "campaign": "DRP"},
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        compute_site = "fr"
+        results = prepare_utils._gather_label_values(config, "label1", compute_site)
+        self.assertEqual(results["nodeset"], "global_node_set_DRP")
+
+    def testSiteNodeset(self):
+        config = BpsConfig(
+            {
+                "nodeset": "global_node_set_{campaign}",
+                "campaign": "DRP",
+                "site": {"fr": {"nodeset": "fr_node_set_{campaign}"}},
+            },
+            search_order=BPS_SEARCH_ORDER,
+            defaults=BPS_DEFAULTS,
+            wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService",
+        )
+        compute_site = "fr"
+        results = prepare_utils._gather_label_values(config, "label1", compute_site)
+        self.assertEqual(results["nodeset"], "fr_node_set_DRP")
 
 
 class CreateCheckJobTestCase(unittest.TestCase):
@@ -391,6 +425,9 @@ class CreateCheckJobTestCase(unittest.TestCase):
 class CreatePeriodicReleaseExprTestCase(unittest.TestCase):
     """Test _create_periodic_release_expr function."""
 
+    def setUp(self):
+        self.maxDiff = None
+
     def testNoReleaseExpr(self):
         results = prepare_utils._create_periodic_release_expr(2048, 1, 32768, "")
         self.assertEqual(results, "")
@@ -404,20 +441,27 @@ class CreatePeriodicReleaseExprTestCase(unittest.TestCase):
         results = prepare_utils._create_periodic_release_expr(2048, 2, 32768, "")
         truth = (
             "JobStatus == 5 && NumJobStarts <= JobMaxRetries && "
+            "(HoldReasonCode =?= 12 || "
             "(HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 || "
             "HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34) && "
-            "min({int(2048 * pow(2, NumJobStarts - 1)), 32768}) < 32768"
+            "min({int(2048 * pow(2, NumJobStarts - 1)), 32768}) < 32768)"
         )
         self.assertEqual(results, truth)
 
     def testJustUserReleaseExpr(self):
         results = prepare_utils._create_periodic_release_expr(2048, 1, 32768, "True")
-        truth = "JobStatus == 5 && NumJobStarts <= JobMaxRetries && HoldReasonCode =!= 1 && True"
+        truth = (
+            "JobStatus == 5 && NumJobStarts <= JobMaxRetries && "
+            "(HoldReasonCode =?= 12 || HoldReasonCode =!= 1 && True)"
+        )
         self.assertEqual(results, truth)
 
     def testJustUserReleaseExprMultiplierNone(self):
         results = prepare_utils._create_periodic_release_expr(2048, None, 32768, "True")
-        truth = "JobStatus == 5 && NumJobStarts <= JobMaxRetries && HoldReasonCode =!= 1 && True"
+        truth = (
+            "JobStatus == 5 && NumJobStarts <= JobMaxRetries && "
+            "(HoldReasonCode =?= 12 || HoldReasonCode =!= 1 && True)"
+        )
         self.assertEqual(results, truth)
 
     def testMemoryAndUserReleaseExpr(self):
@@ -425,7 +469,7 @@ class CreatePeriodicReleaseExprTestCase(unittest.TestCase):
         results = prepare_utils._create_periodic_release_expr(2048, 2, 32768, "True")
         truth = (
             "JobStatus == 5 && NumJobStarts <= JobMaxRetries && "
-            "((HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 || "
+            "(HoldReasonCode =?= 12 || (HoldReasonCode =?= 34 && HoldReasonSubCode =?= 0 || "
             "HoldReasonCode =?= 3 && HoldReasonSubCode =?= 34) && "
             "min({int(2048 * pow(2, NumJobStarts - 1)), 32768}) < 32768 || "
             "HoldReasonCode =!= 1 && True)"

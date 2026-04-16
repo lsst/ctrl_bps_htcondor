@@ -1187,7 +1187,7 @@ class HtcWriteCondorFileTestCase(unittest.TestCase):
             }
             expected = [
                 "executable=$(CTRL_MPEXEC_DIR)/bin/pipetask\n",
-                "arguments=-a -b 2 -c\n",
+                'arguments="-a -b 2 -c"\n',
                 "request_memory=2000\n",
                 "environment=\"one=1 two=\"2\" three='spacey 'quoted' value'\"\n",
                 f"output={job_name}.$(Cluster).out\n",
@@ -1285,7 +1285,7 @@ class HtcDagTestCase(unittest.TestCase):
 
         self.subfile_expected = [
             "executable=/usr/bin/echo\n",
-            "arguments=foo\n",
+            'arguments="foo"\n',
             "output=test_job.$(Cluster).out\n",
             "error=test_job.$(Cluster).out\n",
             "log=test_job.$(Cluster).log\n",
