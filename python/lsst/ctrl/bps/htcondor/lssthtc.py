@@ -188,7 +188,7 @@ class WmsNodeType(IntEnum):
     """Job used to correctly prune jobs after a subdag."""
 
 
-HTC_QUOTE_KEYS = {"environment"}
+HTC_QUOTE_KEYS = {"environment", "arguments"}
 HTC_VALID_JOB_KEYS = {
     "universe",
     "executable",

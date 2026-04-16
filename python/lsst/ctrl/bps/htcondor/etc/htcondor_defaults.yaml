@@ -87,11 +87,12 @@ wmsConfig:
 # Needs to be true for plain SLAC submissions.
 bpsMakeCommand: true
 
-
 payloadCommand: >
   echo -n BPS Beginning of job commands:\ ;
   /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
   {setupEnv}
+  {gwjobExports}
+  {postEnvSetup}
   logDir={jobLogDir};
   pwd;
   echo -n BPS Before running command:\ ;
@@ -108,10 +109,8 @@ payloadCommand: >
   /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
   exit $ret;
 
-
 # Job environment setup
 softwarePath: "/cvmfs/sw.lsst.eu/almalinux-x86_64/lsst_distrib/{lsstVersion}"
-
 customEnvSetup: ""
 setupEnv: >
   unset PYTHONPATH;
@@ -123,6 +122,9 @@ setupEnv: >
   {customEnvSetup}
   echo -n BPS After custom env setup:\ ;
   /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
+
+gwjobExports: ""
+postEnvSetup: ""
 
 # Other job variables
 jobInitDir: "`pwd`"
