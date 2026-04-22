@@ -31,13 +31,13 @@ import logging
 import os
 import re
 from collections import defaultdict
-from copy import deepcopy
 from pathlib import Path
 from typing import Any, cast
 
 from lsst.ctrl.bps import (
     BpsConfig,
     GenericWorkflow,
+    GenericWorkflowFile,
     GenericWorkflowGroup,
     GenericWorkflowJob,
     GenericWorkflowNodeType,
@@ -48,9 +48,10 @@ from lsst.ctrl.bps.bps_utils import create_count_summary
 from .lssthtc import (
     HTCDag,
     HTCJob,
-    _update_dicts,
     condor_status,
     htc_escape,
+    read_dag_info,
+    write_dag_info,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ def _create_job(subdir_template, cached_values, generic_workflow, gwjob, out_pre
     htc_job : `lsst.ctrl.bps.wms.htcondor.HTCJob`
         The HTCondor job equivalent to the given generic job.
     """
+    _LOG.debug("_create_job: cached_values = %s", cached_values)
     htc_job = HTCJob(gwjob.name, label=gwjob.label)
 
     curvals = defaultdict(str)
@@ -99,7 +101,6 @@ def _create_job(subdir_template, cached_values, generic_workflow, gwjob, out_pre
         "when_to_transfer_output": "ON_EXIT_OR_EVICT",
         "transfer_output_files": '""',  # Set to empty string to disable
         "transfer_executable": "False",
-        "getenv": "True",
         # Exceeding memory sometimes triggers SIGBUS or SIGSEGV error. Tell
         # htcondor to put on hold any jobs which exited by a signal. If
         # executed in a bash script, like finalJob, the signals will become
@@ -250,7 +251,10 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
         # No point in adding periodic_release if 0 retries
         if gwjob.number_of_retries > 0:
             periodic_release = _create_periodic_release_expr(
-                gwjob.request_memory, gwjob.memory_multiplier, memory_max, user_release_expr
+                gwjob.request_memory,
+                gwjob.memory_multiplier,
+                memory_max,
+                user_release_expr,
             )
             if periodic_release:
                 jobcmds["periodic_release"] = periodic_release
@@ -266,20 +270,27 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
         jobcmds["concurrency_limit"] = gwjob.concurrency_limit
 
     # Handle command line
-    if gwjob.executable.transfer_executable:
-        jobcmds["transfer_executable"] = "True"
-        jobcmds["executable"] = gwjob.executable.src_uri
-    else:
-        jobcmds["executable"] = _fix_env_var_syntax(gwjob.executable.src_uri)
+    new_job_cmds = _translate_command_line(cached_vals, generic_workflow, gwjob)
+    jobcmds.update(new_job_cmds)
 
-    if gwjob.arguments:
-        arguments = gwjob.arguments
-        arguments = _replace_cmd_vars(arguments, gwjob)
-        arguments = _replace_wms_vars(arguments)
-        arguments = _replace_file_vars(cached_vals["bpsUseShared"], arguments, generic_workflow, gwjob)
-        arguments = _fix_env_var_syntax(arguments)
-        jobcmds["arguments"] = arguments
+    # Add extra "pass-thru" job commands
+    if gwjob.profile:
+        for key, val in gwjob.profile.items():
+            jobcmds[key] = val
+    for key, val in cached_vals["profile"].items():
+        jobcmds[key] = val
 
+    return jobcmds
+
+
+def _translate_command_line(cached_vals, generic_workflow, gwjob):
+    jobcmds = {}
+
+    # Yaml environment section gets put in gwjob.environment
+    # which should be set by job.  If user wants to set
+    # environment vars after setting up stack, the export
+    # commands should be added to the special customEnvSetup
+    # yaml value.
     if gwjob.environment:
         env_str = ""
         for name, value in gwjob.environment.items():
@@ -295,12 +306,69 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
         # Process above added one trailing space
         jobcmds["environment"] = env_str.rstrip()
 
-    # Add extra "pass-thru" job commands
-    if gwjob.profile:
-        for key, val in gwjob.profile.items():
-            jobcmds[key] = val
-    for key, val in cached_vals["profile"].items():
-        jobcmds[key] = val
+    if cached_vals.get("bpsMakeCommand", True):
+        # Way to have fallback to previous behavior as well as
+        # a way forward to centralize logic in bps.
+
+        jobcmds["getenv"] = "True"
+
+        if gwjob.executable.transfer_executable:
+            jobcmds["transfer_executable"] = "True"
+            jobcmds["executable"] = gwjob.executable.src_uri
+        else:
+            jobcmds["executable"] = _fix_env_var_syntax(gwjob.executable.src_uri)
+
+        if gwjob.arguments:
+            arguments = gwjob.arguments
+            arguments = _replace_cmd_vars(arguments, gwjob)
+            arguments = _replace_wms_vars(arguments)
+            arguments = _replace_file_vars(cached_vals["bpsUseShared"], arguments, generic_workflow, gwjob)
+            arguments = _fix_env_var_syntax(arguments)
+            jobcmds["arguments"] = arguments
+
+    else:
+        # Instead of making a bash script, run /bin/bash -c <commands>
+        # HTCondor v25 has a job command called shell that can replace the
+        # /bin/bash when we get to that version.
+
+        # Don't set getenv as setting up the environment is assumed to be
+        # part of the payloadCommand.
+
+        if gwjob.arguments:
+            arguments = gwjob.arguments
+            arguments = _replace_cmd_vars(arguments, gwjob)
+            arguments = _replace_wms_vars(arguments)
+            arguments = _replace_file_vars(cached_vals["bpsUseShared"], arguments, generic_workflow, gwjob)
+            arguments = _fix_env_var_syntax(arguments)
+
+        if gwjob.executable.transfer_executable:
+            # Since replacing executable need to add this executable to the
+            # file transfer list.
+            gwfile = GenericWorkflowFile(
+                name=gwjob.executable.name, src_uri=gwjob.executable.src_uri, wms_transfer=True
+            )
+            generic_workflow.add_job_inputs(gwjob.name, [gwfile])
+            exec_name = os.path.basename(gwjob.executable.src_uri)
+            # Ensure the executable copy is executable.
+            gwjobCommand = f"chmod u+x {exec_name}; ./{exec_name} {arguments}"
+        else:
+            exec_name = _fix_env_var_syntax_shell(gwjob.executable.src_uri)
+            gwjobCommand = f"{exec_name} {arguments}"
+
+        payloadCommand = cached_vals["payloadCommand"]
+        _LOG.debug("%s payloadCommand pre-format: %s", gwjob.label, payloadCommand)
+        payloadCommand = re.sub("{gwjobCommand}", gwjobCommand, payloadCommand)
+        # Remove newlines
+        payloadCommand = re.sub("\n", "", payloadCommand)
+
+        _LOG.debug("%s payloadCommand post-format: %s", gwjob.label, payloadCommand)
+
+        # jobcmds["arguments"] = htc_escape(f"-c '{payloadCommand}'")
+        jobcmds["arguments"] = f"-c '{payloadCommand}'"
+
+        jobcmds["executable"] = "/bin/bash"
+        # Don't need to transfer /bin/bash
+        jobcmds["transfer_executable"] = "False"
 
     return jobcmds
 
@@ -349,6 +417,25 @@ def _fix_env_var_syntax(oldstr):
     newstr = oldstr
     for key in re.findall(r"<ENV:([^>]+)>", oldstr):
         newstr = newstr.replace(rf"<ENV:{key}>", f"$ENV({key})")
+    return newstr
+
+
+def _fix_env_var_syntax_shell(oldstr):
+    """Change ENV place holders to shell var syntax.
+
+    Parameters
+    ----------
+    oldstr : `str`
+        String in which environment variable syntax is to be fixed.
+
+    Returns
+    -------
+    newstr : `str`
+        Given string with environment variable syntax fixed.
+    """
+    newstr = oldstr
+    for key in re.findall(r"<ENV:([^>]+)>", oldstr):
+        newstr = newstr.replace(rf"<ENV:{key}>", f"${{{key}}}")
     return newstr
 
 
@@ -426,7 +513,10 @@ def _replace_cmd_vars(arguments, gwjob):
     try:
         arguments = arguments.format(**replacements)
     except (KeyError, TypeError) as exc:  # TypeError in case None instead of {}
-        _LOG.error("Could not replace command variables: replacement for %s not provided", str(exc))
+        _LOG.error(
+            "Could not replace command variables: replacement for %s not provided",
+            str(exc),
+        )
         _LOG.debug("arguments: %s\ncmdvals: %s", arguments, replacements)
         raise
     return arguments
@@ -609,13 +699,17 @@ def _create_periodic_release_expr(
         # Never auto release a job held by user.
         user_expr = f"HoldReasonCode =!= 1 && {additional_expr}"
 
+    # Automatically release job if held because output file not found
+    # (e.g., job failed so didn't produce output file).
+    transfer_expr = "HoldReasonCode =?= 12"
+
     expr = f"{is_held} && {is_retry_allowed}"
     if user_expr and mem_expr:
-        expr += f" && ({mem_expr} || {user_expr})"
+        expr += f" && ({transfer_expr} || {mem_expr} || {user_expr})"
     elif user_expr:
-        expr += f" && {user_expr}"
+        expr += f" && ({transfer_expr} || {user_expr})"
     elif mem_expr:
-        expr += f" && {mem_expr}"
+        expr += f" && ({transfer_expr} || {mem_expr})"
 
     return expr
 
@@ -746,20 +840,9 @@ def _gather_site_values(config, compute_site):
             _LOG.debug("No execute machine in the pool matches %s", patt)
     if limit:
         config[".bps_defined.memory_limit"] = limit
-
-    _, site_values["bpsUseShared"] = config.search("bpsUseShared", opt={"default": False})
     site_values["memoryLimit"] = limit
 
-    found, value = config.search("accountingGroup", opt=search_opts)
-    if found:
-        site_values["accountingGroup"] = value
-    found, value = config.search("accountingUser", opt=search_opts)
-    if found:
-        site_values["accountingUser"] = value
-
-    found, nodeset = config.search("nodeset", opt=search_opts)
-    if found:
-        site_values["nodeset"] = nodeset
+    _, site_values["bpsUseShared"] = config.search("bpsUseShared", opt={"default": False})
 
     searchobj = config[f".site.{compute_site}.profile.condor"]
     if searchobj:
@@ -773,11 +856,17 @@ def _gather_site_values(config, compute_site):
                 _, val = config.search(key, opt=search_opts)
                 site_values["profile"][key] = val
 
+    searchobj = config[f".site.{compute_site}"]
+    if searchobj:
+        for key, value in searchobj.items():
+            if key not in site_values and key not in ["attrs", "profile"]:
+                site_values[key] = value
+
     _LOG.debug("site_values = %s", site_values)
     return site_values
 
 
-def _gather_label_values(config: BpsConfig, label: str) -> dict[str, Any]:
+def _gather_label_values(config: BpsConfig, label: str, compute_site: str) -> dict[str, Any]:
     """Gather values specific to given job label.
 
     Parameters
@@ -787,35 +876,89 @@ def _gather_label_values(config: BpsConfig, label: str) -> dict[str, Any]:
         information.
     label : `str`
         GenericWorkflowJob label.
+    compute_site : `str`
+        Compute site.
 
     Returns
     -------
     values : `dict` [`str`, `~typing.Any`]
         Values specific to the given job label.
     """
+    _LOG.debug("_gather_label_values: label = %s, compute_site = %s", label, compute_site)
     values: dict[str, Any] = {"attrs": {}, "profile": {}}
 
     search_opts = {}
+    if compute_site:
+        search_opts["curvals"] = {"curr_site": compute_site}
+
     profile_key = ""
     if label == "finalJob" and "finalJob" in config:
         search_opts["searchobj"] = config["finalJob"]
         profile_key = ".finalJob.profile.condor"
     elif label in config["cluster"]:
-        search_opts["curvals"] = {"curr_cluster": label}
+        search_opts.setdefault("curvals", {})["curr_cluster"] = label
         profile_key = f".cluster.{label}.profile.condor"
     elif label in config["pipetask"]:
-        search_opts["curvals"] = {"curr_pipetask": label}
+        search_opts.setdefault("curvals", {})["curr_pipetask"] = label
         profile_key = f".pipetask.{label}.profile.condor"
+
+    if profile_key and profile_key not in config:
+        profile_key = f".site.{compute_site}.profile.condor"
+        if profile_key not in config:
+            profile_key = ".profile.condor"
+
+    # Determine the hard limit for the memory requirement.
+    found, limit = config.search("memoryLimit", opt=search_opts)
+    if not found:
+        search_opts["default"] = DEFAULT_HTC_EXEC_PATT
+        _, patt = config.search("executeMachinesPattern", opt=search_opts)
+        del search_opts["default"]
+
+        # To reduce the amount of data, ignore dynamic slots (if any) as,
+        # by definition, they cannot have more memory than
+        # the partitionable slot they are the part of.
+        constraint = f'SlotType != "Dynamic" && regexp("{patt}", Machine)'
+        pool_info = condor_status(constraint=constraint)
+        try:
+            limit = max(int(info["TotalSlotMemory"]) for info in pool_info.values())
+        except ValueError:
+            _LOG.debug("No execute machine in the pool matches %s", patt)
+
+    if limit:
+        config[".bps_defined.memory_limit"] = limit
+        values["memoryLimit"] = limit
+
+    values["bpsUseShared"] = False
+    found, value = config.search("bpsUseShared", opt=search_opts)
+    if found:
+        values["bpsUseShared"] = value
 
     found, value = config.search("releaseExpr", opt=search_opts)
     if found:
         values["releaseExpr"] = value
 
+    values["overwriteJobFiles"] = True
     found, value = config.search("overwriteJobFiles", opt=search_opts)
     if found:
         values["overwriteJobFiles"] = value
-    else:
-        values["overwriteJobFiles"] = True
+
+    found, value = config.search("releaseExpr", opt=search_opts)
+    if found:
+        values["releaseExpr"] = value
+
+    found, value = config.search("bpsMakeCommand", opt=search_opts)
+    values["bpsMakeCommand"] = value if found else True
+    if found and not value:
+        search_opts["skipNames"] = {"gwjobCommand"}
+        _LOG.debug("_gather_label_values: search_opts = %s", search_opts)
+        found, value = config.search("payloadCommand", opt=search_opts)
+        if found:
+            values["payloadCommand"] = value
+            _LOG.debug("payloadCommand = %s", value)
+
+    found, value = config.search("nodeset", opt=search_opts)
+    if found:
+        values["nodeset"] = value
 
     if profile_key and profile_key in config:
         for subkey, val in config[profile_key].items():
@@ -823,6 +966,14 @@ def _gather_label_values(config: BpsConfig, label: str) -> dict[str, Any]:
                 values["attrs"][subkey[1:]] = val
             else:
                 values["profile"][subkey] = val
+
+    if compute_site and compute_site in config["site"]:
+        site_obj = config[f".site.{compute_site}"]
+        for key, value in site_obj.items():
+            if key not in values and key not in ["attrs", "profile"]:
+                values[key] = value
+
+    _LOG.debug("_gather_label_values: label = %s, values = %s", label, values)
 
     return values
 
@@ -910,26 +1061,31 @@ def _generic_workflow_to_htcondor_dag(
             "bps_job_summary": create_count_summary(generic_workflow.job_counts),
         }
     )
-
     _, tmp_template = config.search("subDirTemplate", opt={"replaceVars": False, "default": ""})
+
+    _, save_htc_dot = config.search("saveHTCdot", opt={"default": False})
+    dag.graph["write_dot"] = save_htc_dot
+
     if isinstance(tmp_template, str):
         subdir_template = defaultdict(lambda: tmp_template)
     else:
         subdir_template = tmp_template
 
+    # Save list of lazy group jobs for later extra handling.
+    lazy_groups = []
+
     # Create all DAG jobs
-    site_values = {}  # Cache compute site specific values to reduce config lookups.
     cached_values = {}  # Cache label-specific values to reduce config lookups.
     # Note: Can't use get_job_by_label because those only include payload jobs.
     for job_name in generic_workflow:
         gwjob = generic_workflow.get_job(job_name)
-        if gwjob.node_type == GenericWorkflowNodeType.PAYLOAD:
+        if gwjob.node_type in [
+            GenericWorkflowNodeType.PAYLOAD,
+            GenericWorkflowNodeType.LAZY_GROUP,
+        ]:
             gwjob = cast(GenericWorkflowJob, gwjob)
-            if gwjob.compute_site not in site_values:
-                site_values[gwjob.compute_site] = _gather_site_values(config, gwjob.compute_site)
             if gwjob.label not in cached_values:
-                cached_values[gwjob.label] = deepcopy(site_values[gwjob.compute_site])
-                _update_dicts(cached_values[gwjob.label], _gather_label_values(config, gwjob.label))
+                cached_values[gwjob.label] = _gather_label_values(config, gwjob.label, gwjob.compute_site)
                 _LOG.debug("cached: %s= %s", gwjob.label, cached_values[gwjob.label])
             htc_job = _create_job(
                 subdir_template[gwjob.label],
@@ -952,11 +1108,17 @@ def _generic_workflow_to_htcondor_dag(
         _LOG.debug("Calling adding job %s %s", htc_job.name, htc_job.label)
         dag.add_job(htc_job)
 
+        # Have to add the placeholder job for the workflow
+        if gwjob.node_type == GenericWorkflowNodeType.LAZY_GROUP:
+            lazy_groups.append(gwjob.name)
+
     # Add job dependencies to the DAG (be careful with wms_ jobs)
     for job_name in generic_workflow:
         gwjob = generic_workflow.get_job(job_name)
         parent_name = (
-            gwjob.name if gwjob.node_type == GenericWorkflowNodeType.PAYLOAD else f"wms_{gwjob.name}"
+            gwjob.name
+            if gwjob.node_type in [GenericWorkflowNodeType.PAYLOAD, GenericWorkflowNodeType.LAZY_GROUP]
+            else f"wms_{gwjob.name}"
         )
         successor_jobs = [generic_workflow.get_job(j) for j in generic_workflow.successors(job_name)]
         children_names = []
@@ -981,21 +1143,25 @@ def _generic_workflow_to_htcondor_dag(
                 parent_name = check_job.name
         else:
             for sjob in successor_jobs:
-                if sjob.node_type == GenericWorkflowNodeType.PAYLOAD:
+                if sjob.node_type in [
+                    GenericWorkflowNodeType.PAYLOAD,
+                    GenericWorkflowNodeType.LAZY_GROUP,
+                ]:
                     children_names.append(sjob.name)
                 else:
                     children_names.append(f"wms_{sjob.name}")
 
         dag.add_job_relationships([parent_name], children_names)
 
+    # Go back and add placeholder jobs for the lazy group dags
+    for lazy_group_name in lazy_groups:
+        _add_lazy_placeholder(lazy_group_name, generic_workflow, dag, out_prefix)
+
     # If final job exists in generic workflow, create DAG final job
     final = generic_workflow.get_final()
     if final and isinstance(final, GenericWorkflowJob):
-        if final.compute_site and final.compute_site not in site_values:
-            site_values[final.compute_site] = _gather_site_values(config, final.compute_site)
         if final.label not in cached_values:
-            cached_values[final.label] = deepcopy(site_values[final.compute_site])
-            _update_dicts(cached_values[final.label], _gather_label_values(config, final.label))
+            cached_values[final.label] = _gather_label_values(config, final.label, final.compute_site)
         final_htjob = _create_job(
             subdir_template[final.label],
             cached_values[final.label],
@@ -1016,3 +1182,111 @@ def _generic_workflow_to_htcondor_dag(
         raise TypeError(f"Invalid type for GenericWorkflow.get_final() results ({type(final)})")
 
     return dag
+
+
+def _add_lazy_placeholder(
+    prepare_job_name: str,
+    generic_workflow: GenericWorkflow,
+    dag: HTCDag,
+    out_prefix: str,
+):
+    _LOG.debug("prepare_job_name = %s", prepare_job_name)
+
+    # Make a fake job for the placeholder workflow
+    job1 = HTCJob("placeholder")
+    job1.add_job_cmds(
+        {
+            "executable": "/usr/bin/echo",
+            "arguments": '"BPS internal error - placeholder DAG was not replaced."',
+        }
+    )
+    job1.add_job_attrs({"bps_job_name": "placeholder", "bps_job_label": "placeholder"})
+    job1.add_job_attrs(generic_workflow.run_attrs)
+
+    # TODO - Placeholder dag name needs to be the run name because that's
+    # currently what the bps code will name the workflow.  Needs to be made
+    # more generic.
+    placeholder_dag_name = generic_workflow.name.replace("_ctrl", "")
+    placeholder_dag = HTCDag(name=placeholder_dag_name)
+    _LOG.debug("dag name = %s", placeholder_dag.graph["name"])
+    placeholder_dag.add_attribs(generic_workflow.run_attrs)
+    placeholder_dag.add_job(job1)
+
+    # To help ordering in bps report, save info so can figure out where
+    # to put jobs in lazy dag in bps_job_label
+    dag.add_attribs({"bps_lazy_mapping": f"{placeholder_dag.name}:{prepare_job_name}"})
+
+    # The subdag job to be added to the control dag
+    dag_job = HTCJob("wms_lazy_payload", "wms_lazy_payload")
+    dag_job.subfile = f"{placeholder_dag.name}.condor.sub"
+    dag_job.subdag = placeholder_dag
+
+    dag.add_job(dag_job)
+
+    # Update edges inserting between prepare job and any following jobs.
+    successor_jobs = list(dag.successors(prepare_job_name))
+    for job in successor_jobs:
+        dag.add_edge(dag_job.name, job)
+        dag.remove_edge(prepare_job_name, job)
+
+    dag.add_edge(prepare_job_name, dag_job.name)
+
+    _LOG.debug("_add_lazy_placeholder: edges = %s", dag.edges)
+
+
+def _update_job_summary(subworkflow_name: str, subworkflow_summary: str, submit_path: str) -> None:
+    """Add summary for jobs in given subworkflow to parent workflow's job
+    summary.
+
+    Parameters
+    ----------
+    subworkflow_name : `str`
+        Name of subworkflow.
+    subworkflow_summary : `str`
+        Job summary for the subworkflow.
+    submit_path : `str`
+        Directory in which to find the DAG info file.
+    """
+    _LOG.debug("submit_path = %s", submit_path)
+    filename, dag_info = read_dag_info(submit_path)
+    _LOG.debug("dag_info = %s", dag_info)
+
+    schedd_name = next(iter(dag_info))
+    dag_values = next(iter(dag_info[schedd_name].values()))
+    _LOG.debug("dag_values = %s", dag_values)
+
+    # Get lazy mapping and the job that generated this dag
+    generator_name = None
+    lazy_mapping = dag_values.get("bps_lazy_mapping", None)
+    if lazy_mapping:  # find this workflow's generator job
+        for part in lazy_mapping.split(";"):
+            info = part.split(":")
+            if info[0] == subworkflow_name:
+                generator_name = info[1]
+                break
+
+    # Update bps_job_summary
+    _LOG.debug(
+        "Before replace, name = %s, bps_job_summary = %s, add summary = %s, generator_name = %s",
+        subworkflow_name,
+        dag_values["bps_job_summary"],
+        subworkflow_summary,
+        generator_name,
+    )
+    if generator_name:
+        generator_summary = f"{generator_name}:1"
+        dag_values["bps_job_summary"] = dag_values["bps_job_summary"].replace(
+            generator_summary, f"{generator_summary};{subworkflow_summary}"
+        )
+    else:
+        # just append to end of bps_job_summary
+        dag_values["bps_job_summary"] += f";{subworkflow_summary}"
+
+    _LOG.debug(
+        "After replace, name = %s, bps_job_summary = %s",
+        subworkflow_name,
+        dag_values["bps_job_summary"],
+    )
+
+    # Save updated bps_job_summary
+    write_dag_info(dag_info, filename)

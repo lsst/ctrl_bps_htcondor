@@ -195,6 +195,12 @@ at the root level or inside a ``site`` section, but not inside a ``pipetask``,
 If your main workflow contains sub-workflow defined in individual DAG
 description files, they will use the same configuration as the main workflow.
 
+Miscellaneous
+^^^^^^^^^^^^^
+
+* ``saveHTCdot`` - true/false.  Whether condor_dagman outputs a DOT
+  representation of the workflow DAG.
+
 .. __: https://htcondor.readthedocs.io/en/latest/admin-manual/configuration-macros.html#dagman-configuration-file-entries
 
 .. .. _htc-plugin-authenticating:
@@ -600,6 +606,22 @@ For more information about expressions, see HTCondor documentation:
    hold reasons for a single completed run can be found via ``grep -A
    2 held <submit dir>/*.nodes.log``.
 
+
+.. _htc_submit_as_batch:
+
+Submit Stages as Batch Jobs
+---------------------------
+
+When BPS uses batch jobs for the submission process, there isn't much
+different in how HTC handles them vs the payload jobs.  There will be
+a ``jobs`` subdir for each of them which will contain the standard
+output/error and HTCondor job log.  If you have to provision resources
+for the payload jobs, these new jobs will also need resources provisioned.
+
+Noticable differences in the HTCondor-level details include a second
+``*.dag`` file in the submit directory and a second ``condor_dagman``
+job in the queue.  This is subDAG handles the payload workflow and
+isn't created until the ``preparePayloadWorkflow`` job executes.
 
 .. _htc-plugin-troubleshooting:
 

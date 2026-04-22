@@ -108,12 +108,18 @@ class HtcNodeStatusToWmsStateTestCase(unittest.TestCase):
         self.assertEqual(result, WmsStates.SUCCEEDED)
 
     def testErrorDagmanSuccess(self):
-        job = {"NodeStatus": common_utils.NodeStatus.ERROR, "StatusDetails": "DAGMAN error 0"}
+        job = {
+            "NodeStatus": common_utils.NodeStatus.ERROR,
+            "StatusDetails": "DAGMAN error 0",
+        }
         result = common_utils._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.SUCCEEDED)
 
     def testErrorDagmanFailure(self):
-        job = {"NodeStatus": common_utils.NodeStatus.ERROR, "StatusDetails": "DAGMAN error 1"}
+        job = {
+            "NodeStatus": common_utils.NodeStatus.ERROR,
+            "StatusDetails": "DAGMAN error 1",
+        }
         result = common_utils._htc_node_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.FAILED)
 
@@ -237,6 +243,43 @@ class WmsIdTypeTestCase(unittest.TestCase):
     def testUnknownType(self):
         id_type = common_utils._wms_id_type(["bad param"])
         self.assertEqual(id_type, common_utils.WmsIdType.UNKNOWN)
+
+
+class WmsIdToClusterTestCase(unittest.TestCase):
+    """Test _wms_id_to_cluster function."""
+
+    class _MockCollector:
+        def locate(self, daemon_type, schedd_name):
+            return """[
+                CondorPlatform = "$CondorPlatform: X86_64-AlmaLinux_9.6 $";
+                MyType = "Scheduler";
+                Machine = "testmachine";
+                Name = "testmachine";
+                CondorVersion = "$CondorVersion: 24.0.10 2025-08-05 $";
+                MyAddress = "<127.0.0.1:9618?addrs=127.0.0.1-9618+snip>"
+            ]"""
+
+    @unittest.mock.patch("htcondor.Collector", new=_MockCollector)
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.common_utils.read_dag_info")
+    def testPath(self, mock_read):
+        # path must exist or _wms_id_type will assume GLOBAL string
+        with temporaryDirectory() as tmp_dir:
+            mock_read.return_value = [
+                "dummy_str",
+                {
+                    "testmachine": {
+                        "1163.0": {
+                            "testmachine": {
+                                "ClusterId": 1163,
+                                "GlobalJobId": "testmachine#1163.0#1722040518",
+                            }
+                        }
+                    }
+                },
+            ]
+            schedd_ad, cluster_id, id_type = common_utils._wms_id_to_cluster(tmp_dir)
+            self.assertEqual(id_type, common_utils.WmsIdType.PATH)
+            self.assertEqual(cluster_id, 1163)
 
 
 if __name__ == "__main__":

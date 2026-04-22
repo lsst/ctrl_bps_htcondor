@@ -66,6 +66,7 @@ _fields.update(
         "dagman_debug": (str, ""),
         "dagman_node_record_info": (str, ""),
         "dagman_record_machine_attrs": (str, ""),
+        "dagman_manager_job_append_getenv": (str, ""),
     }
 )
 

@@ -175,7 +175,7 @@ class HTCondorService(BaseWmsService):
             _LOG.info("Submitting from directory: %s", os.getcwd())
             schedd_dag_info = htc_submit_dag(sub)
             if schedd_dag_info:
-                write_dag_info(f"{dag.name}.info.json", schedd_dag_info)
+                write_dag_info(schedd_dag_info)
 
                 _, dag_info = schedd_dag_info.popitem()
                 _, dag_ad = dag_info.popitem()
@@ -275,7 +275,7 @@ class HTCondorService(BaseWmsService):
                 if schedd_dag_info:
                     dag_info = next(iter(schedd_dag_info.values()))
                     dag_ad = next(iter(dag_info.values()))
-                    write_dag_info(f"{dag_ad['bps_run']}.info.json", schedd_dag_info)
+                    write_dag_info(schedd_dag_info)
                     run_id = f"{dag_ad['ClusterId']}.{dag_ad['ProcId']}"
                     run_name = dag_ad["bps_run"]
                 else:
@@ -578,3 +578,27 @@ class HTCondorService(BaseWmsService):
             status = 1
             message = f"Permission problem with {daemon_type} service."
         return status, message
+
+    def run_submission_checks(self):
+        """Check to run at start if running WMS specific submission steps.
+
+        Any exception other than NotImplementedError will halt submission.
+        Submit directory may not yet exist when this is called.
+        """
+        # Some early config sanity checks
+        found, value = self.config.search("bpsMakeCommand")
+        bps_make_command = value if found else True
+        if not bps_make_command:
+            found, value = self.config.search("payloadCommand", opt={"replaceVars": False})
+            if not found:
+                raise KeyError("Missing 'payloadCommand' in config while bpsMakeCommand=True")
+
+            if "setupEnv" in value:
+                found, value = self.config.search("setupEnv", opt={"replaceVars": False})
+                if not found:
+                    raise KeyError("Missing 'setupEnv' in config, but appears in payloadCommand")
+
+                if "lsstVersion" in value:
+                    found, value = self.config.search("lsstVersion", opt={"replaceVars": False})
+                    if not found:
+                        raise KeyError("Missing 'lsstVersion' in config, but appears in setupEnv in config")

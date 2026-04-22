@@ -56,3 +56,43 @@ wmsConfig:
   # A boolean flag controlling whether DAGMan should generate submit files for
   # nested DAGs automatically.
   DAGMAN_GENERATE_SUBDAG_SUBMITS: true
+
+bpsMakeCommand: true
+#payloadCommand: >
+#  {setupEnv}
+#  logDir={jobLogDir};
+#  pwd;
+#  {gwjobCommand} & pJob=$!;
+#  prmon -i 5
+#  -f ${logDir}/memory_monitor_output.txt
+#  -j ${logDir}/memory_monitor_summary.json
+#  -p $pJob & mJob=$!;
+#  wait $pJob;
+#  ret=$?;
+#  wait $mJob;
+#  {jobCleanup}
+#  exit $ret;
+
+payloadCommand: >
+  {setupEnv}
+  logDir={jobLogDir};
+  pwd;
+  {gwjobCommand};
+  ret=$?;
+  {jobCleanup}
+  exit $ret;
+
+# Job environment setup
+softwarePath: "/cvmfs/sw.lsst.eu/almalinux-x86_64/lsst_distrib/{LSST_VERSION}"
+
+customEnvSetup: ""
+setupEnv: >
+  unset PYTHONPATH;
+  source {softwarePath}/loadLSST.bash;
+  setup lsst_distrib;
+  {customEnvSetup}
+
+# Other job variables
+jobInitDir: "`pwd`"
+jobLogDir: "{jobInitDir}"
+jobCleanup: ""

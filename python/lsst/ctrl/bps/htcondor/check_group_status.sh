@@ -12,6 +12,6 @@ if ! [ -f "$1" ]; then
     exit 1
 fi
 
-group_status=$(<"$1")
+group_status=$(/usr/bin/cat "$1")
 echo "Read status ${group_status} from group status file ($1)" >&2
 exit ${group_status}
