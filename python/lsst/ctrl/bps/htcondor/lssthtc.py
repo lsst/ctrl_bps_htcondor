@@ -2055,6 +2055,11 @@ def read_single_dag_nodes_log(filename: str | os.PathLike) -> dict[str, dict[str
             # plus subdags.
             if event["EventTypeNumber"] == 9 and info[id_].get("EventTypeNumber", -1) == 5:
                 _LOG.debug("Skipping spurious JobAbortedEvent: %s", dict(event))
+            elif event["EventTypeNumber"] == 16 and event["DAGNodeName"] == "finalJob":
+                # FINAL job's post script exit code is special and indicates
+                # status of DAG instead of just the FINAL job.  Save the
+                # information separately.
+                info[id_]["post"] = dict(event)
             else:
                 _update_dicts(info[id_], event)
                 info[id_][f"{event.type.name.lower()}_time"] = event["EventTime"]
