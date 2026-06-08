@@ -1749,7 +1749,7 @@ def read_single_node_status(filename: str | os.PathLike, init_fake_id: int) -> d
     _, job_name_to_label, job_name_to_type = count_jobs_in_single_dag(filename.with_suffix(".dag"))
     loginfo: dict[str, dict[str, Any]] = {}
     try:
-        wms_workflow_id, loginfo = read_single_dag_log(filename.with_suffix(".dag.dagman.log"))
+        wms_workflow_id, _ = read_single_dag_log(filename.with_suffix(".dag.dagman.log"))
         loginfo = read_single_dag_nodes_log(filename.with_suffix(".dag.nodes.log"))
     except (OSError, PermissionError):
         pass
