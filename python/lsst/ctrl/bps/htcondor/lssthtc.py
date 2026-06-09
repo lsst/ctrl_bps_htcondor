@@ -706,7 +706,9 @@ def htc_submit_dag(sub):
     return schedd_dag_info
 
 
-def htc_create_submit_from_dag(dag_filename: str, submit_options: dict[str, Any]) -> htcondor.Submit:
+def htc_create_submit_from_dag(
+    dag_filename: str, submit_options: dict[str, Any], dagman_conf_filename: str | os.PathLike | None = None
+) -> htcondor.Submit:
     """Create a DAGMan job submit description.
 
     Parameters
@@ -715,6 +717,9 @@ def htc_create_submit_from_dag(dag_filename: str, submit_options: dict[str, Any]
         Name of file containing HTCondor DAG commands.
     submit_options : `dict` [`str`, `~typing.Any`], optional
         Contains extra options for command line (Value of None means flag).
+    dagman_conf_filename : `str` or `os.PathLike`, optional
+        Location of DAGMan configuration file, if Any.  Defaults to no
+        file (None).
 
     Returns
     -------
@@ -734,13 +739,30 @@ def htc_create_submit_from_dag(dag_filename: str, submit_options: dict[str, Any]
     if "MaxIdle" not in submit_options:
         max_jobs_idle: int | None = None
         config_var_name = "DAGMAN_MAX_JOBS_IDLE"
-        if f"_CONDOR_{config_var_name}" in os.environ:
-            max_jobs_idle = int(os.environ[f"_CONDOR_{config_var_name}"])
-        elif config_var_name in htcondor.param:
-            max_jobs_idle = htcondor.param[config_var_name]
+
+        if dagman_conf_filename:
+            _LOG.debug("Checking DAGMan config file = %s", dagman_conf_filename)
+            with open(dagman_conf_filename) as fh:
+                for line in fh:
+                    _LOG.debug("DAGMan config file line = %s", line)
+                    parts = line.split("=")
+                    _LOG.debug("DAGMan config file line parts = %s", parts)
+                    if len(parts) == 2 and parts[0].strip() == config_var_name:
+                        max_jobs_idle = int(parts[1].strip())
+                        _LOG.debug("Found %s = %s", config_var_name, max_jobs_idle)
+                        break
+        if max_jobs_idle is None:
+            if f"_CONDOR_{config_var_name}" in os.environ:
+                max_jobs_idle = int(os.environ[f"_CONDOR_{config_var_name}"])
+            elif config_var_name in htcondor.param:
+                max_jobs_idle = htcondor.param[config_var_name]
+
         if max_jobs_idle:
             submit_options["MaxIdle"] = max_jobs_idle
+    else:
+        _LOG.debug("MaxIdle already in submit_options: %s", submit_options)
 
+    _LOG.debug("Using submit_options = %s", submit_options)
     return htcondor.Submit.from_dag(dag_filename, submit_options)
 
 

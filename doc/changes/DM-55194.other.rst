@@ -1,0 +1,1 @@
+Added dagman.conf value to DAGMAN_MAX_JOBS_IDLE workaround.

@@ -163,7 +163,12 @@ class HTCondorService(BaseWmsService):
         with chdir(workflow.submit_path):
             try:
                 if ver >= version.parse("8.9.3"):
-                    sub = htc_create_submit_from_dag(dag.graph["dag_filename"], dag.graph["submit_options"])
+                    wms_config_path = None
+                    if "bps_wms_config_path" in dag.graph["attr"]:
+                        wms_config_path = dag.graph["attr"]["bps_wms_config_path"]
+                    sub = htc_create_submit_from_dag(
+                        dag.graph["dag_filename"], dag.graph["submit_options"], wms_config_path
+                    )
                 else:
                     sub = htc_create_submit_from_cmd(dag.graph["dag_filename"], dag.graph["submit_options"])
             except Exception:
