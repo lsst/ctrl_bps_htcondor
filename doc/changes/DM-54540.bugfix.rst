@@ -1,0 +1,2 @@
+- Fix bug causing ``bps report`` to emit confusing error due to mixing information specific to a ``condor_dagman`` job with the information related to its jobs.
+- Fix the issue with ``bps report`` providing incorrect job counts after restarts.
