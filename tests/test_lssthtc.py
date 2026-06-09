@@ -644,6 +644,208 @@ class ReadNodeStatusTestCase(unittest.TestCase):
             )
 
 
+class ReadSingleNodeStatusTestCase(unittest.TestCase):
+    """Test read_single_node_status function."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        rmtree(self.tmpdir, ignore_errors=True)
+
+    def _copy_files(self, data_subdir, suffixes):
+        """Copy files with given suffixes from tests/data/<data_subdir>/."""
+        for suffix in suffixes:
+            copy2(f"{TESTDIR}/data/{data_subdir}/{data_subdir}{suffix}", self.tmpdir)
+
+    def _job_name_to_id(self, jobs):
+        return {info["DAGNodeName"]: id_ for id_, info in jobs.items()}
+
+    def test_all_done(self):
+        self._copy_files(
+            "tiny_success",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log", ".node_status"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_success.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 5)
+        name_to_id = self._job_name_to_id(jobs)
+
+        # All four submitted nodes are marked DONE.
+        for name in [
+            "pipetaskInit",
+            "5bba27bd-8df7-4668-a9c5-e911192c5cdb_label1_val1_val2",
+            "0b225f1f-6edf-4380-b546-76c97947a88f_label2_val1_val2",
+            "finalJob",
+        ]:
+            self.assertIn(name, name_to_id, msg=f"Missing job {name}")
+            self.assertEqual(
+                jobs[name_to_id[name]]["NodeStatus"],
+                lssthtc.NodeStatus.DONE,
+                msg=f"Expected DONE for {name}",
+            )
+
+        # Service job not tracked by node_status; it came from the event log so
+        # it has a real positive ClusterId but no NodeStatus field.
+        self.assertIn("provisioningJob", name_to_id)
+        self.assertGreater(jobs[name_to_id["provisioningJob"]]["ClusterId"], 0)
+
+        # Spot-check labels and types.
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["bps_job_label"], "pipetaskInit")
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["wms_node_type"], lssthtc.WmsNodeType.PAYLOAD)
+        self.assertEqual(jobs[name_to_id["finalJob"]]["wms_node_type"], lssthtc.WmsNodeType.FINAL)
+        self.assertEqual(jobs[name_to_id["provisioningJob"]]["wms_node_type"], lssthtc.WmsNodeType.SERVICE)
+
+        # DAGManJobID is populated from the dagman log for every job.
+        for job in jobs.values():
+            self.assertIn("DAGManJobID", job)
+
+    def test_mixed_statuses(self):
+        self._copy_files(
+            "tiny_problems",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log", ".node_status"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_problems.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 7)
+        name_to_id = self._job_name_to_id(jobs)
+
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["NodeStatus"], lssthtc.NodeStatus.DONE)
+        self.assertEqual(
+            jobs[name_to_id["057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b"]]["NodeStatus"],
+            lssthtc.NodeStatus.ERROR,
+        )
+        self.assertEqual(
+            jobs[name_to_id["4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a"]]["NodeStatus"],
+            lssthtc.NodeStatus.DONE,
+        )
+        self.assertEqual(
+            jobs[name_to_id["40040b97-606d-4997-98d3-e0493055fe7e_label2_val1a_val2b"]]["NodeStatus"],
+            lssthtc.NodeStatus.FUTILE,
+        )
+        self.assertEqual(jobs[name_to_id["finalJob"]]["NodeStatus"], lssthtc.NodeStatus.ERROR)
+        # Service job not tracked by node_status; came from event log so
+        # it has a real positive ClusterId but no NodeStatus field.
+        self.assertIn("provisioningJob", name_to_id)
+        self.assertGreater(jobs[name_to_id["provisioningJob"]]["ClusterId"], 0)
+
+    def test_running_workflow(self):
+        self._copy_files(
+            "tiny_running",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log", ".node_status"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_running.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 5)
+        name_to_id = self._job_name_to_id(jobs)
+
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["NodeStatus"], lssthtc.NodeStatus.DONE)
+        self.assertEqual(
+            jobs[name_to_id["ca27ea57-c014-44c1-838a-78c06bc3ec1b_label1_val1_val2"]]["NodeStatus"],
+            lssthtc.NodeStatus.SUBMITTED,
+        )
+        self.assertEqual(
+            jobs[name_to_id["dbf919fa-5453-4b05-8806-ad6390fda0a3_label2_val1_val2"]]["NodeStatus"],
+            lssthtc.NodeStatus.NOT_READY,
+        )
+        self.assertEqual(jobs[name_to_id["finalJob"]]["NodeStatus"], lssthtc.NodeStatus.NOT_READY)
+        # Service job appeared in the event log; has a real positive ClusterId.
+        self.assertIn("provisioningJob", name_to_id)
+        self.assertGreater(jobs[name_to_id["provisioningJob"]]["ClusterId"], 0)
+
+    def test_missing_node_status_file(self):
+        # Omit the .node_status file; jobs must be built from the event log
+        # and dag.
+        self._copy_files(
+            "tiny_problems",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_problems.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 7)
+        name_to_id = self._job_name_to_id(jobs)
+
+        # Jobs that appeared in the event log have real (positive) cluster IDs.
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["DAGNodeName"], "pipetaskInit")
+        self.assertGreater(jobs[name_to_id["pipetaskInit"]]["ClusterId"], 0)
+
+        # The service job appeared in the event log and has a real positive ID.
+        self.assertGreater(jobs[name_to_id["provisioningJob"]]["ClusterId"], 0)
+
+        # All jobs carry the correct label and type from the dag file.
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["wms_node_type"], lssthtc.WmsNodeType.PAYLOAD)
+        self.assertEqual(jobs[name_to_id["provisioningJob"]]["wms_node_type"], lssthtc.WmsNodeType.SERVICE)
+
+    def test_missing_log_files(self):
+        # Omit both log files; every job should get a fake negative ID.
+        self._copy_files("tiny_success", [".dag", ".node_status"])
+        filename = pathlib.Path(self.tmpdir) / "tiny_success.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 5)
+        for job in jobs.values():
+            self.assertLess(job["ClusterId"], 0)
+
+        # NodeStatus values from the node_status file must still be preserved.
+        name_to_id = self._job_name_to_id(jobs)
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["NodeStatus"], lssthtc.NodeStatus.DONE)
+        self.assertEqual(jobs[name_to_id["finalJob"]]["NodeStatus"], lssthtc.NodeStatus.DONE)
+        self.assertEqual(jobs[name_to_id["provisioningJob"]]["NodeStatus"], lssthtc.NodeStatus.NOT_READY)
+
+    def test_init_fake_id(self):
+        # Verify fake IDs count down from the given starting value.
+        self._copy_files("tiny_success", [".dag", ".node_status"])
+        filename = pathlib.Path(self.tmpdir) / "tiny_success.node_status"
+        init_fake_id = -10
+        jobs = lssthtc.read_single_node_status(filename, init_fake_id)
+
+        self.assertEqual(len(jobs), 5)
+        cluster_ids = [job["ClusterId"] for job in jobs.values()]
+        # All IDs must be at most init_fake_id (i.e., -10 or lower).
+        for cid in cluster_ids:
+            self.assertLessEqual(cid, init_fake_id)
+        # All IDs must be unique.
+        self.assertEqual(len(set(cluster_ids)), len(cluster_ids))
+
+    def test_from_dag_job_attribute(self):
+        self._copy_files(
+            "tiny_success",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log", ".node_status"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_success.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        for id_, job in jobs.items():
+            self.assertEqual(
+                job["from_dag_job"],
+                "wms_tiny_success",
+                msg=f"Job {id_} has wrong from_dag_job",
+            )
+
+    def test_service_job_placeholder(self):
+        self._copy_files(
+            "tiny_prov_no_submit",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log", ".node_status"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_prov_no_submit.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        service_jobs = [
+            (id_, info)
+            for id_, info in jobs.items()
+            if info.get("wms_node_type") == lssthtc.WmsNodeType.SERVICE
+        ]
+        self.assertEqual(len(service_jobs), 1)
+        service_id, service_job = service_jobs[0]
+        self.assertEqual(service_job["DAGNodeName"], "provisioningJob")
+        self.assertEqual(service_job["NodeStatus"], lssthtc.NodeStatus.NOT_READY)
+        self.assertLess(service_job["ClusterId"], 0)
+
+
 class HTCJobTestCase(unittest.TestCase):
     """Test HTCJob methods."""
 
