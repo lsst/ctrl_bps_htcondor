@@ -1234,6 +1234,28 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {})
             self.assertIn("-MaxIdle 42", submit["arguments"])
 
+    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_MAX_JOBS_IDLE": "42"})
+    def testMaxIdleInDAGManConfig(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
+            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
+            config_filename = pathlib.Path(tmp_dir) / "dagman.conf"
+            with open(config_filename, "w") as fh:
+                print("DAGMAN_MAX_JOBS_IDLE = 300", file=fh)
+            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {}, config_filename)
+            self.assertIn("-MaxIdle 300", submit["arguments"])
+
+    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_MAX_JOBS_IDLE": "42"})
+    def testMaxIdleNotInDAGManConfig(self):
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
+            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
+            config_filename = pathlib.Path(tmp_dir) / "dagman.conf"
+            with open(config_filename, "w") as fh:
+                print("DAGMAN_MAX_JOBS_SUBMITTED = 300", file=fh)
+            submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {}, config_filename)
+            self.assertIn("-MaxIdle 42", submit["arguments"])
+
     @unittest.mock.patch.dict(os.environ, {})
     def testMaxIdleGiven(self):
         with temporaryDirectory() as tmp_dir:
@@ -1241,6 +1263,27 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"MaxIdle": 37})
             self.assertIn("-MaxIdle 37", submit["arguments"])
+
+    @unittest.mock.patch.dict(os.environ, {})
+    def testMaxJobsIdleParam(self):
+        def _fake_params_contains(key):
+            if key == "DAGMAN_MAX_JOBS_IDLE":
+                return True
+            return False  # pragma: no cover
+
+        def _fake_params_get(key):
+            if key == "DAGMAN_MAX_JOBS_IDLE":
+                return 16
+            return "FAKE_VAL"  # pragma: no cover
+
+        with temporaryDirectory() as tmp_dir:
+            copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
+            dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
+            with unittest.mock.patch("htcondor.param") as mock_param:
+                mock_param.__contains__.side_effect = _fake_params_contains
+                mock_param.__getitem__.side_effect = _fake_params_get
+                submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {}, None)
+                self.assertIn("-MaxIdle 16", submit["arguments"])
 
     @unittest.mock.patch.dict(os.environ, {})
     def testNoMaxJobsIdle(self):

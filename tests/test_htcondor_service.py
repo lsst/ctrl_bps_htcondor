@@ -28,19 +28,23 @@
 """Unit tests for the HTCondor WMS service class and related functions."""
 
 import logging
+import os
 import tempfile
 import unittest
 from pathlib import Path
 
 import htcondor
 
+import lsst.ctrl.bps.htcondor.lssthtc as lssthtc
 from lsst.ctrl.bps import BpsConfig, WmsStates
 from lsst.ctrl.bps.htcondor import htcondor_service
 from lsst.ctrl.bps.htcondor.htcondor_config import HTC_DEFAULTS_URI
+from lsst.ctrl.bps.htcondor.htcondor_workflow import HTCondorWorkflow
 from lsst.ctrl.bps.tests.gw_test_utils import make_3_label_workflow
 from lsst.daf.butler import Config
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
+TESTDIR = os.path.abspath(os.path.dirname(__file__))
 
 LOCATE_SUCCESS = """[
         CondorPlatform = "$CondorPlatform: X86_64-CentOS_7.9 $";
@@ -224,3 +228,63 @@ class HTCondorServiceTestCase(unittest.TestCase):
             self.assertTrue(prov_script.is_file())
             script_contents = prov_script.read_text()
             self.assertIn(f"--nodeset {timestamp}", script_contents)
+
+    def testSubmitWithConfigPath(self):
+        """Only testing value for wms_config_path being passed
+        correctly to htc_create_submit_from_dag.  Aborting submission
+        after that call to skip rest of submit function.
+        """
+
+        def _fake_htc_create_submit_from_dag(filename, submit_options, wms_config_path):
+            raise RuntimeError("Fake exception from mock")
+
+        dag_filename = "should_not_matter.dag"
+        wms_config_path = "dagman.conf"
+        submit_options = {"DAGMAN_MAX_JOBS_SUBMITTED": 30}
+        attribs = {"bps_wms_config_path": wms_config_path}
+
+        workflow = HTCondorWorkflow("testSuccess")
+        workflow.dag = lssthtc.HTCDag("testSuccess")
+        workflow.dag.graph["dag_filename"] = dag_filename
+        workflow.dag.graph["attr"] = dict(attribs)
+        workflow.dag.graph["submit_options"] = dict(submit_options)
+
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            workflow.submit_path = tmpdir
+            with unittest.mock.patch(
+                "lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_dag"
+            ) as create_mock:
+                create_mock.side_effect = _fake_htc_create_submit_from_dag
+                with self.assertRaisesRegex(RuntimeError, "Fake exception from mock"):
+                    self.service.submit(workflow)
+                create_mock.assert_called_once_with(dag_filename, submit_options, wms_config_path)
+
+    def testSubmitWithoutConfigPath(self):
+        """Only testing that values are being passed correctly to
+        htc_create_submit_from_dag when there isn't a wms config path.
+        Aborting submission after that call to skip rest of submit function.
+        """
+
+        def _fake_htc_create_submit_from_dag(filename, submit_options, wms_config_path):
+            raise RuntimeError("Fake exception from mock")
+
+        dag_filename = "should_not_matter.dag"
+        wms_config_path = None
+        submit_options = {"DAGMAN_MAX_JOBS_SUBMITTED": 30}
+        attribs = {}
+
+        workflow = HTCondorWorkflow("testSuccess")
+        workflow.dag = lssthtc.HTCDag("testSuccess")
+        workflow.dag.graph["dag_filename"] = dag_filename
+        workflow.dag.graph["attr"] = dict(attribs)
+        workflow.dag.graph["submit_options"] = dict(submit_options)
+
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            workflow.submit_path = tmpdir
+            with unittest.mock.patch(
+                "lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_dag"
+            ) as create_mock:
+                create_mock.side_effect = _fake_htc_create_submit_from_dag
+                with self.assertRaisesRegex(RuntimeError, "Fake exception from mock"):
+                    self.service.submit(workflow)
+                create_mock.assert_called_once_with(dag_filename, submit_options, wms_config_path)
