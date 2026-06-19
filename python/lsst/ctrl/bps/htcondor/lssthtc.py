@@ -2368,8 +2368,7 @@ def _copy_done_lines(failed_subdags: list[str], infh: TextIO, outfh: TextIO) -> 
 
 
 def _update_rescue_file(rescue_file: Path) -> None:
-    """Update the subdag failures in the main rescue file
-    and backup the failed subdag dirs.
+    """Update the subdag failures in the main rescue file.
 
     Parameters
     ----------
@@ -2385,10 +2384,6 @@ def _update_rescue_file(rescue_file: Path) -> None:
             _copy_done_lines(failed_subdags, infh, outfh)
     rescue_file.unlink()
     rescue_tmp.rename(rescue_file)
-    for failed_subdag in failed_subdags:
-        htc_backup_files(
-            rescue_file.parent / "subdags" / failed_subdag, subdir=f"backups/subdags/{failed_subdag}"
-        )
 
 
 def _update_dicts(dict1, dict2):
