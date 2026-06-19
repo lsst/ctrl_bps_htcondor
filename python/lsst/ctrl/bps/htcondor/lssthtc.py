@@ -414,8 +414,14 @@ def htc_backup_files(
     else:
         htc_backup_files_single_path(path, dest)
 
-    # also back up any subdag info
-    for subdag_dir in path.glob("subdags/*"):
+    # Back up selected files for failed subdags as well.
+    #
+    # Do NOT back up files of subdags that succeeded!  These files need to stay
+    # in their respective directories as they will not be recreated by HTCondor
+    # after the run is restarted.  As HTCondorService.report() uses information
+    # in these files to determine job statuses, their absence may lead to
+    # reporting incorrect job status counts.
+    for subdag_dir in {file.parent for file in path.glob("subdags/*/*.rescue*")}:
         subdag_dest = dest / subdag_dir.relative_to(path)
         subdag_dest.mkdir(parents=True, exist_ok=False)
         htc_backup_files_single_path(subdag_dir, subdag_dest)
