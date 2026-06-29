@@ -10,4 +10,8 @@ arguments = $(group_job_name).status.txt
 output = check_group_job_$(group_job_name).$(Cluster).out
 error = check_group_job_$(group_job_name).$(Cluster).err
 log = check_group_job_$(group_job_name).$(Cluster).log
+if defined job_nodeset
+   requirements=( Target.Nodeset == "$(job_nodeset)" )
+   +JobNodeset = "$(job_nodeset)"
+endif
 queue
