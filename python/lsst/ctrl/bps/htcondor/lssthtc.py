@@ -222,6 +222,9 @@ HTC_VALID_JOB_KEYS = {
     "periodic_remove",
     "accounting_group",
     "accounting_group_user",
+    "kill_sig",
+    "want_graceful_removal",
+    "job_max_vacate_time",
 }
 HTC_VALID_JOB_DAG_KEYS = {
     "dir",
@@ -1144,7 +1147,7 @@ class HTCDag(networkx.DiGraph):
         Parameters
         ----------
         job : `HTCJob`
-            HTCJob to add to the HTCDag as a FINAL job.
+            HTCJob to add to the HTCDag as a SERVICE job.
         """
         # Add dag level attributes to each job
         job.add_job_attrs(self.graph["attr"])

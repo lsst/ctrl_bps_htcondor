@@ -149,6 +149,9 @@ class ProvisionerTestCase(unittest.TestCase):
             "output": f"jobs/{script.stem}/{script.stem}.$(Cluster).out",
             "error": f"jobs/{script.stem}/{script.stem}.$(Cluster).out",
             "log": f"jobs/{script.stem}/{script.stem}.$(Cluster).log",
+            "kill_sig": "SIGTERM",
+            "want_graceful_removal": "True",
+            "job_max_vacate_time": "60",
         }
         dag = HTCDag(name="default")
 
