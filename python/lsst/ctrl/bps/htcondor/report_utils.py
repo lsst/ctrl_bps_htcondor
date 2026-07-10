@@ -359,7 +359,14 @@ def _get_info_from_path(wms_path: str | os.PathLike) -> tuple[str, dict[str, dic
         message = f"Could not find HTCondor files in '{wms_path}' ({err})"
         _LOG.debug(message)
         messages.append(message)
-        message = htc_check_dagman_output(wms_path)
+        try:
+            message = htc_check_dagman_output(wms_path)
+        except FileNotFoundError as err:
+            message = (
+                f"Could not find DAGMan standard output file in '{wms_path}'.\n"
+                "Check that path is a valid HTCondor submission directory.\n"
+                "Check that the condor_dagman executable path is accessible from the AP machine."
+            )
         if message:
             messages.append(message)
         wms_workflow_id = MISSING_ID
@@ -562,7 +569,7 @@ def _summary_report(user, hist, pass_thru, schedds=None):
                 try:
                     job.update(read_dag_status(job["Iwd"]))
                     total_jobs, state_counts = _get_state_counts_from_dag_job(job)
-                except StopIteration:
+                except (StopIteration, FileNotFoundError):
                     pass  # don't kill report can't find htcondor files
 
             if "bps_run" not in job:
