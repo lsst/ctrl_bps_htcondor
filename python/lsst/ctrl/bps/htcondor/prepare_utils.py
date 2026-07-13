@@ -859,7 +859,7 @@ def _group_to_subdag(
     return htc_job
 
 
-def _create_check_job(group_job_name: str, job_label: str) -> HTCJob:
+def _create_check_job(group_job_name: str, job_label: str, site_values: dict) -> HTCJob:
     """Create a job to check status of a group job.
 
     Parameters
@@ -868,6 +868,8 @@ def _create_check_job(group_job_name: str, job_label: str) -> HTCJob:
         Name of the group job.
     job_label : `str`
         Label to use for the check status job.
+    site_values : `dict`
+        Site specific values.
 
     Returns
     -------
@@ -876,7 +878,11 @@ def _create_check_job(group_job_name: str, job_label: str) -> HTCJob:
     """
     htc_job = HTCJob(name=f"wms_check_status_{group_job_name}", label=job_label)
     htc_job.subfile = "${CTRL_BPS_HTCONDOR_DIR}/python/lsst/ctrl/bps/htcondor/check_group_status.sub"
-    htc_job.add_dag_cmds({"dir": f"subdags/{group_job_name}", "vars": {"group_job_name": group_job_name}})
+    # ADD nodeset to VARS
+    job_vars = {"group_job_name": group_job_name}
+    if "nodeset" in site_values and site_values["nodeset"]:
+        job_vars["job_nodeset"] = site_values["nodeset"]
+    htc_job.add_dag_cmds({"dir": f"subdags/{group_job_name}", "vars": job_vars})
 
     return htc_job
 
@@ -961,9 +967,12 @@ def _generic_workflow_to_htcondor_dag(
         successor_jobs = [generic_workflow.get_job(j) for j in generic_workflow.successors(job_name)]
         children_names = []
         if gwjob.node_type == GenericWorkflowNodeType.GROUP:
+            compute_site = None
             gwjob = cast(GenericWorkflowGroup, gwjob)
             group_children = []  # Dependencies between same group jobs
             for sjob in successor_jobs:
+                if hasattr(sjob, "compute_site"):
+                    compute_site = sjob.compute_site  # type: ignore
                 if sjob.node_type == GenericWorkflowNodeType.GROUP and sjob.label == gwjob.label:
                     group_children.append(f"wms_{sjob.name}")
                 elif sjob.node_type == GenericWorkflowNodeType.PAYLOAD:
@@ -975,7 +984,9 @@ def _generic_workflow_to_htcondor_dag(
             if not gwjob.blocking:
                 # Since subdag will always succeed, need to add a special
                 # job that fails if group failed to block payload children.
-                check_job = _create_check_job(f"wms_{gwjob.name}", gwjob.label)
+                check_job = _create_check_job(
+                    f"wms_{gwjob.name}", gwjob.label, site_values.get(compute_site, {})
+                )
                 dag.add_job(check_job)
                 dag.add_job_relationships([f"wms_{gwjob.name}"], [check_job.name])
                 parent_name = check_job.name

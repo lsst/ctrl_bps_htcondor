@@ -372,10 +372,20 @@ class CreateCheckJobTestCase(unittest.TestCase):
     def testSuccess(self):
         group_job_name = "group_order1_val1a"
         job_label = "order1"
-        job = prepare_utils._create_check_job(group_job_name, job_label)
+        job = prepare_utils._create_check_job(group_job_name, job_label, {})
         self.assertIn(group_job_name, job.name)
         self.assertEqual(job.label, job_label)
         self.assertIn("check_group_status.sub", job.subfile)
+        self.assertNotIn("job_nodeset", job.dagcmds["vars"])
+
+    def testNodeSetSuccess(self):
+        group_job_name = "group_order1_val1a"
+        job_label = "order1"
+        job = prepare_utils._create_check_job(group_job_name, job_label, {"nodeset": "custom_nodeset"})
+        self.assertIn(group_job_name, job.name)
+        self.assertEqual(job.label, job_label)
+        self.assertIn("check_group_status.sub", job.subfile)
+        self.assertIn("job_nodeset", job.dagcmds["vars"])
 
 
 class CreatePeriodicReleaseExprTestCase(unittest.TestCase):
