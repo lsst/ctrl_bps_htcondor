@@ -1257,6 +1257,106 @@ DONE wms_check_status_wms_group_order1_val1c
             self.assertEqual(results, truth)
 
 
+class ReadRescueHeadersTestCase(unittest.TestCase):
+    """Test _read_rescue_headers function."""
+
+    def testTypical(self):
+        content = "# Header line 1\n# Header line 2\n\nDONE somenode\n"
+        result = lssthtc._read_rescue_headers(io.StringIO(content))
+        self.assertEqual(result, ["# Header line 1", "# Header line 2"])
+
+    def testEmptyFile(self):
+        result = lssthtc._read_rescue_headers(io.StringIO(""))
+        self.assertEqual(result, [])
+
+    def testOnlyHeaderLines(self):
+        content = "# Line 1\n# Line 2\n# Line 3\n"
+        result = lssthtc._read_rescue_headers(io.StringIO(content))
+        self.assertEqual(result, ["# Line 1", "# Line 2", "# Line 3"])
+
+    def testFirstLineNotComment(self):
+        content = "DONE somenode\n# Header\n"
+        result = lssthtc._read_rescue_headers(io.StringIO(content))
+        self.assertEqual(result, [])
+
+    def testWhitespaceStripped(self):
+        content = "  # Header line 1  \n  # Header line 2  \n\n"
+        result = lssthtc._read_rescue_headers(io.StringIO(content))
+        self.assertEqual(result, ["# Header line 1", "# Header line 2"])
+
+
+class WriteRescueHeadersTestCase(unittest.TestCase):
+    """Test _write_rescue_headers function."""
+
+    def testTypical(self):
+        header_lines = ["# Header line 1", "# Header line 2", "# Header line 3"]
+        outfh = io.StringIO()
+        lssthtc._write_rescue_headers(header_lines, outfh)
+        self.assertEqual(outfh.getvalue(), "# Header line 1\n# Header line 2\n# Header line 3\n\n")
+
+    def testEmptyList(self):
+        outfh = io.StringIO()
+        lssthtc._write_rescue_headers([], outfh)
+        self.assertEqual(outfh.getvalue(), "\n")
+
+    def testSingleLine(self):
+        outfh = io.StringIO()
+        lssthtc._write_rescue_headers(["# Only line"], outfh)
+        self.assertEqual(outfh.getvalue(), "# Only line\n\n")
+
+
+class UpdateRescueHeadersTestCase(unittest.TestCase):
+    """Test _update_rescue_headers function."""
+
+    def testWithFailedSubdag(self):
+        header_lines = [
+            "# Total number of Nodes: 26",
+            "# Nodes premarked DONE: 22",
+            "# Nodes that failed: 2",
+            "#   wms_check_status_wms_group_order1_val1b,finalJob,<ENDLIST>",
+        ]
+        result = lssthtc._update_rescue_headers(header_lines)
+        self.assertEqual(result, ["wms_group_order1_val1b"])
+        self.assertEqual(header_lines[1], "# Nodes premarked DONE: 21")
+        self.assertEqual(header_lines[3], "#   wms_group_order1_val1b,finalJob,<ENDLIST>")
+
+    def testNoSubdagFailures(self):
+        header_lines = [
+            "# Nodes premarked DONE: 5",
+            "# Nodes that failed: 1",
+            "#   finalJob,<ENDLIST>",
+        ]
+        result = lssthtc._update_rescue_headers(header_lines)
+        self.assertEqual(result, [])
+        self.assertEqual(header_lines[0], "# Nodes premarked DONE: 5")
+        self.assertEqual(header_lines[2], "#   finalJob,<ENDLIST>")
+
+    def testMultipleFailedSubdags(self):
+        header_lines = [
+            "# Nodes premarked DONE: 10",
+            "# Nodes that failed: 3",
+            "#   wms_check_status_subdag_a,wms_check_status_subdag_b,finalJob,<ENDLIST>",
+        ]
+        result = lssthtc._update_rescue_headers(header_lines)
+        self.assertEqual(result, ["subdag_a", "subdag_b"])
+        self.assertEqual(header_lines[0], "# Nodes premarked DONE: 8")
+        self.assertEqual(header_lines[2], "#   subdag_a,subdag_b,finalJob,<ENDLIST>")
+
+    def testNoFailedNodesLine(self):
+        header_lines = [
+            "# Total number of Nodes: 5",
+            "# Nodes premarked DONE: 5",
+        ]
+        original = list(header_lines)
+        result = lssthtc._update_rescue_headers(header_lines)
+        self.assertEqual(result, [])
+        self.assertEqual(header_lines, original)
+
+    def testEmptyHeader(self):
+        result = lssthtc._update_rescue_headers([])
+        self.assertEqual(result, [])
+
+
 class ReadDagStatusTestCase(unittest.TestCase):
     """Test read_dag_status function and read_single_dag_status."""
 
