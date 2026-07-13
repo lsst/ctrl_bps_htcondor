@@ -31,7 +31,6 @@ import logging
 import os
 import pathlib
 import stat
-import sys
 import tempfile
 import unittest
 from shutil import copy2, copytree, ignore_patterns, rmtree, which
@@ -1064,15 +1063,14 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             test_tmp_dir = pathlib.Path(tmp_dir)
             submit_dir = test_tmp_dir / "submit"
             with self.assertRaises(FileNotFoundError):
-                _ = lssthtc.htc_backup_files(submit_dir)
+                lssthtc.htc_backup_files(submit_dir)
 
     def testSuccess(self):
         with temporaryDirectory() as tmp_dir:
             test_tmp_dir = pathlib.Path(tmp_dir)
             submit_dir = test_tmp_dir / "submit"
             copytree(f"{TESTDIR}/data/tiny_success", submit_dir, ignore=ignore_patterns("*~", ".???*"))
-            result_rescue = lssthtc.htc_backup_files(submit_dir)
-            self.assertIsNone(result_rescue)
+            lssthtc.htc_backup_files(submit_dir)
             result_submit = []
             for root, _, files in os.walk(submit_dir):
                 result_submit.extend([str(os.path.join(os.path.relpath(root, submit_dir), f)) for f in files])
@@ -1095,10 +1093,9 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             submit_dir = test_tmp_dir / "submit"
             copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
             with self.assertLogs("lsst.ctrl.bps.htcondor", level="WARNING") as cm:
-                result_rescue = lssthtc.htc_backup_files(submit_dir, test_tmp_dir / "backup")
+                lssthtc.htc_backup_files(submit_dir, test_tmp_dir / "backup")
             self.assertIn("Invalid backup location:", cm.output[-1])
-            result_rescue = lssthtc.htc_backup_files(submit_dir)
-            self.assertTrue((submit_dir / "tiny_problems.dag.rescue001").samefile(result_rescue))
+            lssthtc.htc_backup_files(submit_dir)
             result_submit = []
             for root, _, files in os.walk(submit_dir):
                 result_submit.extend([str(os.path.join(os.path.relpath(root, submit_dir), f)) for f in files])
@@ -1122,8 +1119,7 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             submit_dir = test_tmp_dir / "submit"
             backup_dir = submit_dir / "subdir"
             copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
-            result_rescue = lssthtc.htc_backup_files(submit_dir, backup_dir)
-            self.assertTrue((submit_dir / "tiny_problems.dag.rescue001").samefile(result_rescue))
+            lssthtc.htc_backup_files(submit_dir, backup_dir)
             result_submit = []
             for root, _, files in os.walk(submit_dir):
                 result_submit.extend([str(os.path.join(os.path.relpath(root, submit_dir), f)) for f in files])
@@ -1146,8 +1142,7 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             test_tmp_dir = pathlib.Path(tmp_dir)
             submit_dir = test_tmp_dir / "submit"
             copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
-            result_rescue = lssthtc.htc_backup_files(submit_dir, "reldir")
-            self.assertTrue((submit_dir / "tiny_problems.dag.rescue001").samefile(result_rescue))
+            lssthtc.htc_backup_files(submit_dir, "reldir")
             result_submit = []
             for root, _, files in os.walk(submit_dir):
                 result_submit.extend([str(os.path.join(os.path.relpath(root, submit_dir), f)) for f in files])
@@ -1170,8 +1165,7 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             test_tmp_dir = pathlib.Path(tmp_dir)
             submit_dir = test_tmp_dir / "submit"
             copytree(f"{TESTDIR}/data/group_failed_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
-            result_rescue = lssthtc.htc_backup_files(submit_dir)
-            self.assertTrue(result_rescue.samefile(submit_dir / "group_failed_1.dag.rescue001"))
+            lssthtc.htc_backup_files(submit_dir)
             result_submit = []
             for root, _, files in os.walk(submit_dir):
                 result_submit.extend([str(os.path.join(os.path.relpath(root, submit_dir), f)) for f in files])
@@ -1221,8 +1215,8 @@ class UpdateRescueFileTestCase(unittest.TestCase):
             submit_dir = test_tmp_dir / "submit"
             copytree(f"{TESTDIR}/data/group_failed_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
             rescue_file = submit_dir / "group_failed_1.dag.rescue001"
-            lssthtc._update_rescue_file(rescue_file)
-
+            failed_subdags = lssthtc._update_rescue_file(rescue_file)
+            self.assertEqual(set(failed_subdags), {"wms_group_order1_val1b"})
             with open(rescue_file) as fh:
                 lines = fh.readlines()
                 results = "".join(lines)
@@ -1260,8 +1254,6 @@ DONE wms_check_status_wms_group_order1_val1a
 DONE wms_check_status_wms_group_order1_val1c
 """
 
-            print("results = ", results, file=sys.stderr)
-            print("truth = ", truth, file=sys.stderr)
             self.assertEqual(results, truth)
 
 
