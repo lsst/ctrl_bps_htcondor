@@ -157,6 +157,7 @@ class ProvisionerTestCase(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             self.config[".provisioning.provisioningMaxWallTime"] = 3600
+            self.config[".provisioning.provisioningMaxConsecutiveFailures"] = 5
             self.config[".provisioning.provisioningScriptConfigPath"] = f"{tmpdir}/condor-info.py"
             self.config[".bps_defined.nodeset"] = "20260129T163505Z"
 
@@ -164,6 +165,9 @@ class ProvisionerTestCase(unittest.TestCase):
             provisioner.configure()
             provisioner.prepare(script.name, prefix=tmpdir)
             provisioner.provision(dag)
+
+            script_payload = (Path(tmpdir) / script.name).read_text()
+            self.assertIn("max_failures='5'", script_payload)
 
         self.assertIsNotNone(dag.graph["service_job"])
         self.assertEqual(dag.graph["service_job"].name, script.stem)
