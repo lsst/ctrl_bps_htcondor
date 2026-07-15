@@ -10,27 +10,54 @@ provisioning:
   provisioningNodeCount: 10
   provisioningMaxIdleTime: 900
   provisioningCheckInterval: 600
+  provisioningMaxConsecutiveFailures: 10
+  provisioningShutdownAllowanceSeconds: 20
   provisioningQueue: "milano"
   provisioningAccountingUser: "rubin:developers"
   provisioningExtraOptions: ""
   provisioningPlatform: "s3df"
   provisioningScript: |
     #!/bin/bash
-    set -e
     set -x
-    while true; do
-        ${CTRL_EXECUTE_DIR}/bin/allocateNodes.py \
-            --account {provisioningAccountingUser} \
-            --auto \
-            --node-count {provisioningNodeCount} \
-            --maximum-wall-clock {provisioningMaxWallTime} \
-            --glidein-shutdown {provisioningMaxIdleTime} \
-            --queue {provisioningQueue} \
-            --nodeset {nodeset} \
-            {provisioningExtraOptions} \
-            {provisioningPlatform}
-        sleep {provisioningCheckInterval}
+
+    allocating=1
+    failures=0
+    max_failures='{provisioningMaxConsecutiveFailures}'
+
+    allocate=("${CTRL_EXECUTE_DIR}/bin/allocateNodes.py" \
+      --account '{provisioningAccountingUser}' \
+      --auto \
+      --node-count '{provisioningNodeCount}' \
+      --maximum-wall-clock '{provisioningMaxWallTime}' \
+      --glidein-shutdown '{provisioningMaxIdleTime}' \
+      --queue '{provisioningQueue}' \
+      --nodeset '{nodeset}' \
+      {provisioningExtraOptions} \
+      '{provisioningPlatform}')
+
+    trap 'allocating=0; test -n "$bgpid" && kill -SIGTERM "$bgpid";' SIGTERM
+
+    echo "$(date -u): starting provisioningJob"
+    while (( allocating )); do
+      if "${allocate[@]}"; then
+        failures=0
+      else
+        echo "$(date -u): allocatedNodes failed" >&2
+        failures=$((failures + 1))
+      fi
+      if [[ $failures -ge $max_failures ]]; then
+        echo "$(date -u): Too many consecutive allocateNodes failures, exiting" >&2
+        exit 1
+      fi
+      sleep {provisioningCheckInterval} &
+      bgpid=$!
+      wait $bgpid || :
     done
+
+    echo "$(date -u): Shutting down provisioningJob..."
+    sleep '{provisioningShutdownAllowanceSeconds}'
+    echo "$(date -u): Running FINAL provisioner"
+    "${allocate[@]}"
     exit 0
   provisioningScriptConfig: |
     config.platform["{provisioningPlatform}"].user.name="${USER}"

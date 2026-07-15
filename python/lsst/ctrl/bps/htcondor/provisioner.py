@@ -192,6 +192,9 @@ class Provisioner:
             "executable": f"{self.script_name}",
             "should_transfer_files": "NO",
             "getenv": "True",
+            "kill_sig": "SIGTERM",
+            "want_graceful_removal": "True",
+            "job_max_vacate_time": "60",
         }
         cmds |= {
             "output": str(job.subfile.with_suffix(".$(Cluster).out")),

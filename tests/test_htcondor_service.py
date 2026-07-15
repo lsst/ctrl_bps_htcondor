@@ -227,7 +227,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
             prov_script = Path(tmpdir) / "provisioningJob.bash"
             self.assertTrue(prov_script.is_file())
             script_contents = prov_script.read_text()
-            self.assertIn(f"--nodeset {timestamp}", script_contents)
+            self.assertIn(f"--nodeset '{timestamp}'", script_contents)
 
     def testSubmitWithConfigPath(self):
         """Only testing value for wms_config_path being passed
