@@ -345,6 +345,10 @@ def htc_backup_files(
     until the limit of backups is reached. If there's no rescue DAG yet, files
     will be copied to '000' subdirectory.
 
+    This is not a generic function for making backups. It is intended to be
+    used once, just before a restart, to make snapshots of files which will be
+    overwritten by HTCondor after during the next run.
+
     Parameters
     ----------
     wms_path : `str` or `os.PathLike`
@@ -371,12 +375,6 @@ def htc_backup_files(
     OSError
         If the submit directory cannot be accessed or backing up a file failed
         either due to permission or filesystem related issues.
-
-    Notes
-    -----
-    This is not a generic function for making backups. It is intended to be
-    used once, just before a restart, to make snapshots of files which will be
-    overwritten by HTCondor after during the next run.
     """
     width = len(str(limit))
 
