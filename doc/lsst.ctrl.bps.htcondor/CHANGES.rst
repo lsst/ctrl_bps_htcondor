@@ -1,3 +1,18 @@
+lsst-ctrl-bps-htcondor v30.0.9 (2026-07-15)
+===========================================
+
+Bug Fixes
+---------
+
+- Preserved ``nodeset`` value when creating ``wms_check_status`` jobs. (`DM-54548 <https://rubinobs.atlassian.net/browse/DM-54548>`_)
+- Added signal handling and resilience to default ``provisioningScript``. (`DM-55434 <https://rubinobs.atlassian.net/browse/DM-55434>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Added ``dagman.conf`` value to ``DAGMAN_MAX_JOBS_IDLE`` workaround. (`DM-55194 <https://rubinobs.atlassian.net/browse/DM-55194>`_)
+
 lsst-ctrl-bps-htcondor v30.0.6 (2026-04-07)
 ===========================================
 
