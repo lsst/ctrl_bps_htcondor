@@ -328,8 +328,11 @@ class RestrictedDict(MutableMapping):
 
 
 def htc_backup_files(
-    wms_path: str | os.PathLike, subdir: str | os.PathLike | None = None, limit: int = 100
-) -> Path | None:
+    wms_path: str | os.PathLike,
+    subdir: str | os.PathLike | None = None,
+    limit: int = 100,
+    failed_subdags: set[str] | None = None,
+) -> None:
     """Backup select HTCondor files in the submit directory.
 
     Files will be saved in separate subdirectories which will be created in
@@ -341,6 +344,10 @@ def htc_backup_files(
     be placed in '001' subdirectory, '002' after the first restart, and so on
     until the limit of backups is reached. If there's no rescue DAG yet, files
     will be copied to '000' subdirectory.
+
+    This is not a generic function for making backups. It is intended to be
+    used once, just before a restart, to make snapshots of files which will be
+    overwritten by HTCondor after during the next run.
 
     Parameters
     ----------
@@ -355,11 +362,10 @@ def htc_backup_files(
         the last backup files will be overwritten. The default value is 100
         to match the default value of HTCondor's DAGMAN_MAX_RESCUE_NUM in
         version 8.8+.
-
-    Returns
-    -------
-    last_rescue_file : `pathlib.Path` or None
-        Path to the latest rescue file or None if doesn't exist.
+    failed_subdags : `set` [`str`], optional
+        Names of subdag jobs that failed. Only files of these subdags will be
+        backed up. If None (the default), files of all subdags with rescue
+        files are backed up.
 
     Raises
     ------
@@ -369,12 +375,6 @@ def htc_backup_files(
     OSError
         If the submit directory cannot be accessed or backing up a file failed
         either due to permission or filesystem related issues.
-
-    Notes
-    -----
-    This is not a generic function for making backups. It is intended to be
-    used once, just before a restart, to make snapshots of files which will be
-    overwritten by HTCondor after during the next run.
     """
     width = len(str(limit))
 
@@ -414,15 +414,19 @@ def htc_backup_files(
     else:
         htc_backup_files_single_path(path, dest)
 
-    # also back up any subdag info
-    for subdag_dir in path.glob("subdags/*"):
+    # Back up selected files for failed subdags as well.
+    #
+    # Do NOT back up files of subdags that succeeded!  These files need to stay
+    # in their respective directories as they will not be recreated by HTCondor
+    # after the run is restarted.  As HTCondorService.report() uses information
+    # in these files to determine job statuses, their absence may lead to
+    # reporting incorrect job status counts.
+    for subdag_dir in {file.parent for file in path.glob("subdags/*/*.rescue*")}:
+        if failed_subdags is not None and subdag_dir.name not in failed_subdags:
+            continue
         subdag_dest = dest / subdag_dir.relative_to(path)
         subdag_dest.mkdir(parents=True, exist_ok=False)
         htc_backup_files_single_path(subdag_dir, subdag_dest)
-
-    last_rescue_file = rescue_dags[-1] if rescue_dags else None
-    _LOG.debug("last_rescue_file = %s", last_rescue_file)
-    return last_rescue_file
 
 
 def htc_backup_files_single_path(src: str | os.PathLike, dest: str | os.PathLike) -> None:
@@ -431,7 +435,7 @@ def htc_backup_files_single_path(src: str | os.PathLike, dest: str | os.PathLike
     Parameters
     ----------
     src : `str` or `os.PathLike`
-        Directory from which to backup particular files.
+        Directory from which to back up particular files.
     dest : `str` or `os.PathLike`
         Directory to which particular files are moved.
 
@@ -1749,7 +1753,7 @@ def read_single_node_status(filename: str | os.PathLike, init_fake_id: int) -> d
     _, job_name_to_label, job_name_to_type = count_jobs_in_single_dag(filename.with_suffix(".dag"))
     loginfo: dict[str, dict[str, Any]] = {}
     try:
-        wms_workflow_id, loginfo = read_single_dag_log(filename.with_suffix(".dag.dagman.log"))
+        wms_workflow_id, _ = read_single_dag_log(filename.with_suffix(".dag.dagman.log"))
         loginfo = read_single_dag_nodes_log(filename.with_suffix(".dag.nodes.log"))
     except (OSError, PermissionError):
         pass
@@ -2268,7 +2272,7 @@ def htc_check_dagman_output(wms_path: str | os.PathLike) -> str:
     return message
 
 
-def _read_rescue_headers(infh: TextIO) -> tuple[list[str], list[str]]:
+def _read_rescue_headers(infh: TextIO) -> list[str]:
     """Read header lines from a rescue file.
 
     Parameters
@@ -2280,60 +2284,69 @@ def _read_rescue_headers(infh: TextIO) -> tuple[list[str], list[str]]:
     -------
     header_lines : `list` [`str`]
         Header lines read from the rescue file.
+    """
+    header_lines = []
+    for line in infh:
+        line = line.strip()
+        if not line.startswith("#"):
+            break
+        header_lines.append(line)
+    return header_lines
+
+
+def _update_rescue_headers(header_lines: list[str]) -> list[str]:
+    """Update rescue header lines in place.
+
+    Replaces ``wms_check_status`` node name prefixes with the corresponding
+    group node names and adjusts the count of nodes premarked DONE.
+
+    Parameters
+    ----------
+    header_lines : `list` [`str`]
+        Header lines to update in place.
+
+    Returns
+    -------
     failed_subdags : `list` [`str`]
         Names of failed subdag jobs.
     """
-    header_lines: list[str] = []
-    failed = False
-    failed_subdags: list[str] = []
+    failed_subdags = []
 
-    for line in infh:
-        line = line.strip()
-        if line.startswith("#"):
-            if line.startswith("# Nodes that failed:"):
-                failed = True
-                header_lines.append(line)
-            elif failed:
-                orig_failed_nodes = line[1:].strip().split(",")
-                new_failed_nodes = []
-                for node in orig_failed_nodes:
-                    if node.startswith("wms_check_status"):
-                        group_node = node[17:]
-                        failed_subdags.append(group_node)
-                        new_failed_nodes.append(group_node)
-                    else:
-                        new_failed_nodes.append(node)
-                header_lines.append(f"#   {','.join(new_failed_nodes)}")
-                if orig_failed_nodes[-1] == "<ENDLIST>":
-                    failed = False
-            else:
-                header_lines.append(line)
-        elif line.strip() == "":  # end of headers
+    # Relies on HTCondor writing all failed node names on a single line
+    # (see src/condor_dagman/dag.cpp in https://github.com/htcondor/htcondor).
+    for i, line in enumerate(header_lines):
+        if line.startswith("# Nodes that failed:"):
+            nodes = header_lines[i + 1][1:].strip().split(",")
+            new_nodes = []
+            for node in nodes:
+                if node.startswith("wms_check_status"):
+                    node = node[17:]
+                    failed_subdags.append(node)
+                new_nodes.append(node)
+            header_lines[i + 1] = f"#   {','.join(new_nodes)}"
             break
-    return header_lines, failed_subdags
+
+    for i, line in enumerate(header_lines):
+        m = re.match(r"^(# Nodes premarked DONE:)\s+(\d+)", line)
+        if m:
+            header_lines[i] = f"{m.group(1)} {int(m.group(2)) - len(failed_subdags)}"
+            break
+
+    return failed_subdags
 
 
-def _write_rescue_headers(header_lines: list[str], failed_subdags: list[str], outfh: TextIO) -> None:
+def _write_rescue_headers(header_lines: list[str], outfh: TextIO) -> None:
     """Write the header lines to the new rescue file.
 
     Parameters
     ----------
     header_lines : `list` [`str`]
         Header lines to write to the new rescue file.
-    failed_subdags : `list` [`str`]
-        Job names of the failed subdags.
     outfh : `TextIO`
         New rescue file.
     """
-    done_str = "# Nodes premarked DONE"
-    pattern = f"^{done_str}:\\s+(\\d+)"
-    for header_line in header_lines:
-        m = re.match(pattern, header_line)
-        if m:
-            print(f"{done_str}: {int(m.group(1)) - len(failed_subdags)}", file=outfh)
-        else:
-            print(header_line, file=outfh)
-
+    for line in header_lines:
+        print(line, file=outfh)
     print("", file=outfh)
 
 
@@ -2361,28 +2374,30 @@ def _copy_done_lines(failed_subdags: list[str], infh: TextIO, outfh: TextIO) -> 
             print(line, file=outfh)
 
 
-def _update_rescue_file(rescue_file: Path) -> None:
-    """Update the subdag failures in the main rescue file
-    and backup the failed subdag dirs.
+def _update_rescue_file(rescue_file: Path) -> list[str]:
+    """Update the subdag failures in the main rescue file.
 
     Parameters
     ----------
     rescue_file : `pathlib.Path`
        The main rescue file that needs to be updated.
+
+    Returns
+    -------
+    failed_subdags : `list` [`str`]
+        Names of failed subdag jobs found in the DAGMan rescue file.
     """
     # To reduce memory requirements, not reading entire file into memory.
     rescue_tmp = rescue_file.with_suffix(rescue_file.suffix + ".tmp")
     with open(rescue_file) as infh:
-        header_lines, failed_subdags = _read_rescue_headers(infh)
+        header_lines = _read_rescue_headers(infh)
+        failed_subdags = _update_rescue_headers(header_lines)
         with open(rescue_tmp, "w") as outfh:
-            _write_rescue_headers(header_lines, failed_subdags, outfh)
+            _write_rescue_headers(header_lines, outfh)
             _copy_done_lines(failed_subdags, infh, outfh)
     rescue_file.unlink()
     rescue_tmp.rename(rescue_file)
-    for failed_subdag in failed_subdags:
-        htc_backup_files(
-            rescue_file.parent / "subdags" / failed_subdag, subdir=f"backups/subdags/{failed_subdag}"
-        )
+    return failed_subdags
 
 
 def _update_dicts(dict1, dict2):

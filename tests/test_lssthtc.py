@@ -31,7 +31,6 @@ import logging
 import os
 import pathlib
 import stat
-import sys
 import tempfile
 import unittest
 from shutil import copy2, copytree, ignore_patterns, rmtree, which
@@ -644,6 +643,208 @@ class ReadNodeStatusTestCase(unittest.TestCase):
             )
 
 
+class ReadSingleNodeStatusTestCase(unittest.TestCase):
+    """Test read_single_node_status function."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        rmtree(self.tmpdir, ignore_errors=True)
+
+    def _copyFiles(self, data_subdir, suffixes):
+        """Copy files with given suffixes from tests/data/<data_subdir>/."""
+        for suffix in suffixes:
+            copy2(f"{TESTDIR}/data/{data_subdir}/{data_subdir}{suffix}", self.tmpdir)
+
+    def _jobNameToId(self, jobs):
+        return {info["DAGNodeName"]: id_ for id_, info in jobs.items()}
+
+    def testAllDone(self):
+        self._copyFiles(
+            "tiny_success",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log", ".node_status"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_success.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 5)
+        name_to_id = self._jobNameToId(jobs)
+
+        # All four submitted nodes are marked DONE.
+        for name in [
+            "pipetaskInit",
+            "5bba27bd-8df7-4668-a9c5-e911192c5cdb_label1_val1_val2",
+            "0b225f1f-6edf-4380-b546-76c97947a88f_label2_val1_val2",
+            "finalJob",
+        ]:
+            self.assertIn(name, name_to_id, msg=f"Missing job {name}")
+            self.assertEqual(
+                jobs[name_to_id[name]]["NodeStatus"],
+                lssthtc.NodeStatus.DONE,
+                msg=f"Expected DONE for {name}",
+            )
+
+        # Service job not tracked by node_status; it came from the event log so
+        # it has a real positive ClusterId but no NodeStatus field.
+        self.assertIn("provisioningJob", name_to_id)
+        self.assertGreater(jobs[name_to_id["provisioningJob"]]["ClusterId"], 0)
+
+        # Spot-check labels and types.
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["bps_job_label"], "pipetaskInit")
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["wms_node_type"], lssthtc.WmsNodeType.PAYLOAD)
+        self.assertEqual(jobs[name_to_id["finalJob"]]["wms_node_type"], lssthtc.WmsNodeType.FINAL)
+        self.assertEqual(jobs[name_to_id["provisioningJob"]]["wms_node_type"], lssthtc.WmsNodeType.SERVICE)
+
+        # DAGManJobID is populated from the dagman log for every job.
+        for job in jobs.values():
+            self.assertIn("DAGManJobID", job)
+
+    def testMixedStatuses(self):
+        self._copyFiles(
+            "tiny_problems",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log", ".node_status"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_problems.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 7)
+        name_to_id = self._jobNameToId(jobs)
+
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["NodeStatus"], lssthtc.NodeStatus.DONE)
+        self.assertEqual(
+            jobs[name_to_id["057c8caf-66f6-4612-abf7-cdea5b666b1b_label1_val1a_val2b"]]["NodeStatus"],
+            lssthtc.NodeStatus.ERROR,
+        )
+        self.assertEqual(
+            jobs[name_to_id["4a7f478b-2e9b-435c-a730-afac3f621658_label1_val1a_val2a"]]["NodeStatus"],
+            lssthtc.NodeStatus.DONE,
+        )
+        self.assertEqual(
+            jobs[name_to_id["40040b97-606d-4997-98d3-e0493055fe7e_label2_val1a_val2b"]]["NodeStatus"],
+            lssthtc.NodeStatus.FUTILE,
+        )
+        self.assertEqual(jobs[name_to_id["finalJob"]]["NodeStatus"], lssthtc.NodeStatus.ERROR)
+        # Service job not tracked by node_status; came from event log so
+        # it has a real positive ClusterId but no NodeStatus field.
+        self.assertIn("provisioningJob", name_to_id)
+        self.assertGreater(jobs[name_to_id["provisioningJob"]]["ClusterId"], 0)
+
+    def testRunningWorkflow(self):
+        self._copyFiles(
+            "tiny_running",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log", ".node_status"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_running.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 5)
+        name_to_id = self._jobNameToId(jobs)
+
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["NodeStatus"], lssthtc.NodeStatus.DONE)
+        self.assertEqual(
+            jobs[name_to_id["ca27ea57-c014-44c1-838a-78c06bc3ec1b_label1_val1_val2"]]["NodeStatus"],
+            lssthtc.NodeStatus.SUBMITTED,
+        )
+        self.assertEqual(
+            jobs[name_to_id["dbf919fa-5453-4b05-8806-ad6390fda0a3_label2_val1_val2"]]["NodeStatus"],
+            lssthtc.NodeStatus.NOT_READY,
+        )
+        self.assertEqual(jobs[name_to_id["finalJob"]]["NodeStatus"], lssthtc.NodeStatus.NOT_READY)
+        # Service job appeared in the event log; has a real positive ClusterId.
+        self.assertIn("provisioningJob", name_to_id)
+        self.assertGreater(jobs[name_to_id["provisioningJob"]]["ClusterId"], 0)
+
+    def testMissingNodeStatusFile(self):
+        # Omit the .node_status file; jobs must be built from the event log
+        # and dag.
+        self._copyFiles(
+            "tiny_problems",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_problems.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 7)
+        name_to_id = self._jobNameToId(jobs)
+
+        # Jobs that appeared in the event log have real (positive) cluster IDs.
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["DAGNodeName"], "pipetaskInit")
+        self.assertGreater(jobs[name_to_id["pipetaskInit"]]["ClusterId"], 0)
+
+        # The service job appeared in the event log and has a real positive ID.
+        self.assertGreater(jobs[name_to_id["provisioningJob"]]["ClusterId"], 0)
+
+        # All jobs carry the correct label and type from the dag file.
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["wms_node_type"], lssthtc.WmsNodeType.PAYLOAD)
+        self.assertEqual(jobs[name_to_id["provisioningJob"]]["wms_node_type"], lssthtc.WmsNodeType.SERVICE)
+
+    def testMissingLogFiles(self):
+        # Omit both log files; every job should get a fake negative ID.
+        self._copyFiles("tiny_success", [".dag", ".node_status"])
+        filename = pathlib.Path(self.tmpdir) / "tiny_success.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 5)
+        for job in jobs.values():
+            self.assertLess(job["ClusterId"], 0)
+
+        # NodeStatus values from the node_status file must still be preserved.
+        name_to_id = self._jobNameToId(jobs)
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["NodeStatus"], lssthtc.NodeStatus.DONE)
+        self.assertEqual(jobs[name_to_id["finalJob"]]["NodeStatus"], lssthtc.NodeStatus.DONE)
+        self.assertEqual(jobs[name_to_id["provisioningJob"]]["NodeStatus"], lssthtc.NodeStatus.NOT_READY)
+
+    def testInitFakeId(self):
+        # Verify fake IDs count down from the given starting value.
+        self._copyFiles("tiny_success", [".dag", ".node_status"])
+        filename = pathlib.Path(self.tmpdir) / "tiny_success.node_status"
+        init_fake_id = -10
+        jobs = lssthtc.read_single_node_status(filename, init_fake_id)
+
+        self.assertEqual(len(jobs), 5)
+        cluster_ids = [job["ClusterId"] for job in jobs.values()]
+        # All IDs must be at most init_fake_id (i.e., -10 or lower).
+        for cid in cluster_ids:
+            self.assertLessEqual(cid, init_fake_id)
+        # All IDs must be unique.
+        self.assertEqual(len(set(cluster_ids)), len(cluster_ids))
+
+    def testFromDagJobAttribute(self):
+        self._copyFiles(
+            "tiny_success",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log", ".node_status"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_success.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        for id_, job in jobs.items():
+            self.assertEqual(
+                job["from_dag_job"],
+                "wms_tiny_success",
+                msg=f"Job {id_} has wrong from_dag_job",
+            )
+
+    def testServiceJobPlaceholder(self):
+        self._copyFiles(
+            "tiny_prov_no_submit",
+            [".dag", ".dag.dagman.log", ".dag.nodes.log", ".node_status"],
+        )
+        filename = pathlib.Path(self.tmpdir) / "tiny_prov_no_submit.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        service_jobs = [
+            (id_, info)
+            for id_, info in jobs.items()
+            if info.get("wms_node_type") == lssthtc.WmsNodeType.SERVICE
+        ]
+        self.assertEqual(len(service_jobs), 1)
+        service_id, service_job = service_jobs[0]
+        self.assertEqual(service_job["DAGNodeName"], "provisioningJob")
+        self.assertEqual(service_job["NodeStatus"], lssthtc.NodeStatus.NOT_READY)
+        self.assertLess(service_job["ClusterId"], 0)
+
+
 class HTCJobTestCase(unittest.TestCase):
     """Test HTCJob methods."""
 
@@ -862,15 +1063,14 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             test_tmp_dir = pathlib.Path(tmp_dir)
             submit_dir = test_tmp_dir / "submit"
             with self.assertRaises(FileNotFoundError):
-                _ = lssthtc.htc_backup_files(submit_dir)
+                lssthtc.htc_backup_files(submit_dir)
 
     def testSuccess(self):
         with temporaryDirectory() as tmp_dir:
             test_tmp_dir = pathlib.Path(tmp_dir)
             submit_dir = test_tmp_dir / "submit"
             copytree(f"{TESTDIR}/data/tiny_success", submit_dir, ignore=ignore_patterns("*~", ".???*"))
-            result_rescue = lssthtc.htc_backup_files(submit_dir)
-            self.assertIsNone(result_rescue)
+            lssthtc.htc_backup_files(submit_dir)
             result_submit = []
             for root, _, files in os.walk(submit_dir):
                 result_submit.extend([str(os.path.join(os.path.relpath(root, submit_dir), f)) for f in files])
@@ -893,10 +1093,9 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             submit_dir = test_tmp_dir / "submit"
             copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
             with self.assertLogs("lsst.ctrl.bps.htcondor", level="WARNING") as cm:
-                result_rescue = lssthtc.htc_backup_files(submit_dir, test_tmp_dir / "backup")
+                lssthtc.htc_backup_files(submit_dir, test_tmp_dir / "backup")
             self.assertIn("Invalid backup location:", cm.output[-1])
-            result_rescue = lssthtc.htc_backup_files(submit_dir)
-            self.assertTrue((submit_dir / "tiny_problems.dag.rescue001").samefile(result_rescue))
+            lssthtc.htc_backup_files(submit_dir)
             result_submit = []
             for root, _, files in os.walk(submit_dir):
                 result_submit.extend([str(os.path.join(os.path.relpath(root, submit_dir), f)) for f in files])
@@ -920,8 +1119,7 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             submit_dir = test_tmp_dir / "submit"
             backup_dir = submit_dir / "subdir"
             copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
-            result_rescue = lssthtc.htc_backup_files(submit_dir, backup_dir)
-            self.assertTrue((submit_dir / "tiny_problems.dag.rescue001").samefile(result_rescue))
+            lssthtc.htc_backup_files(submit_dir, backup_dir)
             result_submit = []
             for root, _, files in os.walk(submit_dir):
                 result_submit.extend([str(os.path.join(os.path.relpath(root, submit_dir), f)) for f in files])
@@ -944,8 +1142,7 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             test_tmp_dir = pathlib.Path(tmp_dir)
             submit_dir = test_tmp_dir / "submit"
             copytree(f"{TESTDIR}/data/tiny_problems", submit_dir, ignore=ignore_patterns("*~", ".???*"))
-            result_rescue = lssthtc.htc_backup_files(submit_dir, "reldir")
-            self.assertTrue((submit_dir / "tiny_problems.dag.rescue001").samefile(result_rescue))
+            lssthtc.htc_backup_files(submit_dir, "reldir")
             result_submit = []
             for root, _, files in os.walk(submit_dir):
                 result_submit.extend([str(os.path.join(os.path.relpath(root, submit_dir), f)) for f in files])
@@ -968,8 +1165,7 @@ class HTCBackupFilesTestCase(unittest.TestCase):
             test_tmp_dir = pathlib.Path(tmp_dir)
             submit_dir = test_tmp_dir / "submit"
             copytree(f"{TESTDIR}/data/group_failed_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
-            result_rescue = lssthtc.htc_backup_files(submit_dir)
-            self.assertTrue(result_rescue.samefile(submit_dir / "group_failed_1.dag.rescue001"))
+            lssthtc.htc_backup_files(submit_dir)
             result_submit = []
             for root, _, files in os.walk(submit_dir):
                 result_submit.extend([str(os.path.join(os.path.relpath(root, submit_dir), f)) for f in files])
@@ -983,6 +1179,10 @@ class HTCBackupFilesTestCase(unittest.TestCase):
                     "subdags/wms_group_order1_val1a/group_order1_val1a.dag",
                     "subdags/wms_group_order1_val1a/group_order1_val1a.dag.dagman.log",
                     "subdags/wms_group_order1_val1a/group_order1_val1a.dag.dagman.out",
+                    "subdags/wms_group_order1_val1a/group_order1_val1a.dag.nodes.log",
+                    "subdags/wms_group_order1_val1a/group_order1_val1a.node_status",
+                    "subdags/wms_group_order1_val1a/wms_group_order1_val1a.dag.post.out",
+                    "subdags/wms_group_order1_val1a/wms_group_order1_val1a.status.txt",
                     "subdags/wms_group_order1_val1b/group_order1_val1b.dag",
                     "subdags/wms_group_order1_val1b/group_order1_val1b.dag.dagman.log",
                     "subdags/wms_group_order1_val1b/group_order1_val1b.dag.dagman.out",
@@ -990,21 +1190,17 @@ class HTCBackupFilesTestCase(unittest.TestCase):
                     "subdags/wms_group_order1_val1c/group_order1_val1c.dag",
                     "subdags/wms_group_order1_val1c/group_order1_val1c.dag.dagman.log",
                     "subdags/wms_group_order1_val1c/group_order1_val1c.dag.dagman.out",
+                    "subdags/wms_group_order1_val1c/group_order1_val1c.dag.nodes.log",
+                    "subdags/wms_group_order1_val1c/group_order1_val1c.node_status",
+                    "subdags/wms_group_order1_val1c/wms_group_order1_val1c.dag.post.out",
+                    "subdags/wms_group_order1_val1c/wms_group_order1_val1c.status.txt",
                     "001/group_failed_1.dag.nodes.log",
                     "001/group_failed_1.info.json",
                     "001/group_failed_1.node_status",
-                    "001/subdags/wms_group_order1_val1a/group_order1_val1a.dag.nodes.log",
-                    "001/subdags/wms_group_order1_val1a/group_order1_val1a.node_status",
-                    "001/subdags/wms_group_order1_val1a/wms_group_order1_val1a.dag.post.out",
-                    "001/subdags/wms_group_order1_val1a/wms_group_order1_val1a.status.txt",
                     "001/subdags/wms_group_order1_val1b/group_order1_val1b.dag.nodes.log",
                     "001/subdags/wms_group_order1_val1b/group_order1_val1b.node_status",
                     "001/subdags/wms_group_order1_val1b/wms_group_order1_val1b.status.txt",
                     "001/subdags/wms_group_order1_val1b/wms_group_order1_val1b.dag.post.out",
-                    "001/subdags/wms_group_order1_val1c/group_order1_val1c.dag.nodes.log",
-                    "001/subdags/wms_group_order1_val1c/group_order1_val1c.node_status",
-                    "001/subdags/wms_group_order1_val1c/wms_group_order1_val1c.dag.post.out",
-                    "001/subdags/wms_group_order1_val1c/wms_group_order1_val1c.status.txt",
                 },
             )
 
@@ -1019,8 +1215,8 @@ class UpdateRescueFileTestCase(unittest.TestCase):
             submit_dir = test_tmp_dir / "submit"
             copytree(f"{TESTDIR}/data/group_failed_1", submit_dir, ignore=ignore_patterns("*~", ".???*"))
             rescue_file = submit_dir / "group_failed_1.dag.rescue001"
-            lssthtc._update_rescue_file(rescue_file)
-
+            failed_subdags = lssthtc._update_rescue_file(rescue_file)
+            self.assertEqual(set(failed_subdags), {"wms_group_order1_val1b"})
             with open(rescue_file) as fh:
                 lines = fh.readlines()
                 results = "".join(lines)
@@ -1058,9 +1254,107 @@ DONE wms_check_status_wms_group_order1_val1a
 DONE wms_check_status_wms_group_order1_val1c
 """
 
-            print("results = ", results, file=sys.stderr)
-            print("truth = ", truth, file=sys.stderr)
             self.assertEqual(results, truth)
+
+
+class ReadRescueHeadersTestCase(unittest.TestCase):
+    """Test _read_rescue_headers function."""
+
+    def testTypical(self):
+        content = "# Header line 1\n# Header line 2\n\nDONE somenode\n"
+        result = lssthtc._read_rescue_headers(io.StringIO(content))
+        self.assertEqual(result, ["# Header line 1", "# Header line 2"])
+
+    def testEmptyFile(self):
+        result = lssthtc._read_rescue_headers(io.StringIO(""))
+        self.assertEqual(result, [])
+
+    def testOnlyHeaderLines(self):
+        content = "# Line 1\n# Line 2\n# Line 3\n"
+        result = lssthtc._read_rescue_headers(io.StringIO(content))
+        self.assertEqual(result, ["# Line 1", "# Line 2", "# Line 3"])
+
+    def testFirstLineNotComment(self):
+        content = "DONE somenode\n# Header\n"
+        result = lssthtc._read_rescue_headers(io.StringIO(content))
+        self.assertEqual(result, [])
+
+    def testWhitespaceStripped(self):
+        content = "  # Header line 1  \n  # Header line 2  \n\n"
+        result = lssthtc._read_rescue_headers(io.StringIO(content))
+        self.assertEqual(result, ["# Header line 1", "# Header line 2"])
+
+
+class WriteRescueHeadersTestCase(unittest.TestCase):
+    """Test _write_rescue_headers function."""
+
+    def testTypical(self):
+        header_lines = ["# Header line 1", "# Header line 2", "# Header line 3"]
+        outfh = io.StringIO()
+        lssthtc._write_rescue_headers(header_lines, outfh)
+        self.assertEqual(outfh.getvalue(), "# Header line 1\n# Header line 2\n# Header line 3\n\n")
+
+    def testEmptyList(self):
+        outfh = io.StringIO()
+        lssthtc._write_rescue_headers([], outfh)
+        self.assertEqual(outfh.getvalue(), "\n")
+
+    def testSingleLine(self):
+        outfh = io.StringIO()
+        lssthtc._write_rescue_headers(["# Only line"], outfh)
+        self.assertEqual(outfh.getvalue(), "# Only line\n\n")
+
+
+class UpdateRescueHeadersTestCase(unittest.TestCase):
+    """Test _update_rescue_headers function."""
+
+    def testWithFailedSubdag(self):
+        header_lines = [
+            "# Total number of Nodes: 26",
+            "# Nodes premarked DONE: 22",
+            "# Nodes that failed: 2",
+            "#   wms_check_status_wms_group_order1_val1b,finalJob,<ENDLIST>",
+        ]
+        result = lssthtc._update_rescue_headers(header_lines)
+        self.assertEqual(result, ["wms_group_order1_val1b"])
+        self.assertEqual(header_lines[1], "# Nodes premarked DONE: 21")
+        self.assertEqual(header_lines[3], "#   wms_group_order1_val1b,finalJob,<ENDLIST>")
+
+    def testNoSubdagFailures(self):
+        header_lines = [
+            "# Nodes premarked DONE: 5",
+            "# Nodes that failed: 1",
+            "#   finalJob,<ENDLIST>",
+        ]
+        result = lssthtc._update_rescue_headers(header_lines)
+        self.assertEqual(result, [])
+        self.assertEqual(header_lines[0], "# Nodes premarked DONE: 5")
+        self.assertEqual(header_lines[2], "#   finalJob,<ENDLIST>")
+
+    def testMultipleFailedSubdags(self):
+        header_lines = [
+            "# Nodes premarked DONE: 10",
+            "# Nodes that failed: 3",
+            "#   wms_check_status_subdag_a,wms_check_status_subdag_b,finalJob,<ENDLIST>",
+        ]
+        result = lssthtc._update_rescue_headers(header_lines)
+        self.assertEqual(result, ["subdag_a", "subdag_b"])
+        self.assertEqual(header_lines[0], "# Nodes premarked DONE: 8")
+        self.assertEqual(header_lines[2], "#   subdag_a,subdag_b,finalJob,<ENDLIST>")
+
+    def testNoFailedNodesLine(self):
+        header_lines = [
+            "# Total number of Nodes: 5",
+            "# Nodes premarked DONE: 5",
+        ]
+        original = list(header_lines)
+        result = lssthtc._update_rescue_headers(header_lines)
+        self.assertEqual(result, [])
+        self.assertEqual(header_lines, original)
+
+    def testEmptyHeader(self):
+        result = lssthtc._update_rescue_headers([])
+        self.assertEqual(result, [])
 
 
 class ReadDagStatusTestCase(unittest.TestCase):

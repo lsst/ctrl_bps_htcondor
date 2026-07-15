@@ -257,9 +257,13 @@ class HTCondorService(BaseWmsService):
             )
 
         _LOG.info("Backing up select HTCondor files from previous run attempt")
-        rescue_file = htc_backup_files(wms_path, subdir="backups")
-        if (wms_path / "subdags").exists():
-            _update_rescue_file(rescue_file)
+        rescue_files = sorted(wms_path.glob("*.rescue[0-9][0-9][0-9]"))
+        last_rescue_file = Path(rescue_files[-1]) if rescue_files else None
+        has_subdags = (wms_path / "subdags").exists()
+        failed_subdags = None
+        if last_rescue_file and has_subdags:
+            failed_subdags = set(_update_rescue_file(last_rescue_file))
+        htc_backup_files(wms_path, subdir="backups", failed_subdags=failed_subdags)
 
         # For workflow portability, internal paths are all relative. Hence
         # the DAG needs to be resubmitted to HTCondor from inside the submit
