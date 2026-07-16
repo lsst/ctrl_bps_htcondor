@@ -1,18 +1,25 @@
-# anyio and rich are in the lsst-scipipe environment
+#!/usr/bin/env -S uv run --script
+#
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["anyio", "rich", "click", "htcondor==24.0.*; sys_platform == 'linux'"]  # noqa: W505
+# ///
+
 from __future__ import annotations
 
-import asyncio
 import re
-import sys
+import signal
 from collections import deque
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator, Iterable
 from contextvars import ContextVar
+from dataclasses import asdict, dataclass, field
 from math import inf
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 import anyio
 import click
+from anyio.abc import CancelScope
 from classad2 import ClassAd, parseAds
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TaskID, TimeElapsedColumn
@@ -20,6 +27,7 @@ from rich.table import Table
 
 FAILED_STATES = {6}
 KNOWN_EXCEPTIONS = [
+    "RuntimeError",
     "lsst::pex::exceptions::RuntimeError",
     "botocore.exceptions.EndpointConnectionError",
 ]
@@ -28,24 +36,47 @@ RETRYABLE_EXCEPTIONS = []
 exc_pattern = re.compile(rf"({'|'.join(map(re.escape, KNOWN_EXCEPTIONS))})")
 """Regex pattern group-matching any registered known exception strings"""
 
-console = Console(stderr=True)
+console = Console(stderr=False)
+stderr = Console(stderr=True)
 
 progress = Progress(
-    SpinnerColumn(), *Progress.get_default_columns(), "Elapsed:", TimeElapsedColumn(), console=console
+    SpinnerColumn(), *Progress.get_default_columns(), "Elapsed:", TimeElapsedColumn(), console=stderr
 )
 
 ptask: ContextVar[TaskID] = ContextVar("ptask")
 
 
-def task_callback(task: asyncio.Task | None = None):
-    """Done callback used by tasks added to taskgroups.
+@dataclass
+class Context:
+    """Mutable context object for tracking HTCondor DAG results"""
 
-    Updates the rich progress in the task's context.
-    """
-    progress.update(ptask.get(), advance=1)
+    total: int = 0
+    done: int = 0
+    failed: int = 0
+    futile: int = 0
+    failures: dict = field(default_factory=dict)
+    indeterminate: list = field(default_factory=list)
+
+    def __ior__(self, other: Context) -> Self:
+        """Dunder method supporting `|=` merge operation"""
+        self.total += other.total
+        self.done += other.done
+        self.failed += other.failed
+        self.futile += other.futile
+        self.failures |= other.failures
+        self.indeterminate.extend(other.indeterminate)
+        return self
 
 
-def format_output(o: dict, format: Annotated[str, Literal["json", "table"]]):
+async def with_callback[**P, T](fn: Callable[P, Awaitable[T]], *args: P.args, **kwargs: P.kwargs) -> T:
+    """Wrap a task with a done callback that advances its progress"""
+    try:
+        return await fn(*args, **kwargs)
+    finally:
+        progress.update(ptask.get(), advance=1)
+
+
+def format_output(o: dict, format: Annotated[str, Literal["json", "table"]]) -> None:
     """Format the terminal output according to supplied option"""
     if format == "json":
         console.print(o)
@@ -58,6 +89,7 @@ def format_output(o: dict, format: Annotated[str, Literal["json", "table"]]):
     summary_table.add_row("Total", f"{o['total']:,d}")
     summary_table.add_row("Done", f"{o['done']:,d}")
     summary_table.add_row("Failed", f"{o['failed']:,d}")
+    summary_table.add_row("Pruned", f"{o['futile']:,d}")
     console.print(summary_table)
 
     if not o["failures"]:
@@ -100,7 +132,7 @@ def failed_nodes(p: Path) -> Generator[ClassAd]:
         )
 
 
-async def locate_log_files(nodes, p: anyio.Path) -> AsyncGenerator[tuple[str, anyio.Path]]:
+async def locate_log_files(nodes: Iterable[str], p: anyio.Path) -> AsyncGenerator[tuple[str, anyio.Path]]:
     """Locate and provide a generator for any log files associated with a
     member of `nodes`.
     """
@@ -108,15 +140,17 @@ async def locate_log_files(nodes, p: anyio.Path) -> AsyncGenerator[tuple[str, an
     async for path in p.rglob("**/*.*.out"):
         if (label := path.stem.partition(".")[0]) in nodeset:
             nodeset.remove(label)
-            task_callback()
+            progress.update(ptask.get(), advance=1)
             yield label, path
             if not nodeset:
                 break
 
 
-async def heuristic(node: str, p: anyio.Path, sem: asyncio.Semaphore) -> tuple[str, tuple[str, str]] | None:
+async def heuristic(
+    node: str, p: anyio.Path, limiter: anyio.CapacityLimiter
+) -> tuple[str, tuple[str, str]] | None:
     """Search log file for `node` for any well-known exceptions"""
-    async with sem, await anyio.open_file(p, "r") as f:
+    async with limiter, await anyio.open_file(p, "r") as f:
         match_result = ("", "")
         while line := await f.readline():
             if match := exc_pattern.search(line):
@@ -125,98 +159,136 @@ async def heuristic(node: str, p: anyio.Path, sem: asyncio.Semaphore) -> tuple[s
     return node, match_result
 
 
-async def amain(submit_dir: Path, limit: int, format: str, max_failures: float) -> None:
+async def discover_node_status(p: Path) -> Context:
+    """..."""
+    ad = dag_status(p)
+    context = Context()
+    if ad is None:
+        stderr.log("[red]No DAG Status found[/red]")
+        return context
+
+    context.total = ad["NodesTotal"]
+    context.done = ad["NodesDone"]
+    context.failed = ad["NodesFailed"]
+    context.futile = ad["NodesFutile"]
+
+    return context
+
+
+async def status(submit_dir: Path, capacity: int, max_failures: float, format: str) -> None:
     """Asynchronous application entry point"""
     progress.start()
-    limiter = asyncio.Semaphore(limit)
+    limiter = anyio.CapacityLimiter(capacity)
     jobs_dir = anyio.Path(submit_dir) / "jobs"
-    output = {}
+    subdags_dir = Path(submit_dir) / "subdags"
+    status_files = []
+    output = Context()
 
     try:
         node_status_file = next(submit_dir.glob("*.node_status"))
+        node_status = await discover_node_status(node_status_file)
+        output |= node_status
+        status_files.append(node_status_file)
     except StopIteration:
-        print("No node_status file found in submit dir")
-        sys.exit(1)
+        stderr.log("[red]No node_status file found in submit dir[/red]")
+        return None
 
-    ad = dag_status(node_status_file)
-    if ad is None:
-        console.log("[red]No DAG Status found[/red]")
-        sys.exit(0)
-
-    output["total"] = ad["NodesTotal"]
-    output["done"] = ad["NodesDone"]
-    output["failed"] = ad["NodesFailed"]
-    output["failures"] = {}
-    output["indeterminate"] = []
+    if subdags_dir.exists():
+        for subdag_status_file in subdags_dir.rglob("*.node_status"):
+            subdag_status = await discover_node_status(subdag_status_file)
+            output |= subdag_status
+            status_files.append(subdag_status_file)
 
     # The finalJob is always "failed" if there are any other DAG failures
-    if output["failed"] > 1:
-        output["failed"] -= 1
+    # FIXME is this always true?
+    if output.failed > 1:
+        output.failed -= 1
 
-    if output["failed"] > 0:
+    if output.failed > 0:
         ptask0 = progress.add_task(
-            "[green]Finding [red]failed[/red] nodes in [cyan]node_status[/cyan] file...[/green]",
-            total=output["failed"],
+            "[green]Finding [red]failed[/red] nodes in [cyan]node_status[/cyan] files...[/green]",
+            total=output.failed,
         )
         found_fails = 0
-        for failed_node in failed_nodes(node_status_file):
-            if failed_node["Node"] == "finalJob":
-                continue
-            found_fails += 1
-            output["failures"][failed_node["Node"]] = {"logfile": None, "exception": None, "reason": None}
-            progress.update(ptask0, advance=1)
-            if found_fails >= output["failed"] or found_fails >= max_failures:
-                break
+        for status_file in status_files:
+            for failed_node in failed_nodes(status_file):
+                if failed_node["Node"] == "finalJob":
+                    continue
+                found_fails += 1
+                output.failures[failed_node["Node"]] = {"logfile": None, "exception": None, "reason": None}
+                progress.update(ptask0, advance=1)
+                if found_fails >= output.failed or found_fails >= max_failures:
+                    break
 
     ptask0 = progress.add_task(
         "[green]Locating [cyan]log files[/cyan] for [red]failed[/red] nodes...[/green]",
-        total=output["failed"],
+        total=output.failed,
     )
     token = ptask.set(ptask0)
-    async for node, log_file in locate_log_files(output["failures"].keys(), jobs_dir):
-        output["failures"][node]["logfile"] = str(log_file)
+    async for node, log_file in locate_log_files(output.failures.keys(), jobs_dir):
+        output.failures[node]["logfile"] = str(log_file)
     ptask.reset(token)
 
     ptask1 = progress.add_task(
-        "[green]Reading [cyan]log files[/cyan] for [red]failed[/red] nodes...[/green]", total=output["failed"]
+        "[green]Reading [cyan]log files[/cyan] for [red]failed[/red] nodes...[/green]", total=output.failed
     )
-    heuristics = deque(maxlen=output["failed"])
-    async with asyncio.TaskGroup() as tg:
+    heuristics: deque[anyio.TaskHandle] = deque(maxlen=output.failed)
+    async with anyio.create_task_group() as tg:
         token = ptask.set(ptask1)
-        for node, v in output["failures"].items():
+        for node, v in output.failures.items():
             if v["logfile"] is None:
-                output["indeterminate"].append(node)
+                output.indeterminate.append(node)
                 continue
-            tg_task = tg.create_task(heuristic(node, v["logfile"], limiter))
-            tg_task.add_done_callback(task_callback)
-            heuristics.append(tg_task)
+            handle = tg.start_soon(with_callback, heuristic, node, v["logfile"], limiter)
+            heuristics.append(handle)
         ptask.reset(token)
     progress.stop()
 
     for task in heuristics:
-        failed_node, match_result = task.result()
+        failed_node, match_result = task.return_value
         exc, reason = match_result
         if not exc:
-            output["indeterminate"].append(failed_node)
+            output.indeterminate.append(failed_node)
         else:
-            output["failures"][failed_node]["exception"] = exc
-            output["failures"][failed_node]["reason"] = reason
+            output.failures[failed_node]["exception"] = exc
+            output.failures[failed_node]["reason"] = reason
 
-    format_output(output, format)
+    format_output(asdict(output), format)
+
+
+async def signal_handler(scope: CancelScope) -> None:
+    """Cancel scope when signal received"""
+    with anyio.open_signal_receiver(signal.SIGTERM, signal.SIGINT) as signals:
+        async for signum in signals:
+            if signum == signal.SIGINT:
+                stderr.log("[red]Ctrl+C Pressed[/red]")
+            else:
+                stderr.log("[red]Received Termination Signal[/red]")
+            scope.cancel()
+            return
+
+
+async def amain(submit_dir: Path, capacity: int, format: str, max_failures: float, interval: float):
+    """Async application entry point"""
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(signal_handler, tg.cancel_scope)
+        while True:
+            await status(submit_dir, capacity, max_failures, format)
+            stderr.log("[green]sleeping...[/green]")
+            await anyio.sleep(interval)
 
 
 @click.command()
 @click.argument("submit_dir", type=click.Path(file_okay=False, path_type=Path))
-@click.option("--limit", default=10, help="max number of concurrent tasks", show_default=True)
+@click.option("--capacity", default=10, help="max number of concurrent tasks", show_default=True)
 @click.option(
     "--format", type=click.Choice(["json", "table"]), default="json", show_default=True, show_envvar=True
 )
-@click.option(
-    "--max-failures", type=float, default=inf, help="stop reporting heuristics after N failures"
-)
-def main(submit_dir: Path, limit: int, format: str, max_failures: float) -> None:
+@click.option("--max-failures", type=float, default=inf, help="stop reporting heuristics after N failures")
+@click.option("--interval", type=float, default=600, help="wakeup interval")
+def main(submit_dir: Path, capacity: int, format: str, max_failures: float, interval: float) -> None:
     """Application entry point"""
-    asyncio.run(amain(submit_dir, limit, format, max_failures))
+    anyio.run(amain, submit_dir, capacity, format, max_failures, interval)
 
 
 if __name__ == "__main__":
