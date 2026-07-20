@@ -1,3 +1,13 @@
+lsst-ctrl-bps-htcondor v30.0.10 (2026-07-20)
+============================================
+
+Bug Fixes
+---------
+
+- - Fixed bug causing ``bps report`` to emit confusing error due to mixing information specific to a ``condor_dagman`` job with the information related to its jobs.
+  - Fixed the issue with ``bps report`` providing incorrect job counts after restarts. (`DM-54540 <https://rubinobs.atlassian.net/browse/DM-54540>`_)
+
+
 lsst-ctrl-bps-htcondor v30.0.9 (2026-07-15)
 ===========================================
 
