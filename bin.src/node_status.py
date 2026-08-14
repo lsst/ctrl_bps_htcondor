@@ -4,15 +4,33 @@
 # requires-python = ">=3.12"
 # dependencies = ["anyio", "rich", "click", "htcondor==24.0.*; sys_platform == 'linux'"]  # noqa: W505
 # ///
+"""Dagman node status parser
+
+Interesting files include
+- `*.node_status`, a snapshot of the ClassAds for the dag and every node in the
+  dag, updated throughout dag execution.
+- `*.dag.metrics`, a JSON file with workflow metrics, written at the end of the
+  workflow.
+- `*.dagman.out`. The append-only debug log of the dagman workflow executor.
+- `*.nodes.log`. The htcondor event log for the dag
+
+# TODO
+- if we had the dagman's own clusterid, could we use the condor api instead of
+  the node status file?
+- would enabling a "JOBSTATE_LOG" be useful? it is the filtered version of the
+  `dagman.out` log, so should be smaller and faster to parse.
+"""
 
 from __future__ import annotations
 
+import pickle
 import re
 import signal
 from collections import deque
-from collections.abc import AsyncGenerator, Awaitable, Callable, Generator, Iterable
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
+from enum import IntEnum
 from math import inf
 from pathlib import Path
 from typing import Annotated, Literal, Self
@@ -25,7 +43,6 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TaskID, TimeElapsedColumn
 from rich.table import Table
 
-FAILED_STATES = {6}
 KNOWN_EXCEPTIONS = [
     "RuntimeError",
     "lsst::pex::exceptions::RuntimeError",
@@ -46,16 +63,30 @@ progress = Progress(
 ptask: ContextVar[TaskID] = ContextVar("ptask")
 
 
+class DagNodeStatus(IntEnum):
+    """Enum of potential Dag or Node states reported by dagman"""
+
+    NOT_READY = 0
+    READY = 1
+    PRERUN = 2
+    SUBMITTED = 3
+    POSTRUN = 4
+    DONE = 5
+    ERROR = 6
+    FUTILE = 7
+
+
 @dataclass
 class Context:
     """Mutable context object for tracking HTCondor DAG results"""
 
+    status: int = 0
     total: int = 0
     done: int = 0
     failed: int = 0
     futile: int = 0
     failures: dict = field(default_factory=dict)
-    indeterminate: list = field(default_factory=list)
+    indeterminate: set = field(default_factory=set)
 
     def __ior__(self, other: Context) -> Self:
         """Dunder method supporting `|=` merge operation"""
@@ -64,7 +95,18 @@ class Context:
         self.failed += other.failed
         self.futile += other.futile
         self.failures |= other.failures
-        self.indeterminate.extend(other.indeterminate)
+        self.indeterminate |= other.indeterminate
+        return self
+
+    def __iand__(self, other: Context) -> Self:
+        """Dunder method supporting `&=` merge operation"""
+        self.status = max(self.status, other.status)
+        self.total = other.total
+        self.done = other.done
+        self.failed = other.failed
+        self.futile = other.futile
+        self.failures |= other.failures
+        self.indeterminate |= other.indeterminate
         return self
 
 
@@ -127,16 +169,25 @@ def failed_nodes(p: Path) -> Generator[ClassAd]:
     """
     with p.open("r") as f:
         yield from filter(
-            lambda ad_: ad_.get("Type") == "NodeStatus" and ad_.get("NodeStatus") in FAILED_STATES,
+            lambda ad_: ad_.get("Type") == "NodeStatus" and ad_.get("NodeStatus", 7) == DagNodeStatus.ERROR,
             parseAds(f),
         )
 
 
-async def locate_log_files(nodes: Iterable[str], p: anyio.Path) -> AsyncGenerator[tuple[str, anyio.Path]]:
-    """Locate and provide a generator for any log files associated with a
-    member of `nodes`.
+async def locate_log_files(context: Context, p: anyio.Path) -> AsyncGenerator[tuple[str, anyio.Path]]:
+    """Locate and provide a generator for any log files associated with failed
+    nodes in `context`, skipping those nodes that already have a logfile or
+    have already been marked indeterminate.
     """
-    nodeset = set(nodes)
+    nodeset: set[str] = {
+        node
+        for node in context.failures.keys()
+        if not context.failures[node]["logfile"] and node not in context.indeterminate
+    }
+    if not nodeset:
+        return
+    # check cache for nodes we already know the log files for and only go back
+    # to the filesystem if we need to
     async for path in p.rglob("**/*.*.out"):
         if (label := path.stem.partition(".")[0]) in nodeset:
             nodeset.remove(label)
@@ -160,7 +211,9 @@ async def heuristic(
 
 
 async def discover_node_status(p: Path) -> Context:
-    """..."""
+    """Discover the DAG status and return a context object to merge with
+    global status.
+    """
     ad = dag_status(p)
     context = Context()
     if ad is None:
@@ -171,23 +224,31 @@ async def discover_node_status(p: Path) -> Context:
     context.done = ad["NodesDone"]
     context.failed = ad["NodesFailed"]
     context.futile = ad["NodesFutile"]
+    context.status = ad["DagStatus"]
 
     return context
 
 
-async def status(submit_dir: Path, capacity: int, max_failures: float, format: str) -> None:
+async def status(
+    submit_dir: Path, capacity: int, max_failures: float, format: str, *, with_cache: bool
+) -> None:
     """Asynchronous application entry point"""
     progress.start()
     limiter = anyio.CapacityLimiter(capacity)
     jobs_dir = anyio.Path(submit_dir) / "jobs"
     subdags_dir = Path(submit_dir) / "subdags"
+    status_cache_file = Path(submit_dir) / "cm_node_status.pickle"
     status_files = []
-    output = Context()
+    if with_cache and status_cache_file.exists():
+        with status_cache_file.open("rb") as f:
+            output = pickle.load(f)
+    else:
+        output = Context()
 
     try:
         node_status_file = next(submit_dir.glob("*.node_status"))
         node_status = await discover_node_status(node_status_file)
-        output |= node_status
+        output &= node_status
         status_files.append(node_status_file)
     except StopIteration:
         stderr.log("[red]No node_status file found in submit dir[/red]")
@@ -200,10 +261,11 @@ async def status(submit_dir: Path, capacity: int, max_failures: float, format: s
             status_files.append(subdag_status_file)
 
     # The finalJob is always "failed" if there are any other DAG failures
-    # FIXME is this always true?
-    if output.failed > 1:
+    # assuming the DAG itself is completed and the finalJob has actually run
+    if output.status >= DagNodeStatus.DONE and output.failed > 1:
         output.failed -= 1
 
+    failed_nodeset = set()
     if output.failed > 0:
         ptask0 = progress.add_task(
             "[green]Finding [red]failed[/red] nodes in [cyan]node_status[/cyan] files...[/green]",
@@ -215,17 +277,26 @@ async def status(submit_dir: Path, capacity: int, max_failures: float, format: s
                 if failed_node["Node"] == "finalJob":
                     continue
                 found_fails += 1
-                output.failures[failed_node["Node"]] = {"logfile": None, "exception": None, "reason": None}
+                failed_nodeset.add(failed_node["Node"])
                 progress.update(ptask0, advance=1)
                 if found_fails >= output.failed or found_fails >= max_failures:
                     break
+    # Reconcile failed_nodeset with current context
+    known_failed_nodes = set(output.failures.keys())
+    for node in known_failed_nodes.difference(failed_nodeset):
+        # known nodes not in current failset are no longer failed!
+        output.failures.pop(node)
+        output.indeterminate.discard(node)
+    for node in failed_nodeset.difference(known_failed_nodes):
+        # new failures are added to context
+        output.failures[node] = {"logfile": None, "exception": None, "reason": None}
 
     ptask0 = progress.add_task(
         "[green]Locating [cyan]log files[/cyan] for [red]failed[/red] nodes...[/green]",
         total=output.failed,
     )
     token = ptask.set(ptask0)
-    async for node, log_file in locate_log_files(output.failures.keys(), jobs_dir):
+    async for node, log_file in locate_log_files(output, jobs_dir):
         output.failures[node]["logfile"] = str(log_file)
     ptask.reset(token)
 
@@ -237,7 +308,9 @@ async def status(submit_dir: Path, capacity: int, max_failures: float, format: s
         token = ptask.set(ptask1)
         for node, v in output.failures.items():
             if v["logfile"] is None:
-                output.indeterminate.append(node)
+                output.indeterminate.add(node)
+                continue
+            if v["exception"] is not None:
                 continue
             handle = tg.start_soon(with_callback, heuristic, node, v["logfile"], limiter)
             heuristics.append(handle)
@@ -248,10 +321,18 @@ async def status(submit_dir: Path, capacity: int, max_failures: float, format: s
         failed_node, match_result = task.return_value
         exc, reason = match_result
         if not exc:
-            output.indeterminate.append(failed_node)
+            output.indeterminate.add(failed_node)
         else:
             output.failures[failed_node]["exception"] = exc
             output.failures[failed_node]["reason"] = reason
+
+    # save context in cache file
+    if with_cache:
+        try:
+            with status_cache_file.open("wb") as f:
+                pickle.dump(output, f, pickle.HIGHEST_PROTOCOL)
+        except OSError:
+            stderr.log("[red]Could not cache results (OSError)[/red]")
 
     format_output(asdict(output), format)
 
@@ -268,12 +349,14 @@ async def signal_handler(scope: CancelScope) -> None:
             return
 
 
-async def amain(submit_dir: Path, capacity: int, format: str, max_failures: float, interval: float):
+async def amain(
+    submit_dir: Path, capacity: int, format: str, max_failures: float, interval: float, cache: bool
+):
     """Async application entry point"""
     async with anyio.create_task_group() as tg:
         tg.start_soon(signal_handler, tg.cancel_scope)
         while True:
-            await status(submit_dir, capacity, max_failures, format)
+            await status(submit_dir, capacity, max_failures, format, with_cache=cache)
             stderr.log("[green]sleeping...[/green]")
             await anyio.sleep(interval)
 
@@ -286,9 +369,12 @@ async def amain(submit_dir: Path, capacity: int, format: str, max_failures: floa
 )
 @click.option("--max-failures", type=float, default=inf, help="stop reporting heuristics after N failures")
 @click.option("--interval", type=float, default=600, help="wakeup interval")
-def main(submit_dir: Path, capacity: int, format: str, max_failures: float, interval: float) -> None:
+@click.option("--cache/--no-cache", default=True)
+def main(
+    submit_dir: Path, *, capacity: int, format: str, max_failures: float, interval: float, cache: bool
+) -> None:
     """Application entry point"""
-    anyio.run(amain, submit_dir, capacity, format, max_failures, interval)
+    anyio.run(amain, submit_dir, capacity, format, max_failures, interval, cache)
 
 
 if __name__ == "__main__":
