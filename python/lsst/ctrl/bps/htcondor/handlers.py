@@ -47,6 +47,8 @@ import re
 from collections.abc import Sequence
 from typing import Any, overload
 
+from deprecated.sphinx import deprecated
+
 _LOG = logging.getLogger(__name__)
 
 
@@ -150,6 +152,11 @@ class Chain(Sequence):
         return new_ad
 
 
+@deprecated(
+    reason="In `htcondor2`, the `JobEvent` no longer includes the ticket of execution.",
+    version="v30.0",
+    category=FutureWarning,
+)
 class JobCompletedWithExecTicketHandler(Handler):
     """Handler of ClassAds for completed jobs with the ticket of execution.
 
@@ -186,6 +193,11 @@ class JobCompletedWithExecTicketHandler(Handler):
         return ad
 
 
+@deprecated(
+    reason="In `htcondor2`, the `JobEvent` no longer includes the ticket of execution.",
+    version="v30.0",
+    category=FutureWarning,
+)
 class JobCompletedWithoutExecTicketHandler(Handler):
     """Handler of ClassAds for completed jobs w/o the ticket of execution.
 
