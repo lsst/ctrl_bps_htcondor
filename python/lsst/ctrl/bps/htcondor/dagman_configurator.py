@@ -34,7 +34,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import htcondor
+from htcondor2 import param as htc_param
 from pydantic import AliasGenerator, ConfigDict, create_model
 
 from lsst.ctrl.bps import BpsConfig
@@ -51,7 +51,7 @@ _LOG = logging.getLogger(__name__)
 # There are some DAGMan configuration options that names do not start with
 # ``DAGMAN_`` (e.g., ``MAX_DAGMAN_LOG``). Hence, do not use
 # ``key.startswith("DAGMAN_")``.
-_fields = {key.lower(): (type(val), val) for key, val in htcondor.param.items() if "DAGMAN_" in key}
+_fields = {key.lower(): (type(val), val) for key, val in htc_param.items() if "DAGMAN_" in key}
 
 # Add some valid configuration options are not set by default by HTCondor and
 # are missing from ``htcondor.param``.

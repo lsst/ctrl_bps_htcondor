@@ -23,7 +23,7 @@ classifiers = [
 ]
 keywords = ["lsst"]
 dependencies = [
-    "htcondor >= 8.8",
+    "htcondor==25.0.*",
     "lsst-ctrl-bps",
     "lsst-daf-butler",
     "lsst-pipe-base",
@@ -37,8 +37,8 @@ dynamic = ["version"]
 "Homepage" = "https://github.com/lsst/ctrl_bps_htcondor"
 "Source" = "https://github.com/lsst/ctrl_bps_htcondor"
 
-[project.optional-dependencies]
-test = [
+[dependency-groups]
+dev = [
     "pytest >= 3.2",
     "pytest-openfiles >= 0.5.0"
 ]

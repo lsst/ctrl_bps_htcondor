@@ -31,7 +31,7 @@ import logging
 from enum import IntEnum, auto
 from pathlib import Path
 
-import htcondor
+from htcondor2 import Collector, DaemonTypes, JobStatus, Schedd
 
 from lsst.ctrl.bps import (
     WmsStates,
@@ -110,16 +110,16 @@ def _htc_job_status_to_wms_state(job):
         job_status = int(job["JobStatus"])
 
         _LOG.debug("htc_job_status_to_wms_state: job_status = %s", job_status)
-        if job_status == htcondor.JobStatus.IDLE:
+        if job_status == JobStatus.IDLE:
             wms_state = WmsStates.PENDING
-        elif job_status == htcondor.JobStatus.RUNNING:
+        elif job_status == JobStatus.RUNNING:
             wms_state = WmsStates.RUNNING
-        elif job_status == htcondor.JobStatus.REMOVED:
+        elif job_status == JobStatus.REMOVED:
             if (job.get("ExitBySignal", False) and job.get("ExitSignal", 0)) or job.get("ExitCode", 0):
                 wms_state = WmsStates.FAILED
             else:
                 wms_state = WmsStates.DELETED
-        elif job_status == htcondor.JobStatus.COMPLETED:
+        elif job_status == JobStatus.COMPLETED:
             if (
                 (job.get("ExitBySignal", False) and job.get("ExitSignal", 0))
                 or job.get("ExitCode", 0)
@@ -128,7 +128,7 @@ def _htc_job_status_to_wms_state(job):
                 wms_state = WmsStates.FAILED
             else:
                 wms_state = WmsStates.SUCCEEDED
-        elif job_status == htcondor.JobStatus.HELD:
+        elif job_status == JobStatus.HELD:
             wms_state = WmsStates.HELD
 
     return wms_state
@@ -224,19 +224,19 @@ def _wms_id_to_cluster(wms_id):
     id_type : `lsst.ctrl.bps.wms.htcondor.IdType`
         The type of the provided id.
     """
-    coll = htcondor.Collector()
+    coll = Collector()
 
     schedd_ad = None
     cluster_id = None
     id_type = _wms_id_type(wms_id)
     _LOG.debug("id_type = %s", id_type.name)
     if id_type == WmsIdType.LOCAL:
-        schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
+        schedd_ad = coll.locate(DaemonTypes.Schedd)
         cluster_id = int(float(wms_id))
     elif id_type == WmsIdType.GLOBAL:
         constraint = f'GlobalJobId == "{wms_id}"'
-        schedd_ads = {ad["Name"]: ad for ad in coll.locateAll(htcondor.DaemonTypes.Schedd)}
-        schedds = {name: htcondor.Schedd(ad) for name, ad in schedd_ads.items()}
+        schedd_ads = {ad["Name"]: ad for ad in coll.locateAll(DaemonTypes.Schedd)}
+        schedds = {name: Schedd(ad) for name, ad in schedd_ads.items()}
         job_info = condor_q(constraint=constraint, schedds=schedds)
         if job_info:
             schedd_name, job_rec = job_info.popitem()
@@ -251,7 +251,7 @@ def _wms_id_to_cluster(wms_id):
         else:
             schedd_name, job_rec = job_info.popitem()
             job_id, _ = job_rec.popitem()
-            schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd, schedd_name)
+            schedd_ad = coll.locate(DaemonTypes.Schedd, schedd_name)
             cluster_id = int(float(job_id))
     else:
         pass
@@ -283,7 +283,7 @@ def _wms_id_to_dir(wms_id):
     TypeError
         Raised if provided WMS id has invalid type.
     """
-    coll = htcondor.Collector()
+    coll = Collector()
     schedd_ads = []
 
     constraint = None
@@ -292,16 +292,16 @@ def _wms_id_to_dir(wms_id):
     match id_type:
         case WmsIdType.LOCAL:
             constraint = f"ClusterId == {int(float(wms_id))}"
-            schedd_ads.append(coll.locate(htcondor.DaemonTypes.Schedd))
+            schedd_ads.append(coll.locate(DaemonTypes.Schedd))
         case WmsIdType.GLOBAL:
             constraint = f'GlobalJobId == "{wms_id}"'
-            schedd_ads.extend(coll.locateAll(htcondor.DaemonTypes.Schedd))
+            schedd_ads.extend(coll.locateAll(DaemonTypes.Schedd))
         case WmsIdType.PATH:
             wms_path = Path(wms_id).resolve()
         case WmsIdType.UNKNOWN:
             raise TypeError(f"Invalid job id type: {wms_id}")
     if constraint is not None:
-        schedds = {ad["name"]: htcondor.Schedd(ad) for ad in schedd_ads}
+        schedds = {ad["name"]: Schedd(ad) for ad in schedd_ads}
         job_info = condor_history(constraint=constraint, schedds=schedds, projection=["Iwd"])
         if job_info:
             _, job_rec = job_info.popitem()
