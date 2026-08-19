@@ -32,9 +32,11 @@ __all__ = ["HTCondorService"]
 
 import logging
 import os
+from importlib.metadata import version
 from pathlib import Path
 
-import htcondor
+from htcondor2 import Collector, DaemonTypes, JobAction, Schedd, ping
+from htcondor2.htcondor2_impl import HTCondorException
 from packaging import version
 
 from lsst.ctrl.bps import (
@@ -58,7 +60,6 @@ from .lssthtc import (
     htc_create_submit_from_dag,
     htc_create_submit_from_file,
     htc_submit_dag,
-    htc_version,
     read_dag_info,
     read_dag_status,
     write_dag_info,
@@ -104,6 +105,7 @@ class HTCondorService(BaseWmsService):
         workflow : `lsst.ctrl.bps.htcondor.HTCondorWorkflow`
             HTCondor workflow ready to be run.
         """
+        _LOG.info("Using HTCondor Python bindings version %s", version("htcondor"))
         _LOG.debug("out_prefix = '%s'", out_prefix)
         with time_this(log=_LOG, level=logging.INFO, prefix=None, msg="Completed HTCondor workflow creation"):
             _, enable_provisioning = config.search("provisionResources")
@@ -156,22 +158,18 @@ class HTCondorService(BaseWmsService):
             Keyword arguments for the options.
         """
         dag = workflow.dag
-        ver = version.parse(htc_version())
 
         # For workflow portability, internal paths are all relative. Hence
         # the DAG needs to be submitted to HTCondor from inside the submit
         # directory.
         with chdir(workflow.submit_path):
             try:
-                if ver >= version.parse("8.9.3"):
-                    wms_config_path = None
-                    if "bps_wms_config_path" in dag.graph["attr"]:
-                        wms_config_path = dag.graph["attr"]["bps_wms_config_path"]
-                    sub = htc_create_submit_from_dag(
-                        dag.graph["dag_filename"], dag.graph["submit_options"], wms_config_path
-                    )
-                else:
-                    sub = htc_create_submit_from_cmd(dag.graph["dag_filename"], dag.graph["submit_options"])
+                wms_config_path = None
+                if "bps_wms_config_path" in dag.graph["attr"]:
+                    wms_config_path = dag.graph["attr"]["bps_wms_config_path"]
+                sub = htc_create_submit_from_dag(
+                    dag.graph["dag_filename"], dag.graph["submit_options"], wms_config_path
+                )
             except Exception:
                 _LOG.error(
                     "Problems creating HTCondor submit object from filename: %s", dag.graph["dag_filename"]
@@ -343,13 +341,13 @@ class HTCondorService(BaseWmsService):
         )
 
         # Determine which Schedds will be queried for job information.
-        coll = htcondor.Collector()
+        coll = Collector()
 
         schedd_ads = []
         if is_global:
-            schedd_ads.extend(coll.locateAll(htcondor.DaemonTypes.Schedd))
+            schedd_ads.extend(coll.locateAll(DaemonTypes.Schedd))
         else:
-            schedd_ads.append(coll.locate(htcondor.DaemonTypes.Schedd))
+            schedd_ads.append(coll.locate(DaemonTypes.Schedd))
 
         # Construct appropriate constraint expression using provided arguments.
         constraint = "False"
@@ -377,7 +375,7 @@ class HTCondorService(BaseWmsService):
                 constraint += f" && ({pass_thru})"
 
         # Create a list of scheduler daemons which need to be queried.
-        schedds = {ad["Name"]: htcondor.Schedd(ad) for ad in schedd_ads}
+        schedds = {ad["Name"]: Schedd(ad) for ad in schedd_ads}
 
         _LOG.debug("constraint = %s, schedds = %s", constraint, ", ".join(schedds))
         results = condor_q(constraint=constraint, schedds=schedds)
@@ -537,7 +535,7 @@ class HTCondorService(BaseWmsService):
                 cluster_id,
                 schedd_ad["Name"],
             )
-            schedd = htcondor.Schedd(schedd_ad)
+            schedd = Schedd(schedd_ad)
 
             constraint = f"ClusterId == {cluster_id}"
             if pass_thru is not None and "-forcex" in pass_thru:
@@ -545,12 +543,12 @@ class HTCondorService(BaseWmsService):
                 if pass_thru_2 and not pass_thru_2.isspace():
                     constraint += f"&& ({pass_thru_2})"
                 _LOG.debug("JobAction.RemoveX constraint = %s", constraint)
-                results = schedd.act(htcondor.JobAction.RemoveX, constraint)
+                results = schedd.act(JobAction.RemoveX, constraint)
             else:
                 if pass_thru:
                     constraint += f"&& ({pass_thru})"
                 _LOG.debug("JobAction.Remove constraint = %s", constraint)
-                results = schedd.act(htcondor.JobAction.Remove, constraint)
+                results = schedd.act(JobAction.Remove, constraint)
             _LOG.debug("Remove results: %s", results)
 
             if results["TotalSuccess"] > 0 and results["TotalError"] == 0:
@@ -586,21 +584,20 @@ class HTCondorService(BaseWmsService):
         message : `str`
             Any message from WMS (e.g., error details).
         """
-        coll = htcondor.Collector()
-        secman = htcondor.SecMan()
+        coll = Collector()
         status = 0
         message = ""
         _LOG.info("Not verifying that compute resources exist.")
         daemon_type = htcondor.DaemonTypes.Schedd  # To avoid possibly undefined error
         try:
-            for daemon_type in [htcondor.DaemonTypes.Schedd, htcondor.DaemonTypes.Collector]:
-                _ = secman.ping(coll.locate(daemon_type))
-        except htcondor.HTCondorLocateError:
+            for daemon_type in [DaemonTypes.Schedd, DaemonTypes.Collector]:
+                _ = ping(coll.locate(daemon_type))
+        except HTCondorException as e:
             status = 1
-            message = f"Could not locate {daemon_type} service."
-        except htcondor.HTCondorIOError:
-            status = 1
-            message = f"Permission problem with {daemon_type} service."
+            if "unable to locate" in str(e).lower():
+                message = f"Could not locate {daemon_type.name} service."
+            elif "failed to connect" in str(e).lower():
+                message = f"Permission problem with {daemon_type.name} service."
         return status, message
 
     def run_submission_checks(self):

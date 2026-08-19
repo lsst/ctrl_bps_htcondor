@@ -32,8 +32,9 @@ import os
 import unittest
 from pathlib import Path
 from shutil import copy2, copytree
+from unittest.mock import patch
 
-import htcondor
+from htcondor2 import JobStatus
 
 from lsst.ctrl.bps import (
     WmsSpecificInfo,
@@ -63,47 +64,47 @@ class GetExitCodeSummaryTestCase(unittest.TestCase):
     def setUp(self):
         self.jobs = {
             "1.0": {
-                "JobStatus": htcondor.JobStatus.IDLE,
+                "JobStatus": JobStatus.IDLE,
                 "bps_job_label": "foo",
             },
             "2.0": {
-                "JobStatus": htcondor.JobStatus.RUNNING,
+                "JobStatus": JobStatus.RUNNING,
                 "bps_job_label": "foo",
             },
             "3.0": {
-                "JobStatus": htcondor.JobStatus.REMOVED,
+                "JobStatus": JobStatus.REMOVED,
                 "bps_job_label": "foo",
             },
             "4.0": {
                 "ExitCode": 0,
                 "ExitBySignal": False,
-                "JobStatus": htcondor.JobStatus.COMPLETED,
+                "JobStatus": JobStatus.COMPLETED,
                 "bps_job_label": "bar",
             },
             "5.0": {
                 "ExitCode": 1,
                 "ExitBySignal": False,
-                "JobStatus": htcondor.JobStatus.COMPLETED,
+                "JobStatus": JobStatus.COMPLETED,
                 "bps_job_label": "bar",
             },
             "6.0": {
                 "ExitBySignal": True,
                 "ExitSignal": 11,
-                "JobStatus": htcondor.JobStatus.HELD,
+                "JobStatus": JobStatus.HELD,
                 "bps_job_label": "baz",
             },
             "7.0": {
                 "ExitBySignal": False,
                 "ExitCode": 42,
-                "JobStatus": htcondor.JobStatus.HELD,
+                "JobStatus": JobStatus.HELD,
                 "bps_job_label": "baz",
             },
             "8.0": {
-                "JobStatus": htcondor.JobStatus.TRANSFERRING_OUTPUT,
+                "JobStatus": JobStatus.TRANSFERRING_OUTPUT,
                 "bps_job_label": "qux",
             },
             "9.0": {
-                "JobStatus": htcondor.JobStatus.SUSPENDED,
+                "JobStatus": JobStatus.SUSPENDED,
                 "bps_job_label": "qux",
             },
         }
@@ -132,7 +133,7 @@ class GetExitCodeSummaryTestCase(unittest.TestCase):
     def testUnknownKey(self):
         jobs = {
             "1.0": {
-                "JobStatus": htcondor.JobStatus.COMPLETED,
+                "JobStatus": JobStatus.COMPLETED,
                 "UnknownKey": None,
                 "bps_job_label": "foo",
             }
@@ -272,7 +273,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8523,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": htcondor.JobStatus.RUNNING,
+            "JobStatus": JobStatus.RUNNING,
         }
 
         results = WmsSpecificInfo()
@@ -288,7 +289,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8761,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": htcondor.JobStatus.COMPLETED,
+            "JobStatus": JobStatus.COMPLETED,
             "ExitCode": 4,
         }
         results = WmsSpecificInfo()
@@ -302,7 +303,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
         job_ad = {
             "ClusterId": 9086,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": htcondor.JobStatus.REMOVED,
+            "JobStatus": JobStatus.REMOVED,
             "ProcId": 0,
             "Reason": "via condor_rm (by user mgower)",
             "job_evicted_time": "2025-02-11T11:35:04",
@@ -320,7 +321,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8761,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": htcondor.JobStatus.COMPLETED,
+            "JobStatus": JobStatus.COMPLETED,
             "ExitCode": 0,
         }
         results = WmsSpecificInfo()
@@ -340,7 +341,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8761,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": htcondor.JobStatus.REMOVED,
+            "JobStatus": JobStatus.REMOVED,
             "Reason": "Removed by DAGMan (by user mgower)",
         }
         results = WmsSpecificInfo()
@@ -355,7 +356,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8761,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": htcondor.JobStatus.REMOVED,
+            "JobStatus": JobStatus.REMOVED,
             "Reason": (
                 "removed because <OtherJobRemoveRequirements = DAGManJobId =?= 8556>"
                 " fired when job (8556.0) was removed"
@@ -374,7 +375,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "ClusterId": 8523,
             "ProcId": 0,
             "DAGNodeName": "provisioningJob",
-            "JobStatus": htcondor.JobStatus.HELD,
+            "JobStatus": JobStatus.HELD,
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
@@ -399,7 +400,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "Failed to execute",
             "HoldReasonCode": 6,
             "HoldReasonSubCode": 2,
-            "JobStatus": htcondor.JobStatus.REMOVED,
+            "JobStatus": JobStatus.REMOVED,
             "ProcId": 0,
             "Reason": "Removed by DAGMan (by user mgower)",
             "job_held_time": "2025-02-07T12:50:07",
@@ -424,7 +425,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": htcondor.JobStatus.RUNNING,
+            "JobStatus": JobStatus.RUNNING,
             "LogNotes": "DAG Node: provisioningJob",
             "ProcId": 0,
             "job_held_time": "2025-02-07T12:33:34",
@@ -447,7 +448,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": htcondor.JobStatus.COMPLETED,
+            "JobStatus": JobStatus.COMPLETED,
             "ProcId": 0,
             "Reason": "via condor_release (by user mgower)",
             "ReturnValue": 4,
@@ -472,7 +473,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": htcondor.JobStatus.COMPLETED,
+            "JobStatus": JobStatus.COMPLETED,
             "ProcId": 0,
             "Reason": "via condor_release (by user mgower)",
             "TerminatedNormally": True,
@@ -500,7 +501,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": htcondor.JobStatus.REMOVED,
+            "JobStatus": JobStatus.REMOVED,
             "ProcId": 0,
             "Reason": "removed because <OtherJobRemoveRequirements = DAGManJobId =?= "
             "8624> fired when job (8624.0) was removed",
@@ -522,7 +523,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": htcondor.JobStatus.REMOVED,
+            "JobStatus": JobStatus.REMOVED,
             "ProcId": 0,
             "Reason": "via condor_rm (by user mgower)",
             "job_evicted_time": "2025-02-11T11:35:04",
@@ -543,7 +544,7 @@ class AddServiceJobSpecificInfoTestCase(unittest.TestCase):
             "HoldReason": "via condor_hold (by user mgower)",
             "HoldReasonCode": 1,
             "HoldReasonSubCode": 0,
-            "JobStatus": htcondor.JobStatus.REMOVED,
+            "JobStatus": JobStatus.REMOVED,
             "ProcId": 0,
             "Reason": "Removed by DAGMan (by user mgower)",
             "TerminatedNormally": False,
@@ -799,7 +800,7 @@ class CreateDetailedReportFromJobsTestCase(unittest.TestCase):
 class GetStatusFromIdTestCase(unittest.TestCase):
     """Test _get_status_from_id function."""
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.report_utils._get_info_from_schedd")
+    @patch("lsst.ctrl.bps.htcondor.report_utils._get_info_from_schedd")
     def testNotFound(self, mock_get):
         mock_get.return_value = {}
 
@@ -810,8 +811,8 @@ class GetStatusFromIdTestCase(unittest.TestCase):
         self.assertEqual(state, WmsStates.UNKNOWN)
         self.assertEqual(message, "DAGMan job 100 not found in queue or history.  Check id or try path.")
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.report_utils._htc_status_to_wms_state")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.report_utils._get_info_from_schedd")
+    @patch("lsst.ctrl.bps.htcondor.report_utils._htc_status_to_wms_state")
+    @patch("lsst.ctrl.bps.htcondor.report_utils._get_info_from_schedd")
     def testFound(self, mock_get, mock_conversion):
         fake_id = "100.0"
         dag_ads = {fake_id: {"JobStatus": lssthtc.JobStatus.RUNNING}}
@@ -830,7 +831,7 @@ class GetStatusFromIdTestCase(unittest.TestCase):
 class GetStatusFromPathTestCase(unittest.TestCase):
     """Test _get_status_from_path function."""
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.report_utils.read_dag_log")
+    @patch("lsst.ctrl.bps.htcondor.report_utils.read_dag_log")
     def testNoDagLog(self, mock_read):
         mock_read.side_effect = FileNotFoundError
 

@@ -32,6 +32,7 @@ import os
 import shutil
 import unittest
 from copy import deepcopy
+from unittest.mock import patch
 
 from networkx import is_isomorphic
 
@@ -756,7 +757,7 @@ class HandleJobOutputsTestCase(unittest.TestCase):
         }
         self.assertEqual(result, expected)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.prepare_utils._LOG")
+    @patch("lsst.ctrl.bps.htcondor.prepare_utils._LOG")
     def testLogging(self, mock_log):
         mock_workflow = unittest.mock.Mock()
         mock_workflow.get_job_outputs.return_value = [
