@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Check that there are no commits that should not be merged
-        uses: gsactions/commit-message-checker@v2
+        uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee  # v2.0.0
         with:
           excludeDescription: "true"  # optional: this excludes the description body of a pull request
           excludeTitle: "true"  # optional: this excludes the title of a pull request
@@ -26,16 +26,18 @@ jobs:
             'DO NOT MERGE'. Remove this commit from the branch before merging
             or change the commit summary."
 
-      - uses: actions/checkout@v7
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - name: Check requirements.txt for branches
+      - name: Check lockfiles for branches
         shell: bash
         run: |
-          FILE=requirements.txt
-          MATCH=tickets/DM-
-          if grep -q $MATCH $FILE
+          FILES=(pyproject.toml uv.lock)
+          # The slash can be URI-encoded in uv lock files.
+          MATCH="tickets(/|%2F)DM"
+          if grep -q -E "$MATCH" "${FILES[@]}"
           then
-            echo "Ticket branches found in $FILE:"
-            grep -n $MATCH $FILE
+            echo "Ticket branches found in ${FILES[*]}:"
+            grep -n -E "$MATCH" "${FILES[@]}"
             exit 1
           fi
