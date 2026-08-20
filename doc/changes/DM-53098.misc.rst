@@ -1,0 +1,12 @@
+Library versions for development and packaging builds are now managed using `uv.lock` instead of `requirements.txt`.
+
+Development environments are now managed by `uv`, with `uv sync` sufficient to create a virtual environment for local development.
+Dependency specifications have been consolidated in the `pyproject.toml` file.
+LSST dependencies are installed from VCS sources according to the `override-dependencies` section.
+
+Github Actions configurations have been updated to use `uv` tooling for test setup and execution.
+Where possible, Github Actions toolings have been pinned to commit SHAs.
+
+The redundant and misconfigured `docstyle.yaml` Github Actions workflow has been removed.
+
+Dependabot configuration has been extended to include the `uv` package ecosystem.
