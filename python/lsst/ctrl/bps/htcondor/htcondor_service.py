@@ -35,8 +35,7 @@ import os
 from importlib.metadata import version
 from pathlib import Path
 
-from htcondor2 import Collector, DaemonTypes, JobAction, Schedd, ping
-from htcondor2.htcondor2_impl import HTCondorException
+from htcondor2 import Collector, DaemonTypes, JobAction, Schedd
 
 from lsst.ctrl.bps import (
     BaseWmsService,
@@ -48,6 +47,7 @@ from lsst.utils.timer import time_this
 
 from .common_utils import WmsIdType, _wms_id_to_cluster, _wms_id_to_dir, _wms_id_type
 from .dagman_configurator import DagmanConfigurator
+from .htcondor_compat import HTCondorException, ping
 from .htcondor_config import HTC_DEFAULTS_URI
 from .htcondor_workflow import HTCondorWorkflow
 from .lssthtc import (
@@ -589,7 +589,7 @@ class HTCondorService(BaseWmsService):
         daemon_type = htcondor.DaemonTypes.Schedd  # To avoid possibly undefined error
         try:
             for daemon_type in [DaemonTypes.Schedd, DaemonTypes.Collector]:
-                _ = ping(coll.locate(daemon_type))
+                ping(coll.locate(daemon_type))
         except HTCondorException as e:
             status = 1
             if "unable to locate" in str(e).lower():
