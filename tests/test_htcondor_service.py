@@ -252,9 +252,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             workflow.submit_path = tmpdir
-            with patch(
-                "lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_dag"
-            ) as create_mock:
+            with patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_dag") as create_mock:
                 create_mock.side_effect = _fake_htc_create_submit_from_dag
                 with self.assertRaisesRegex(RuntimeError, "Fake exception from mock"):
                     self.service.submit(workflow)
@@ -282,9 +280,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             workflow.submit_path = tmpdir
-            with patch(
-                "lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_dag"
-            ) as create_mock:
+            with patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_dag") as create_mock:
                 create_mock.side_effect = _fake_htc_create_submit_from_dag
                 with self.assertRaisesRegex(RuntimeError, "Fake exception from mock"):
                     self.service.submit(workflow)

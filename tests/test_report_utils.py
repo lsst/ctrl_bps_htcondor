@@ -815,7 +815,7 @@ class GetStatusFromIdTestCase(unittest.TestCase):
     @patch("lsst.ctrl.bps.htcondor.report_utils._get_info_from_schedd")
     def testFound(self, mock_get, mock_conversion):
         fake_id = "100.0"
-        dag_ads = {fake_id: {"JobStatus": lssthtc.JobStatus.RUNNING}}
+        dag_ads = {fake_id: {"JobStatus": JobStatus.RUNNING}}
         mock_get.return_value = {"schedd1": dag_ads}
         mock_conversion.return_value = WmsStates.RUNNING
 
