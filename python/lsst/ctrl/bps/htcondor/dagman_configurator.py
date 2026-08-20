@@ -51,7 +51,9 @@ _LOG = logging.getLogger(__name__)
 # There are some DAGMan configuration options that names do not start with
 # ``DAGMAN_`` (e.g., ``MAX_DAGMAN_LOG``). Hence, do not use
 # ``key.startswith("DAGMAN_")``.
-_fields = {key.lower(): (type(val), val) for key, val in htc_param.items() if "DAGMAN_" in key}
+_fields: dict[str, Any] = {
+    key.lower(): (type(val), val) for key, val in htc_param.items() if "DAGMAN_" in key
+}
 
 # Add some valid configuration options are not set by default by HTCondor and
 # are missing from ``htcondor.param``.
@@ -63,10 +65,11 @@ _fields = {key.lower(): (type(val), val) for key, val in htc_param.items() if "D
 # `HTCondor GitHub repository <https://github.com/htcondor/htcondor>`_.
 _fields.update(
     {
+        "dagman_config_file": (str, ""),
         "dagman_debug": (str, ""),
+        "dagman_insert_sub_file": (str, ""),
         "dagman_node_record_info": (str, ""),
         "dagman_record_machine_attrs": (str, ""),
-        "dagman_manager_job_append_getenv": (str, ""),
     }
 )
 
