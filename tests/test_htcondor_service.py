@@ -88,7 +88,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
         self.assertEqual(self.service.defaults_uri, HTC_DEFAULTS_URI)
         self.assertFalse(self.service.defaults_uri.isdir())
 
-    @patch("lsst.ctrl.bps.htcondor.htcondor_service.ping", return_value=PING_SUCCESS)
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_ping", return_value=PING_SUCCESS)
     @patch.object(Collector, "locate", return_value=LOCATE_SUCCESS)
     def testPingSuccess(self, mock_locate, mock_ping):
         status, message = self.service.ping(None)
@@ -104,7 +104,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
 
     @patch.object(Collector, "locate", return_value=LOCATE_SUCCESS)
     def testPingPermission(self, mock_locate):
-        with patch("lsst.ctrl.bps.htcondor.htcondor_service.ping") as ping_mock:
+        with patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_ping") as ping_mock:
             ping_mock.side_effect = HTCondorException("Failed to connect to schedd.")
             status, message = self.service.ping(None)
             self.assertEqual(status, 1)
