@@ -34,7 +34,7 @@ import logging
 import os
 from pathlib import Path
 
-from htcondor2 import Collector, DaemonTypes, JobAction, Schedd, ping
+from htcondor2 import Collector, DaemonTypes, JobAction, Schedd
 from htcondor2.htcondor2_impl import HTCondorException
 
 from lsst.ctrl.bps import (
@@ -47,7 +47,7 @@ from lsst.utils.timer import time_this
 
 from .common_utils import WmsIdType, _wms_id_to_cluster, _wms_id_to_dir, _wms_id_type
 from .dagman_configurator import DagmanConfigurator
-from .htcondor_config import HTC_DEFAULTS_URI
+from .htcondor_config import HTC_DEFAULTS_URI, htc_ping
 from .htcondor_workflow import HTCondorWorkflow
 from .lssthtc import (
     _locate_schedds,
@@ -586,7 +586,7 @@ class HTCondorService(BaseWmsService):
         _LOG.info("Not verifying that compute resources exist.")
         try:
             for daemon_type in [DaemonTypes.Schedd, DaemonTypes.Collector]:
-                _ = ping(coll.locate(daemon_type))
+                _ = htc_ping(coll.locate(daemon_type))
         except HTCondorException as e:
             status = 1
             if "unable to locate" in str(e).lower():

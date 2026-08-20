@@ -29,6 +29,53 @@
 
 __all__ = ["HTC_DEFAULTS_URI"]
 
+import sys
+from collections.abc import Callable
+from importlib.metadata import version
+from typing import TYPE_CHECKING, Any, cast
+
+from htcondor2 import HTCondorException
+from packaging.version import Version
+
 from lsst.resources import ResourcePath
+from lsst.utils import doImport
 
 HTC_DEFAULTS_URI = ResourcePath("resource://lsst.ctrl.bps.htcondor/etc/htcondor_defaults.yaml")
+
+
+def htc_ping(ad: Any) -> Any:
+    """Perform a version-agnostic HTCondor ping against the specified location
+    ad.
+
+    Parameters
+    ----------
+    ad : ``classad`` | ``classad2``
+        A location ``classad`` to ping, usually a ``Collector`` or ``Schedd``.
+
+    Note
+    ----
+    The "preview" of ``htcondor2`` in the HTCondor LTS 24.0 release does not
+    implement a ``ping`` function. This function is part of the deprecated and
+    removed ``SecMan`` API which is only available in ``htcondor``.
+    """
+    htc_version = Version(version("htcondor"))
+    if htc_version < Version("24.1"):
+        SecMan = doImport("htcondor.SecMan")
+        HTCondorLocateError = doImport("htcondor.HTCondorLocateError")
+        HTCondorIOError = doImport("htcondor.HTCondorIOError")
+        if TYPE_CHECKING:
+            assert isinstance(SecMan, type)
+            HTCondorLocateError = cast(type[Exception], HTCondorLocateError)
+            HTCondorIOError = cast(type[Exception], HTCondorIOError)
+        secman = SecMan()
+        try:
+            secman.ping(ad["MyAddress"])
+        except HTCondorLocateError as e:
+            raise HTCondorException("Unable to locate daemon.") from e
+        except HTCondorIOError as e:
+            raise HTCondorException("Unable to connect to daemon.") from e
+        secman = None
+        sys.modules.pop("htcondor")
+    else:
+        ping = cast(Callable, doImport("htcondor2.ping"))
+        return ping(ad)
