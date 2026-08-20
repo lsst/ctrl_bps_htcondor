@@ -85,13 +85,13 @@ from typing import Any, TextIO
 
 import classad2
 import networkx
-from deprecated.sphinx import deprecated
 from htcondor2 import (
     Collector,
     DaemonTypes,
     HTCondorException,
     JobEventLog,
     JobEventType,
+    JobStatus,
     Schedd,
     Submit,
     param,
@@ -114,26 +114,6 @@ class DagStatus(IntEnum):
     REMOVED = 4  # the DAG has been removed by condor_rm
     CYCLE = 5  # a cycle was found in the DAG
     SUSPENDED = 6  # the DAG has been suspended (see section 2.10.8)
-
-
-@deprecated(
-    reason="The JobStatus is internally replaced by htcondor.JobStatus. "
-    "External reporting code should be using ctrl_bps.WmsStates. "
-    "This class will be removed after v30.",
-    version="v30.0",
-    category=FutureWarning,
-)
-class JobStatus(IntEnum):
-    """HTCondor's statuses for jobs."""
-
-    UNEXPANDED = 0  # Unexpanded
-    IDLE = 1  # Idle
-    RUNNING = 2  # Running
-    REMOVED = 3  # Removed
-    COMPLETED = 4  # Completed
-    HELD = 5  # Held
-    TRANSFERRING_OUTPUT = 6  # Transferring_Output
-    SUSPENDED = 7  # Suspended
 
 
 class NodeStatus(IntEnum):

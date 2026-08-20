@@ -709,12 +709,7 @@ def _get_exit_code_summary(jobs):
             match job_status:
                 case JobStatus.COMPLETED | JobStatus.HELD | JobStatus.REMOVED:
                     exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
-                case (
-                    JobStatus.IDLE
-                    | JobStatus.RUNNING
-                    | JobStatus.TRANSFERRING_OUTPUT
-                    | JobStatus.SUSPENDED
-                ):
+                case JobStatus.IDLE | JobStatus.RUNNING | JobStatus.TRANSFERRING_OUTPUT | JobStatus.SUSPENDED:
                     pass
                 case _:
                     _LOG.debug("Unknown 'JobStatus' value ('%d') in classad for job '%s'", job_status, job_id)

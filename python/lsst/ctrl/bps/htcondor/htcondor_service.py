@@ -36,7 +36,6 @@ from pathlib import Path
 
 from htcondor2 import Collector, DaemonTypes, JobAction, Schedd, ping
 from htcondor2.htcondor2_impl import HTCondorException
-from packaging import version
 
 from lsst.ctrl.bps import (
     BaseWmsService,
@@ -55,7 +54,6 @@ from .lssthtc import (
     _update_rescue_file,
     condor_q,
     htc_backup_files,
-    htc_create_submit_from_cmd,
     htc_create_submit_from_dag,
     htc_create_submit_from_file,
     htc_submit_dag,
