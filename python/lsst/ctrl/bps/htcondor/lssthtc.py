@@ -86,7 +86,16 @@ from typing import Any, TextIO
 import classad2
 import networkx
 from deprecated.sphinx import deprecated
-from htcondor2 import Collector, DaemonTypes, HTCondorException, JobEventLog, Schedd, Submit, param
+from htcondor2 import (
+    Collector,
+    DaemonTypes,
+    HTCondorException,
+    JobEventLog,
+    JobEventType,
+    Schedd,
+    Submit,
+    param,
+)
 
 from .handlers import HTC_JOB_AD_HANDLERS
 
@@ -1980,7 +1989,7 @@ def read_single_dag_nodes_log(filename: str | os.PathLike) -> dict[str, dict[str
         try:
             id_ = f"{event['Cluster']}.{event['Proc']}"
         except KeyError:
-            _LOG.warn(
+            _LOG.warning(
                 "Log event missing ids (DAGNodeName=%s, EventTime=%s, EventTypeNumber=%s)",
                 event.get("DAGNodeName", "UNK"),
                 event.get("EventTime", "UNK"),
@@ -1989,12 +1998,28 @@ def read_single_dag_nodes_log(filename: str | os.PathLike) -> dict[str, dict[str
         else:
             if id_ not in info:
                 info[id_] = {}
+            # JobEvent does not include ToE information post HTCONDOR-2974
+            # In fact, even though the ToE line is in the log, the JobEvent
+            # doesn't even capture it for manual extraction, i.e., the raw
+            # `str(event)` doesn't include it.
+            if event.type is JobEventType.JOB_TERMINATED:
+                info[id_]["ToE"] = {}
+                if "ExitSignal" in event:
+                    info[id_]["ToE"]["ExitBySignal"] = True
+                    info[id_]["ToE"]["ExitSignal"] = event["ExitSignal"]
+                else:
+                    info[id_]["ToE"]["ExitBySignal"] = False
+                    info[id_]["ToE"]["ExitCode"] = event["ReturnValue"]
+
             # Workaround:  Please check to see if still problem in
             # future HTCondor versions.  Sometimes get a
             # JobAbortedEvent for a subdag job after it already
             # terminated normally.  Seems to happen when using job
             # plus subdags.
-            if event["EventTypeNumber"] == 9 and info[id_].get("EventTypeNumber", -1) == 5:
+            if (
+                event["EventTypeNumber"] == JobEventType.JOB_ABORTED
+                and info[id_].get("EventTypeNumber", -1) == JobEventType.JOB_TERMINATED
+            ):
                 _LOG.debug("Skipping spurious JobAbortedEvent: %s", dict(event))
             elif event["EventTypeNumber"] == 16 and event["DAGNodeName"] == "finalJob":
                 # FINAL job's post script exit code is special and indicates
