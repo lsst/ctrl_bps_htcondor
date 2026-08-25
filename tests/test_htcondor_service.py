@@ -288,3 +288,231 @@ class HTCondorServiceTestCase(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "Fake exception from mock"):
                     self.service.submit(workflow)
                 create_mock.assert_called_once_with(dag_filename, submit_options, wms_config_path)
+
+
+class RestartTestCase(unittest.TestCase):
+    """Test HTCondorService.restart using mocked lssthtc functions."""
+
+    def setUp(self):
+        config = BpsConfig({}, wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService")
+        self.service = htcondor_service.HTCondorService(config)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    def testIdNotFound(self, mock_to_dir):
+        mock_to_dir.return_value = (None, htcondor_service.WmsIdType.UNKNOWN)
+        run_id, run_name, message = self.service.restart("bad_id")
+        self.assertIsNone(run_id)
+        self.assertIsNone(run_name)
+        self.assertIn("not found", message)
+        self.assertIn("submit directory", message)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    def testSubmitDirNotFound(self, mock_to_dir):
+        mock_to_dir.return_value = (Path("/does/not/exist"), htcondor_service.WmsIdType.LOCAL)
+        run_id, run_name, message = self.service.restart("100.0")
+        self.assertIsNone(run_id)
+        self.assertIsNone(run_name)
+        self.assertIn("submit directory", message)
+        self.assertIn("not found", message)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    def testNoRescueDag(self, mock_to_dir):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            mock_to_dir.return_value = (Path(tmpdir), htcondor_service.WmsIdType.PATH)
+            run_id, run_name, message = self.service.restart(tmpdir)
+            self.assertIsNone(run_id)
+            self.assertIsNone(run_name)
+            self.assertIn("rescue DAG", message)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    def testAlreadyInQueue(self, mock_to_dir, mock_condor_q):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            (Path(tmpdir) / "test.dag.rescue001").touch()
+            mock_to_dir.return_value = (Path(tmpdir), htcondor_service.WmsIdType.PATH)
+            mock_condor_q.return_value = {"schedd": {"1.0": {"GlobalJobId": "schedd#1.0#123"}}}
+            run_id, run_name, message = self.service.restart(tmpdir)
+            self.assertIsNone(run_id)
+            self.assertIsNone(run_name)
+            self.assertIn("already in the job queue", message)
+            self.assertIn("schedd#1.0#123", message)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    def testAllJobsFinished(self, mock_to_dir, mock_condor_q, mock_status):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            (Path(tmpdir) / "test.dag.rescue001").touch()
+            mock_to_dir.return_value = (Path(tmpdir), htcondor_service.WmsIdType.PATH)
+            mock_condor_q.return_value = {}
+            mock_status.return_value = {"NodesTotal": 5, "NodesDone": 5}
+            run_id, run_name, message = self.service.restart(tmpdir)
+            self.assertIsNone(run_id)
+            self.assertIsNone(run_name)
+            self.assertIn("finished successfully", message)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_backup_files")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_info")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    def testNoCondorSub(self, mock_to_dir, mock_condor_q, mock_status, mock_read_info, mock_backup):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            (Path(tmpdir) / "test.dag.rescue001").touch()
+            mock_to_dir.return_value = (Path(tmpdir), htcondor_service.WmsIdType.PATH)
+            mock_condor_q.return_value = {}
+            mock_status.return_value = {"NodesTotal": 5, "NodesDone": 3}
+            mock_read_info.return_value = (
+                "info.json",
+                {"schedd": {"1.0": {"bps_job_summary": "sum", "bps_run_quanta": "quanta"}}},
+            )
+            mock_backup.return_value = Path(tmpdir) / "test.dag.rescue001"
+            run_id, run_name, message = self.service.restart(tmpdir)
+            self.assertIsNone(run_id)
+            self.assertIsNone(run_name)
+            self.assertIn("submit description file not found", message)
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_submit_dag")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_file")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_backup_files")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_info")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    def testSubmitInfoUnavailable(
+        self,
+        mock_to_dir,
+        mock_condor_q,
+        mock_status,
+        mock_read_info,
+        mock_backup,
+        mock_create,
+        mock_submit,
+    ):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            (Path(tmpdir) / "test.dag.rescue001").touch()
+            (Path(tmpdir) / "test.dag.condor.sub").touch()
+            mock_to_dir.return_value = (Path(tmpdir), htcondor_service.WmsIdType.PATH)
+            mock_condor_q.return_value = {}
+            mock_status.return_value = {"NodesTotal": 5, "NodesDone": 3}
+            mock_read_info.return_value = (
+                "info.json",
+                {"schedd": {"1.0": {"bps_job_summary": "sum", "bps_run_quanta": "quanta"}}},
+            )
+            mock_backup.return_value = Path(tmpdir) / "test.dag.rescue001"
+            mock_submit.return_value = {}
+            run_id, run_name, message = self.service.restart(tmpdir)
+            self.assertIsNone(run_id)
+            self.assertIsNone(run_name)
+            self.assertEqual(message, "DAGMan job information unavailable")
+
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.write_dag_info")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_submit_dag")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_file")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_backup_files")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_info")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
+    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    def testSuccess(
+        self,
+        mock_to_dir,
+        mock_condor_q,
+        mock_status,
+        mock_read_info,
+        mock_backup,
+        mock_create,
+        mock_submit,
+        mock_write_info,
+    ):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+            (Path(tmpdir) / "test.dag.rescue001").touch()
+            (Path(tmpdir) / "test.dag.condor.sub").touch()
+            mock_to_dir.return_value = (Path(tmpdir), htcondor_service.WmsIdType.PATH)
+            mock_condor_q.return_value = {}
+            mock_status.return_value = {"NodesTotal": 5, "NodesDone": 3}
+            info_filename = "info.json"
+            mock_read_info.return_value = (
+                info_filename,
+                {"schedd": {"1.0": {"bps_job_summary": "sum", "bps_run_quanta": "quanta"}}},
+            )
+            mock_backup.return_value = Path(tmpdir) / "test.dag.rescue001"
+            schedd_dag_info = {"schedd": {"2.0": {"ClusterId": 2, "ProcId": 0, "bps_run": "myrun"}}}
+            mock_submit.return_value = schedd_dag_info
+
+            run_id, run_name, message = self.service.restart(tmpdir)
+
+            self.assertEqual(run_id, "2.0")
+            self.assertEqual(run_name, "myrun")
+            self.assertEqual(message, "")
+            mock_write_info.assert_called_once_with(info_filename, schedd_dag_info)
+            # Summaries from the previous run should be carried forward.
+            dag_ad = schedd_dag_info["schedd"]["2.0"]
+            self.assertEqual(dag_ad["bps_job_summary"], "sum")
+            self.assertEqual(dag_ad["bps_run_quanta"], "quanta")
+
+
+class RunSubmissionChecksTestCase(unittest.TestCase):
+    """Test HTCondorService.run_submission_checks."""
+
+    @staticmethod
+    def _make_service(config_dict):
+        config = BpsConfig(config_dict, wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService")
+        return htcondor_service.HTCondorService(config)
+
+    def testBpsMakeCommandMissing(self):
+        # bpsMakeCommand absent defaults to True, so no checks are performed.
+        service = self._make_service({})
+        self.assertIsNone(service.run_submission_checks())
+
+    def testBpsMakeCommandTrue(self):
+        service = self._make_service({"bpsMakeCommand": True})
+        self.assertIsNone(service.run_submission_checks())
+
+    def testMissingPayloadCommand(self):
+        service = self._make_service({"bpsMakeCommand": False})
+        with self.assertRaisesRegex(KeyError, "Missing 'payloadCommand'"):
+            service.run_submission_checks()
+
+    def testPayloadCommandWithoutSetupEnv(self):
+        # payloadCommand present but does not reference setupEnv, so the
+        # remaining checks are skipped.
+        service = self._make_service({"bpsMakeCommand": False, "payloadCommand": "run_thing --flag"})
+        self.assertIsNone(service.run_submission_checks())
+
+    def testMissingSetupEnv(self):
+        service = self._make_service({"bpsMakeCommand": False, "payloadCommand": "run_thing {setupEnv}"})
+        with self.assertRaisesRegex(KeyError, "Missing 'setupEnv'"):
+            service.run_submission_checks()
+
+    def testSetupEnvWithoutLsstVersion(self):
+        service = self._make_service(
+            {
+                "bpsMakeCommand": False,
+                "payloadCommand": "run_thing {setupEnv}",
+                "setupEnv": "source /opt/lsst/setup.sh",
+            }
+        )
+        self.assertIsNone(service.run_submission_checks())
+
+    def testMissingLsstVersion(self):
+        service = self._make_service(
+            {
+                "bpsMakeCommand": False,
+                "payloadCommand": "run_thing {setupEnv}",
+                "setupEnv": "setup lsst_distrib -t {lsstVersion}",
+            }
+        )
+        with self.assertRaisesRegex(KeyError, "Missing 'lsstVersion'"):
+            service.run_submission_checks()
+
+    def testAllPresent(self):
+        service = self._make_service(
+            {
+                "bpsMakeCommand": False,
+                "payloadCommand": "run_thing {setupEnv}",
+                "setupEnv": "setup lsst_distrib -t {lsstVersion}",
+                "lsstVersion": "w_2026_01",
+            }
+        )
+        self.assertIsNone(service.run_submission_checks())

@@ -347,7 +347,7 @@ def _get_info_from_path(wms_path: str | os.PathLike) -> tuple[str, dict[str, dic
         # (instead of sneakily using HTCondor's one), the lack of that file
         # should be treated as seriously as lack of any other file.
         try:
-            job_info = read_dag_info(wms_path)
+            _, job_info = read_dag_info(wms_path)
         except FileNotFoundError as exc:
             message = f"Warn: Some information may not be available: {exc}"
             messages.append(message)
@@ -359,7 +359,14 @@ def _get_info_from_path(wms_path: str | os.PathLike) -> tuple[str, dict[str, dic
         message = f"Could not find HTCondor files in '{wms_path}' ({err})"
         _LOG.debug(message)
         messages.append(message)
-        message = htc_check_dagman_output(wms_path)
+        try:
+            message = htc_check_dagman_output(wms_path)
+        except FileNotFoundError as err:
+            message = (
+                f"Could not find DAGMan standard output file in '{wms_path}'.\n"
+                "Check that path is a valid HTCondor submission directory.\n"
+                "Check that the condor_dagman executable path is accessible from the AP machine."
+            )
         if message:
             messages.append(message)
         wms_workflow_id = MISSING_ID
@@ -403,6 +410,7 @@ def _create_detailed_report_from_jobs(
         path=dag_ad["Iwd"],
         label=dag_ad.get("bps_job_label", "MISS"),
         run=dag_ad.get("bps_run", "MISS"),
+        site=dag_ad.get("bps_runsite", ""),
         project=dag_ad.get("bps_project", "MISS"),
         campaign=dag_ad.get("bps_campaign", "MISS"),
         payload=dag_ad.get("bps_payload", "MISS"),
@@ -543,7 +551,7 @@ def _summary_report(user, hist, pass_thru, schedds=None):
         # * bps_isjob == 'True' isn't getting set for DAG jobs that are
         #   manually restarted.
         # * Any job with DAGManJobID isn't a DAG job
-        constraint = 'bps_isjob == "True" && JobUniverse == 7'
+        constraint = 'bps_isjob == "True" && JobUniverse == 7 && DAGManJobID =?= Undefined'
         if user:
             constraint += f' && (Owner == "{user}" || bps_operator == "{user}")'
 
@@ -561,7 +569,7 @@ def _summary_report(user, hist, pass_thru, schedds=None):
                 try:
                     job.update(read_dag_status(job["Iwd"]))
                     total_jobs, state_counts = _get_state_counts_from_dag_job(job)
-                except StopIteration:
+                except (StopIteration, FileNotFoundError):
                     pass  # don't kill report can't find htcondor files
 
             if "bps_run" not in job:
@@ -575,6 +583,7 @@ def _summary_report(user, hist, pass_thru, schedds=None):
                 project=job.get("bps_project", "MISS"),
                 campaign=job.get("bps_campaign", "MISS"),
                 payload=job.get("bps_payload", "MISS"),
+                site=job.get("bps_runsite", ""),
                 operator=_get_owner(job),
                 run_summary=_get_run_summary(job),
                 state=_htc_status_to_wms_state(job),

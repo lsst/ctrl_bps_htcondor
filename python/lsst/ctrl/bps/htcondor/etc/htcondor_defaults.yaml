@@ -83,3 +83,58 @@ wmsConfig:
   # A boolean flag controlling whether DAGMan should generate submit files for
   # nested DAGs automatically.
   DAGMAN_GENERATE_SUBDAG_SUBMITS: true
+
+# Needs to be true for plain SLAC submissions.
+bpsMakeCommand: true
+
+payloadCommand: >
+  echo -n BPS Beginning of job commands:\ ;
+  /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
+  {setupEnv}
+  {gwjobExports}
+  {postEnvSetup}
+  logDir={jobLogDir};
+  pwd;
+  echo -n BPS Before running command:\ ;
+  /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
+  echo ========================================;
+  {gwjobCommand};
+  ret=$?;
+  echo ========================================;
+  echo -n BPS After running command:\ ;
+  /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
+  echo Command exited with code: $ret;
+  {jobCleanup}
+  echo -n BPS End of job commands:\ ;
+  /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
+  exit $ret;
+
+# Job environment setup
+softwarePath: "/cvmfs/sw.lsst.eu/almalinux-x86_64/lsst_distrib/{lsstVersion}"
+customEnvSetup: ""
+setupEnv: >
+  unset PYTHONPATH;
+  echo Using stack in {softwarePath};
+  source {softwarePath}/loadLSST.bash;
+  setup lsst_distrib;
+  echo -n BPS After setup of lsst_distrib:\ ;
+  /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
+  {customEnvSetup}
+  echo -n BPS After custom env setup:\ ;
+  /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
+
+gwjobExports: ""
+postEnvSetup: ""
+
+# Other job variables
+jobInitDir: "`pwd`"
+jobLogDir: "{jobInitDir}"
+jobCleanup: ""
+
+# Special slot on K8 AP node for running preparePayloadWorkflow
+site:
+  BPS_SUBMIT:
+    nodeset: "BPS_SUBMIT"
+    bpsUseShared: true
+    bpsUseRunTempSpace: false
+    softwarePath: "/sdf/group/rubin/sw/w_latest"
