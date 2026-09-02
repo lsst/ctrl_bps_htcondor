@@ -37,7 +37,6 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --all-packages --all-extras
-          uv pip install '${{ matrix.htcondor-version}}'
 
       - name: List installed packages
         run: |
@@ -45,7 +44,8 @@ jobs:
 
       - name: Run tests
         run: >
-          uv run pytest -r a -v
+          uv run --with '${{ matrix.htcondor-version}}' --isolated
+          pytest -r a -v
           --cov=python --cov=tests --cov-report=xml --cov-report=term --cov-branch
           --junitxml=junit.xml -o junit_family=legacy
 
