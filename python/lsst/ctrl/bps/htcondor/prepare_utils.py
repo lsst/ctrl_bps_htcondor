@@ -309,10 +309,22 @@ def _translate_command_line(
     if gwjob.environment:
         use_htc_env = cached_vals.get("bpsUseHTCEnvironment", False)
         _LOG.debug("_translate_command_line: use_htc_env = %s", use_htc_env)
+        if use_htc_env:
+            # Even though it seems like just using getenv environment will
+            # work, we must use HTCondor env syntax to get submit side value.
+            # An environment variable defined in the job description just
+            # overrides any value from getenv.  So we can't ask the job
+            # description to prepend/append to the value from getenv.
+            _fix_env = _fix_env_var_syntax
+        else:
+            # If not using environment in the job description, setting the
+            # environment is implemented as exports in the commands run via
+            # the shell.
+            _fix_env = _fix_env_var_syntax_shell
         for name, value in gwjob.environment.items():
             if isinstance(value, str):
                 value = _replace_wms_vars(value)
-                value = _fix_env_var_syntax_shell(value)
+                value = _fix_env(value)
                 value = htc_escape(value)
             if use_htc_env:
                 htc_envs += f"{name}='{value}' "  # Add single quotes to allow internal spaces

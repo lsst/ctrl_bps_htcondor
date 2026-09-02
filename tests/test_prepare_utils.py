@@ -124,7 +124,7 @@ class TranslateJobCmdsTestCase(unittest.TestCase):
         gwjob = GenericWorkflowJob("jobEnvironment", "label1", executable=self.gw_exec)
         gwjob.environment = {"TEST_ENV_VAR": "<ENV:CTRL_BPS_DIR>/tests"}
         htc_commands = prepare_utils._translate_job_cmds(self.cached_vals, None, gwjob)
-        self.assertEqual(htc_commands["environment"], "TEST_ENV_VAR='${CTRL_BPS_DIR}/tests'")
+        self.assertEqual(htc_commands["environment"], "TEST_ENV_VAR='$ENV(CTRL_BPS_DIR)/tests'")
 
     def testPeriodicRelease(self):
         gwjob = GenericWorkflowJob("periodicRelease", "label1", executable=self.gw_exec)
@@ -278,6 +278,21 @@ class TranslateCommandLineTestCase(unittest.TestCase):
         gwjob.environment = {"TEST_INT": "1", "TEST_STR": "TWO"}
         jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
         self.assertEqual(jobcmds["environment"], "TEST_INT='1' TEST_STR='TWO'")
+
+    def testPayloadCommandEnvironmentShell(self):
+        # Exports in commands, no environment in jobcmds
+        gw_exec = GenericWorkflowExec("test_exec", "<ENV:CTRL_BPS_DIR>/bin/pipetask")
+        gw, gwjob = self._make_job(executable=gw_exec, arguments="go")
+        gwjob.environment = {"TEST_ENV_VAR": "<ENV:CTRL_BPS_DIR>/tests"}
+        cached_vals = {
+            "bpsUseShared": True,
+            "bpsMakeCommand": False,
+            "bpsUseHTCEnvironment": False,
+            "payloadCommand": "{gwjobExports} {gwjobCommand}",
+        }
+        jobcmds = prepare_utils._translate_command_line(cached_vals, gw, gwjob)
+        self.assertIn("export TEST_ENV_VAR='${CTRL_BPS_DIR}/tests';", jobcmds["arguments"])
+        self.assertNotIn("environment", jobcmds)
 
 
 class TranslateDagCmdsTestCase(unittest.TestCase):
