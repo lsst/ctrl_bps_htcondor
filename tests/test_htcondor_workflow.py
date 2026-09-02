@@ -29,6 +29,7 @@
 
 import logging
 import unittest
+from unittest.mock import patch
 
 from lsst.ctrl.bps import BpsConfig
 from lsst.ctrl.bps.htcondor.htcondor_workflow import HTCondorWorkflow
@@ -40,7 +41,7 @@ logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 class HTCondorWorkflowTestCase(unittest.TestCase):
     """Test selected methods of the HTCondor WMS workflow class."""
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_workflow._update_job_summary")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_workflow._update_job_summary")
     def testAddToParentWorkflow(self, mock_update):
         config = BpsConfig({"bps_defined": {"submitPath": "/mock/path"}})
         workflow = HTCondorWorkflow("workflow1")

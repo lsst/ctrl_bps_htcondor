@@ -35,9 +35,7 @@ from unittest.mock import patch
 
 from htcondor2 import JobStatus
 
-from lsst.ctrl.bps import (
-    WmsStates,
-)
+from lsst.ctrl.bps import WmsStates
 from lsst.ctrl.bps.htcondor import common_utils
 from lsst.utils.tests import temporaryDirectory
 
@@ -260,8 +258,8 @@ class WmsIdToClusterTestCase(unittest.TestCase):
                 MyAddress = "<127.0.0.1:9618?addrs=127.0.0.1-9618+snip>"
             ]"""
 
-    @unittest.mock.patch("htcondor.Collector", new=_MockCollector)
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.common_utils.read_dag_info")
+    @patch("lsst.ctrl.bps.htcondor.common_utils.Collector", new=_MockCollector)
+    @patch("lsst.ctrl.bps.htcondor.common_utils.read_dag_info")
     def testPath(self, mock_read):
         # path must exist or _wms_id_type will assume GLOBAL string
         with temporaryDirectory() as tmp_dir:
