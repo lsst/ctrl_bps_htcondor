@@ -1,0 +1,1 @@
+Fixed bug when setting an environment variable in the HTCondor submit description's environment when the value included an environment variable.
