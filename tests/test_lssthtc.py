@@ -36,7 +36,6 @@ import unittest
 from shutil import copy2, copytree, ignore_patterns, rmtree, which
 from unittest.mock import patch
 
-from dag_test_utils import make_lazy_dag
 from htcondor2 import JobStatus
 
 from lsst.ctrl.bps import BpsConfig
@@ -44,6 +43,8 @@ from lsst.ctrl.bps.bps_utils import chdir
 from lsst.ctrl.bps.htcondor import dagman_configurator, htcondor_config, lssthtc
 from lsst.daf.butler import Config
 from lsst.utils.tests import temporaryDirectory
+
+from .dag_test_utils import make_lazy_dag
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 TESTDIR = os.path.abspath(os.path.dirname(__file__))

@@ -238,3 +238,5 @@ config.log
 
 # Built Visual Studio Code Extensions
 *.vsix
+
+doc/*

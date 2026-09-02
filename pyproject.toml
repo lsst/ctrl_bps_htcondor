@@ -39,8 +39,23 @@ dynamic = ["version"]
 
 [dependency-groups]
 dev = [
-    "pytest >= 3.2",
-    "pytest-openfiles >= 0.5.0"
+    "documenteer[guide] > 2.0, <3.0",
+    "lsst-sphinxutils",
+    "prek",
+    "pytest>=9,<10",
+    "pytest-xdist",
+    "pytest-cov",
+    "ruff",
+    "sphinx-click",
+]
+
+[tool.uv]
+override-dependencies = [
+    "lsst-ctrl-bps @ git+https://github.com/lsst/ctrl_bps@main",
+    "lsst-daf-butler @ git+https://github.com/lsst/daf_butler@main",
+    "lsst-pipe-base @ git+https://github.com/lsst/pipe_base@main",
+    "lsst-sphinxutils @ git+https://github.com/lsst/sphinxutils@main",
+    "lsst-utils @ git+https://github.com/lsst/utils@main",
 ]
 
 [tool.setuptools.packages.find]
@@ -56,42 +71,42 @@ zip-safe = true
 version = { attr = "lsst_versions.get_lsst_version" }
 
 [tool.towncrier]
-    package = "lsst.ctrl.bps.htcondor"
-    package_dir = "python"
-    filename = "doc/lsst.ctrl.bps.htcondor/CHANGES.rst"
-    directory = "doc/changes"
-    title_format = "lsst-ctrl-bps-htcondor {version} ({project_date})"
-    issue_format = "`{issue} <https://rubinobs.atlassian.net/browse/{issue}>`_"
+package = "lsst.ctrl.bps.htcondor"
+package_dir = "python"
+filename = "doc/lsst.ctrl.bps.htcondor/CHANGES.rst"
+directory = "doc/changes"
+title_format = "lsst-ctrl-bps-htcondor {version} ({project_date})"
+issue_format = "`{issue} <https://rubinobs.atlassian.net/browse/{issue}>`_"
 
-    [[tool.towncrier.type]]
-        directory = "feature"
-        name = "New Features"
-        showcontent = true
+[[tool.towncrier.type]]
+directory = "feature"
+name = "New Features"
+showcontent = true
 
-    [[tool.towncrier.type]]
-        directory = "api"
-        name = "API Changes"
-        showcontent = true
+[[tool.towncrier.type]]
+directory = "api"
+name = "API Changes"
+showcontent = true
 
-    [[tool.towncrier.type]]
-        directory = "bugfix"
-        name = "Bug Fixes"
-        showcontent = true
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug Fixes"
+showcontent = true
 
-    [[tool.towncrier.type]]
-        directory = "perf"
-        name = "Performance Enhancement"
-        showcontent = true
+[[tool.towncrier.type]]
+directory = "perf"
+name = "Performance Enhancement"
+showcontent = true
 
-    [[tool.towncrier.type]]
-        directory = "misc"
-        name = "Other Changes and Additions"
-        showcontent = true
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Other Changes and Additions"
+showcontent = true
 
-    [[tool.towncrier.type]]
-        directory = "removal"
-        name = "An API Removal or Deprecation"
-        showcontent = true
+[[tool.towncrier.type]]
+directory = "removal"
+name = "An API Removal or Deprecation"
+showcontent = true
 
 [tool.lsst_versions]
 write_to = "python/lsst/ctrl/bps/htcondor/version.py"
