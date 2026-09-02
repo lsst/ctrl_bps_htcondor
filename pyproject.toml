@@ -206,3 +206,6 @@ exclude = [
     '^__init__$',
     '\._[a-zA-Z_]+$',  # Private methods.
 ]
+exclude_files = [
+    "^bin.src/node_status.py$",
+]
