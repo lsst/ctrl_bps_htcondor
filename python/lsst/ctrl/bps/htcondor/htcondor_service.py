@@ -32,6 +32,7 @@ __all__ = ["HTCondorService"]
 
 import logging
 import os
+from importlib.metadata import version
 from pathlib import Path
 
 from htcondor2 import Collector, DaemonTypes, JobAction, Schedd
@@ -102,6 +103,7 @@ class HTCondorService(BaseWmsService):
         workflow : `lsst.ctrl.bps.htcondor.HTCondorWorkflow`
             HTCondor workflow ready to be run.
         """
+        _LOG.info("Using HTCondor Python bindings version %s", version("htcondor"))
         _LOG.debug("out_prefix = '%s'", out_prefix)
         with time_this(log=_LOG, level=logging.INFO, prefix=None, msg="Completed HTCondor workflow creation"):
             _, enable_provisioning = config.search("provisionResources")
