@@ -1,0 +1,4 @@
+Migrates ``htcondor`` to ``htcondor2``, the next-generation Python package for HTCondor.
+Adds support for HTCondor 25.x, which only implements ``htcondor2``.
+Existing support for HTCondor 24.x implements ``htcondor2`` as a feature preview.
+Support for a future HTCondor 26.x is not declared at this time.

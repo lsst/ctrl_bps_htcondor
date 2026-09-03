@@ -34,15 +34,17 @@ import stat
 import tempfile
 import unittest
 from shutil import copy2, copytree, ignore_patterns, rmtree, which
+from unittest.mock import patch
 
-import htcondor
-from dag_test_utils import make_lazy_dag
+from htcondor2 import JobStatus
 
 from lsst.ctrl.bps import BpsConfig
 from lsst.ctrl.bps.bps_utils import chdir
 from lsst.ctrl.bps.htcondor import dagman_configurator, htcondor_config, lssthtc
 from lsst.daf.butler import Config
 from lsst.utils.tests import temporaryDirectory
+
+from .dag_test_utils import make_lazy_dag
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
@@ -67,10 +69,6 @@ class TestLsstHtc(unittest.TestCase):
 
     def testHtcEscapeQuot(self):
         self.assertEqual(lssthtc.htc_escape("&quot;val&quot;"), '"val"')
-
-    def testHtcVersion(self):
-        ver = lssthtc.htc_version()
-        self.assertRegex(ver, r"^\d+\.\d+\.\d+$")
 
 
 class HtcTweakJobInfoTestCase(unittest.TestCase):
@@ -109,43 +107,43 @@ class HtcTweakJobInfoTestCase(unittest.TestCase):
         job = self.job | {"MyType": "JobAbortedEvent"}
         lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.REMOVED)
+        self.assertEqual(job["JobStatus"], JobStatus.REMOVED)
 
     def testJobStatusAssignmentExecuteEvent(self):
         job = self.job | {"MyType": "ExecuteEvent"}
         lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.RUNNING)
+        self.assertEqual(job["JobStatus"], JobStatus.RUNNING)
 
     def testJobStatusAssignmentSubmitEvent(self):
         job = self.job | {"MyType": "SubmitEvent"}
         lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.IDLE)
+        self.assertEqual(job["JobStatus"], JobStatus.IDLE)
 
     def testJobStatusAssignmentJobHeldEvent(self):
         job = self.job | {"MyType": "JobHeldEvent"}
         lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.HELD)
+        self.assertEqual(job["JobStatus"], JobStatus.HELD)
 
     def testJobStatusAssignmentJobTerminatedEvent(self):
         job = self.job | {"MyType": "JobTerminatedEvent"}
         lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+        self.assertEqual(job["JobStatus"], JobStatus.COMPLETED)
 
     def testJobStatusAssignmentPostScriptTerminatedEvent(self):
         job = self.job | {"MyType": "PostScriptTerminatedEvent"}
         lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.COMPLETED)
+        self.assertEqual(job["JobStatus"], JobStatus.COMPLETED)
 
     def testJobStatusAssignmentReleaseEventMainDagJob(self):
         job = self.job | {"MyType": "JobReleaseEvent"}
         lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertTrue("JobStatus" in job)
-        self.assertEqual(job["JobStatus"], htcondor.JobStatus.RUNNING)
+        self.assertEqual(job["JobStatus"], JobStatus.RUNNING)
 
     def testJobStatusAssignmentReleaseEventForNodeJob(self):
         job = self.job | {"MyType": "JobReleaseEvent", "DAGNodeName": "test_payload_job"}
@@ -497,7 +495,7 @@ class ReadDagNodesLogTestCase(unittest.TestCase):
             results = lssthtc.read_dag_nodes_log(submit_dir)
             self.assertEqual(results["9231.0"]["Cluster"], 9231)
             self.assertEqual(results["9231.0"]["Proc"], 0)
-            self.assertEqual(results["9231.0"]["ToE"]["ExitCode"], 1)
+            self.assertEqual(results["9231.0"]["ReturnValue"], 1)
             self.assertEqual(len(results), 6)
 
     def testSubdags(self):
@@ -1452,7 +1450,7 @@ class ReadDagInfoTestCase(unittest.TestCase):
     def testPermissionError(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/tiny_success/tiny_success.info.json", tmp_dir)
-            with unittest.mock.patch("lsst.ctrl.bps.htcondor.lssthtc.open") as mocked_open:
+            with patch("lsst.ctrl.bps.htcondor.lssthtc.open") as mocked_open:
                 mocked_open.side_effect = PermissionError
                 with self.assertLogs("lsst.ctrl.bps.htcondor", level="DEBUG") as cm:
                     _, results = lssthtc.read_dag_info(tmp_dir)
@@ -1525,7 +1523,7 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
         if cls.bindir:
             cls.bindir.cleanup()
 
-    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_MAX_JOBS_IDLE": "42"})
+    @patch.dict(os.environ, {"_CONDOR_DAGMAN_MAX_JOBS_IDLE": "42"})
     def testMaxIdleEnvVar(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
@@ -1533,7 +1531,7 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {})
             self.assertIn("-MaxIdle 42", submit["arguments"])
 
-    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_MAX_JOBS_IDLE": "42"})
+    @patch.dict(os.environ, {"_CONDOR_DAGMAN_MAX_JOBS_IDLE": "42"})
     def testMaxIdleInDAGManConfig(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
@@ -1544,7 +1542,7 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {}, config_filename)
             self.assertIn("-MaxIdle 300", submit["arguments"])
 
-    @unittest.mock.patch.dict(os.environ, {"_CONDOR_DAGMAN_MAX_JOBS_IDLE": "42"})
+    @patch.dict(os.environ, {"_CONDOR_DAGMAN_MAX_JOBS_IDLE": "42"})
     def testMaxIdleNotInDAGManConfig(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
@@ -1555,7 +1553,7 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {}, config_filename)
             self.assertIn("-MaxIdle 42", submit["arguments"])
 
-    @unittest.mock.patch.dict(os.environ, {})
+    @patch.dict(os.environ, {})
     def testMaxIdleGiven(self):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
@@ -1563,7 +1561,7 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
             submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {"MaxIdle": 37})
             self.assertIn("-MaxIdle 37", submit["arguments"])
 
-    @unittest.mock.patch.dict(os.environ, {})
+    @patch.dict(os.environ, {})
     def testMaxJobsIdleParam(self):
         def _fake_params_contains(key):
             if key == "DAGMAN_MAX_JOBS_IDLE":
@@ -1578,13 +1576,13 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
             dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
-            with unittest.mock.patch("htcondor.param") as mock_param:
+            with patch("lsst.ctrl.bps.htcondor.lssthtc.param") as mock_param:
                 mock_param.__contains__.side_effect = _fake_params_contains
                 mock_param.__getitem__.side_effect = _fake_params_get
                 submit = lssthtc.htc_create_submit_from_dag(str(dag_filename), {}, None)
                 self.assertIn("-MaxIdle 16", submit["arguments"])
 
-    @unittest.mock.patch.dict(os.environ, {})
+    @patch.dict(os.environ, {})
     def testNoMaxJobsIdle(self):
         """Note: Since the produced arguments differ depending on
         HTCondor version when no MaxIdle passed to from_dag, not
@@ -1594,8 +1592,8 @@ class HtcCreateSubmitFromDagTestCase(unittest.TestCase):
         with temporaryDirectory() as tmp_dir:
             copy2(f"{TESTDIR}/data/tiny_success/tiny_success.dag", tmp_dir)
             dag_filename = pathlib.Path(tmp_dir) / "tiny_success.dag"
-            with unittest.mock.patch("htcondor.Submit.from_dag") as submit_mock:
-                with unittest.mock.patch("htcondor.param") as mock_param:
+            with patch("lsst.ctrl.bps.htcondor.lssthtc.Submit.from_dag") as submit_mock:
+                with patch("lsst.ctrl.bps.htcondor.lssthtc.param") as mock_param:
                     mock_param.__contains__.return_value = False
                     _ = lssthtc.htc_create_submit_from_dag(str(dag_filename), {})
                     submit_mock.assert_called_once_with(str(dag_filename), {})

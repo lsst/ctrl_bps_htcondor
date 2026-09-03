@@ -31,12 +31,11 @@ import logging
 import os
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-import htcondor
+from htcondor2 import JobStatus
 
-from lsst.ctrl.bps import (
-    WmsStates,
-)
+from lsst.ctrl.bps import WmsStates
 from lsst.ctrl.bps.htcondor import common_utils
 from lsst.utils.tests import temporaryDirectory
 
@@ -144,7 +143,7 @@ class HtcStatusToWmsStateTestCase(unittest.TestCase):
     def testJobStatus(self):
         job = {
             "ClusterId": 1,
-            "JobStatus": htcondor.JobStatus.IDLE,
+            "JobStatus": JobStatus.IDLE,
             "bps_job_label": "foo",
         }
         result = common_utils._htc_status_to_wms_state(job)
@@ -184,7 +183,7 @@ class HtcStatusToWmsStateTestCase(unittest.TestCase):
                 "ExitBySignal": False,
                 "ExitCode": 0,
             },
-            "JobStatus": htcondor.JobStatus.COMPLETED,
+            "JobStatus": JobStatus.COMPLETED,
             "ExitBySignal": False,
             "ExitCode": 0,
         }
@@ -195,14 +194,14 @@ class HtcStatusToWmsStateTestCase(unittest.TestCase):
 class WmsIdToDirTestCase(unittest.TestCase):
     """Test _wms_id_to_dir function."""
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.common_utils._wms_id_type")
+    @patch("lsst.ctrl.bps.htcondor.common_utils._wms_id_type")
     def testInvalidIdType(self, _wms_id_type_mock):
         _wms_id_type_mock.return_value = common_utils.WmsIdType.UNKNOWN
         with self.assertRaises(TypeError) as cm:
             _, _ = common_utils._wms_id_to_dir("not_used")
         self.assertIn("Invalid job id type", str(cm.exception))
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.common_utils._wms_id_type")
+    @patch("lsst.ctrl.bps.htcondor.common_utils._wms_id_type")
     def testAbsPathId(self, mock_wms_id_type):
         mock_wms_id_type.return_value = common_utils.WmsIdType.PATH
         with temporaryDirectory() as tmp_dir:
@@ -210,7 +209,7 @@ class WmsIdToDirTestCase(unittest.TestCase):
             self.assertEqual(id_type, common_utils.WmsIdType.PATH)
             self.assertEqual(Path(tmp_dir).resolve(), wms_path)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.common_utils._wms_id_type")
+    @patch("lsst.ctrl.bps.htcondor.common_utils._wms_id_type")
     def testRelPathId(self, _wms_id_type_mock):
         _wms_id_type_mock.return_value = common_utils.WmsIdType.PATH
         orig_dir = Path.cwd()
@@ -259,8 +258,8 @@ class WmsIdToClusterTestCase(unittest.TestCase):
                 MyAddress = "<127.0.0.1:9618?addrs=127.0.0.1-9618+snip>"
             ]"""
 
-    @unittest.mock.patch("htcondor.Collector", new=_MockCollector)
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.common_utils.read_dag_info")
+    @patch("lsst.ctrl.bps.htcondor.common_utils.Collector", new=_MockCollector)
+    @patch("lsst.ctrl.bps.htcondor.common_utils.read_dag_info")
     def testPath(self, mock_read):
         # path must exist or _wms_id_type will assume GLOBAL string
         with temporaryDirectory() as tmp_dir:

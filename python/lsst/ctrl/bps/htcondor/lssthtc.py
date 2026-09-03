@@ -55,7 +55,6 @@ __all__ = [
     "htc_query_present",
     "htc_submit_dag",
     "htc_tweak_log_info",
-    "htc_version",
     "htc_write_attribs",
     "htc_write_condor_file",
     "pegasus_name_to_label",
@@ -84,11 +83,19 @@ from enum import IntEnum, auto
 from pathlib import Path
 from typing import Any, TextIO
 
-import classad
-import htcondor
+import classad2
 import networkx
-from deprecated.sphinx import deprecated
-from packaging import version
+from htcondor2 import (
+    Collector,
+    DaemonTypes,
+    HTCondorException,
+    JobEventLog,
+    JobEventType,
+    JobStatus,
+    Schedd,
+    Submit,
+    param,
+)
 
 from .handlers import HTC_JOB_AD_HANDLERS
 
@@ -107,26 +114,6 @@ class DagStatus(IntEnum):
     REMOVED = 4  # the DAG has been removed by condor_rm
     CYCLE = 5  # a cycle was found in the DAG
     SUSPENDED = 6  # the DAG has been suspended (see section 2.10.8)
-
-
-@deprecated(
-    reason="The JobStatus is internally replaced by htcondor.JobStatus. "
-    "External reporting code should be using ctrl_bps.WmsStates. "
-    "This class will be removed after v30.",
-    version="v30.0",
-    category=FutureWarning,
-)
-class JobStatus(IntEnum):
-    """HTCondor's statuses for jobs."""
-
-    UNEXPANDED = 0  # Unexpanded
-    IDLE = 1  # Idle
-    RUNNING = 2  # Running
-    REMOVED = 3  # Removed
-    COMPLETED = 4  # Completed
-    HELD = 5  # Held
-    TRANSFERRING_OUTPUT = 6  # Transferring_Output
-    SUSPENDED = 7  # Suspended
 
 
 class NodeStatus(IntEnum):
@@ -239,7 +226,6 @@ HTC_VALID_JOB_DAG_KEYS = {
     "abort_exit",
     "priority",
 }
-HTC_VERSION = version.parse(htcondor.__version__)
 
 
 class RestrictedDict(MutableMapping):
@@ -550,72 +536,24 @@ def htc_write_condor_file(
         print("queue", file=fh)
 
 
-# To avoid doing the version check during every function call select
-# appropriate conversion function at the import time.
-#
-# Make sure that *each* version specific variant of the conversion function(s)
-# has the same signature after applying any changes!
-if HTC_VERSION < version.parse("8.9.8"):
+def htc_tune_schedd_args(**kwargs):
+    """Ensure that arguments for Schedd are version appropriate.
 
-    def htc_tune_schedd_args(**kwargs):
-        """Ensure that arguments for Schedd are version appropriate.
+    This is the fallback function if no version specific alteration are
+    necessary. Effectively, a no-op.
 
-        The old arguments: 'requirements' and 'attr_list' of
-        'Schedd.history()', 'Schedd.query()', and 'Schedd.xquery()' were
-        deprecated in favor of 'constraint' and 'projection', respectively,
-        starting from version 8.9.8.  The function will convert "new" keyword
-        arguments to "old" ones.
+    Parameters
+    ----------
+    **kwargs
+        Any keyword arguments that Schedd.history(), Schedd.query(), and
+        Schedd.xquery() accepts.
 
-        Parameters
-        ----------
-        **kwargs
-            Any keyword arguments that Schedd.history(), Schedd.query(), and
-            Schedd.xquery() accepts.
-
-        Returns
-        -------
-        kwargs : `dict` [`str`, `~typing.Any`]
-            Keywords arguments that are guaranteed to work with the Python
-            HTCondor API.
-
-        Notes
-        -----
-        Function doesn't validate provided keyword arguments beyond converting
-        selected arguments to their version specific form. For example,
-        it won't remove keywords that are not supported by the methods
-        mentioned earlier.
-        """
-        translation_table = {
-            "constraint": "requirements",
-            "projection": "attr_list",
-        }
-        for new, old in translation_table.items():
-            try:
-                kwargs[old] = kwargs.pop(new)
-            except KeyError:
-                pass
-        return kwargs
-
-else:
-
-    def htc_tune_schedd_args(**kwargs):
-        """Ensure that arguments for Schedd are version appropriate.
-
-        This is the fallback function if no version specific alteration are
-        necessary. Effectively, a no-op.
-
-        Parameters
-        ----------
-        **kwargs
-            Any keyword arguments that Schedd.history(), Schedd.query(), and
-            Schedd.xquery() accepts.
-
-        Returns
-        -------
-        kwargs : `dict` [`str`, `~typing.Any`]
-            Keywords arguments that were passed to the function.
-        """
-        return kwargs
+    Returns
+    -------
+    kwargs : `dict` [`str`, `~typing.Any`]
+        Keywords arguments that were passed to the function.
+    """
+    return kwargs
 
 
 def htc_query_history(schedds, **kwargs):
@@ -671,17 +609,6 @@ def htc_query_present(schedds, **kwargs):
             yield schedd_name, dict(job_ad)
 
 
-def htc_version():
-    """Return the version given by the HTCondor API.
-
-    Returns
-    -------
-    version : `str`
-        HTCondor version as easily comparable string.
-    """
-    return str(HTC_VERSION)
-
-
 def htc_submit_dag(sub):
     """Submit job for execution.
 
@@ -698,9 +625,9 @@ def htc_submit_dag(sub):
         Scheduler, local HTCondor job ids are mapped to their respective
         classads.
     """
-    coll = htcondor.Collector()
-    schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
-    schedd = htcondor.Schedd(schedd_ad)
+    coll = Collector()
+    schedd_ad = coll.locate(DaemonTypes.Schedd)
+    schedd = Schedd(schedd_ad)
 
     # If Schedd.submit() fails, the method will raise an exception. Usually,
     # that implies issues with the HTCondor pool which BPS can't address.
@@ -718,7 +645,7 @@ def htc_submit_dag(sub):
 
 def htc_create_submit_from_dag(
     dag_filename: str, submit_options: dict[str, Any], dagman_conf_filename: str | os.PathLike | None = None
-) -> htcondor.Submit:
+) -> Submit:
     """Create a DAGMan job submit description.
 
     Parameters
@@ -764,8 +691,8 @@ def htc_create_submit_from_dag(
         if max_jobs_idle is None:
             if f"_CONDOR_{config_var_name}" in os.environ:
                 max_jobs_idle = int(os.environ[f"_CONDOR_{config_var_name}"])
-            elif config_var_name in htcondor.param:
-                max_jobs_idle = htcondor.param[config_var_name]
+            elif config_var_name in param:
+                max_jobs_idle = param[config_var_name]
 
         if max_jobs_idle:
             submit_options["MaxIdle"] = max_jobs_idle
@@ -773,7 +700,7 @@ def htc_create_submit_from_dag(
         _LOG.debug("MaxIdle already in submit_options: %s", submit_options)
 
     _LOG.debug("Using submit_options = %s", submit_options)
-    return htcondor.Submit.from_dag(dag_filename, submit_options)
+    return Submit.from_dag(dag_filename, submit_options)
 
 
 def htc_create_submit_from_cmd(dag_filename, submit_options=None):
@@ -848,7 +775,7 @@ def htc_create_submit_from_file(submit_file):
     except KeyError:
         pass
 
-    return htcondor.Submit(descriptors)
+    return Submit(descriptors)
 
 
 def _htc_write_job_commands(stream, name, commands, node_type="JOB"):
@@ -1368,9 +1295,9 @@ def condor_query(constraint=None, schedds=None, query_func=htc_query_present, **
         classads.
     """
     if not schedds:
-        coll = htcondor.Collector()
-        schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
-        schedds = {schedd_ad["Name"]: htcondor.Schedd(schedd_ad)}
+        coll = Collector()
+        schedd_ad = coll.locate(DaemonTypes.Schedd)
+        schedds = {schedd_ad["Name"]: Schedd(schedd_ad)}
 
     # Make sure that 'ClusterId' and 'ProcId' attributes are always included
     # in the job classad. They are needed to construct the job id.
@@ -1422,10 +1349,13 @@ def condor_search(constraint=None, hist=None, schedds=None):
         Scheduler, local HTCondor job ids are mapped to their respective
         classads.
     """
+    if constraint is None:
+        constraint = ""
+
     if not schedds:
-        coll = htcondor.Collector()
-        schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
-        schedds = {schedd_ad["Name"]: htcondor.Schedd(locate_ad=schedd_ad)}
+        coll = Collector()
+        schedd_ad = coll.locate(DaemonTypes.Schedd)
+        schedds = {schedd_ad["Name"]: Schedd(location=schedd_ad)}
 
     job_info = condor_q(constraint=constraint, schedds=schedds)
     if hist is not None:
@@ -1453,7 +1383,7 @@ def condor_status(constraint=None, coll=None):
         Mapping between HTCondor slot names and slot information (classAds).
     """
     if coll is None:
-        coll = htcondor.Collector()
+        coll = Collector()
     try:
         pool_ads = coll.query(constraint=constraint)
     except OSError as ex:
@@ -1680,7 +1610,7 @@ def read_single_dag_status(filename: str | os.PathLike) -> dict[str, Any]:
         node_stat_file = Path(filename)
         _LOG.debug("Reading Node Status File %s", node_stat_file)
         with open(node_stat_file) as infh:
-            dag_ad = dict(classad.parseNext(infh))  # pylint: disable=E1101
+            dag_ad = dict(classad2.parseNext(infh))  # pylint: disable=E1101
 
         if not dag_ad:
             # Pegasus check here
@@ -1788,7 +1718,7 @@ def read_single_node_status(filename: str | os.PathLike, init_fake_id: int) -> d
     fake_id = init_fake_id  # For nodes that do not yet have a job id, give fake one
     try:
         with open(filename) as fh:
-            for ad in classad.parseAds(fh):
+            for ad in classad2.parseAds(fh):
                 match ad["Type"]:
                     case "DagStatus":
                         # Skip DAG summary.
@@ -1941,7 +1871,7 @@ def read_single_dag_log(log_filename: str | os.PathLike) -> tuple[str, dict[str,
         _LOG.debug("dag node log filename: %s", filename)
 
         info: dict[str, Any] = {}
-        job_event_log = htcondor.JobEventLog(str(filename))
+        job_event_log = JobEventLog(str(filename))
         for event in job_event_log.events(stop_after=0):
             id_ = f"{event['Cluster']}.{event['Proc']}"
             if id_ not in info:
@@ -2026,8 +1956,8 @@ def read_single_dag_nodes_log(filename: str | os.PathLike) -> dict[str, dict[str
         raise FileNotFoundError(f"{filename} does not exist")
 
     try:
-        job_event_log = htcondor.JobEventLog(str(filename))
-    except htcondor.HTCondorIOError as ex:
+        job_event_log = JobEventLog(str(filename))
+    except HTCondorException as ex:
         _LOG.error("Problem reading nodes log file (%s): %s", filename, ex)
         import traceback
 
@@ -2039,7 +1969,7 @@ def read_single_dag_nodes_log(filename: str | os.PathLike) -> dict[str, dict[str
         try:
             id_ = f"{event['Cluster']}.{event['Proc']}"
         except KeyError:
-            _LOG.warn(
+            _LOG.warning(
                 "Log event missing ids (DAGNodeName=%s, EventTime=%s, EventTypeNumber=%s)",
                 event.get("DAGNodeName", "UNK"),
                 event.get("EventTime", "UNK"),
@@ -2048,12 +1978,28 @@ def read_single_dag_nodes_log(filename: str | os.PathLike) -> dict[str, dict[str
         else:
             if id_ not in info:
                 info[id_] = {}
+            # JobEvent does not include ToE information post HTCONDOR-2974
+            # In fact, even though the ToE line is in the log, the JobEvent
+            # doesn't even capture it for manual extraction, i.e., the raw
+            # `str(event)` doesn't include it.
+            if event.type is JobEventType.JOB_TERMINATED:
+                info[id_]["ToE"] = {}
+                if "ExitSignal" in event:
+                    info[id_]["ToE"]["ExitBySignal"] = True
+                    info[id_]["ToE"]["ExitSignal"] = event["ExitSignal"]
+                else:
+                    info[id_]["ToE"]["ExitBySignal"] = False
+                    info[id_]["ToE"]["ExitCode"] = event["ReturnValue"]
+
             # Workaround:  Please check to see if still problem in
             # future HTCondor versions.  Sometimes get a
             # JobAbortedEvent for a subdag job after it already
             # terminated normally.  Seems to happen when using job
             # plus subdags.
-            if event["EventTypeNumber"] == 9 and info[id_].get("EventTypeNumber", -1) == 5:
+            if (
+                event["EventTypeNumber"] == JobEventType.JOB_ABORTED
+                and info[id_].get("EventTypeNumber", -1) == JobEventType.JOB_TERMINATED
+            ):
                 _LOG.debug("Skipping spurious JobAbortedEvent: %s", dict(event))
             elif event["EventTypeNumber"] == 16 and event["DAGNodeName"] == "finalJob":
                 # FINAL job's post script exit code is special and indicates
@@ -2199,15 +2145,15 @@ def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
 
     match job["MyType"]:
         case "ExecuteEvent":
-            job["JobStatus"] = htcondor.JobStatus.RUNNING
+            job["JobStatus"] = JobStatus.RUNNING
         case "JobTerminatedEvent" | "PostScriptTerminatedEvent":
-            job["JobStatus"] = htcondor.JobStatus.COMPLETED
+            job["JobStatus"] = JobStatus.COMPLETED
         case "SubmitEvent":
-            job["JobStatus"] = htcondor.JobStatus.IDLE
+            job["JobStatus"] = JobStatus.IDLE
         case "JobAbortedEvent":
-            job["JobStatus"] = htcondor.JobStatus.REMOVED
+            job["JobStatus"] = JobStatus.REMOVED
         case "JobHeldEvent":
-            job["JobStatus"] = htcondor.JobStatus.HELD
+            job["JobStatus"] = JobStatus.HELD
         case "JobReleaseEvent":
             # If the job managing the execution of the root DAG is held and
             # released this will be the last event showing up in its
@@ -2216,7 +2162,7 @@ def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
             # (either a normal payload job or the job managing the execution
             # of an inner DAG), its final status will be determined later
             # using node status log (see _htc_status_to_wms_state()).
-            job["JobStatus"] = htcondor.JobStatus.RUNNING if "DAGNodeName" not in job else None
+            job["JobStatus"] = JobStatus.RUNNING if "DAGNodeName" not in job else None
         case _:
             _LOG.debug("Unknown log event type: %s", job["MyType"])
             job["JobStatus"] = None
@@ -2227,9 +2173,9 @@ def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
     # a signal). Also, include a flag "ExitBySignal" to make distinguishing
     # between these two cases easy later on.
     if job["JobStatus"] in {
-        htcondor.JobStatus.COMPLETED,
-        htcondor.JobStatus.HELD,
-        htcondor.JobStatus.REMOVED,
+        JobStatus.COMPLETED,
+        JobStatus.HELD,
+        JobStatus.REMOVED,
     }:
         new_job = HTC_JOB_AD_HANDLERS.handle(job)
         if new_job is not None:
@@ -2465,11 +2411,11 @@ def _locate_schedds(locate_all=False):
         A mapping between Scheduler names and Python objects allowing for
         interacting with them.
     """
-    coll = htcondor.Collector()
+    coll = Collector()
 
     schedd_ads = []
     if locate_all:
-        schedd_ads.extend(coll.locateAll(htcondor.DaemonTypes.Schedd))
+        schedd_ads.extend(coll.locateAll(DaemonTypes.Schedd))
     else:
-        schedd_ads.append(coll.locate(htcondor.DaemonTypes.Schedd))
-    return {ad["Name"]: htcondor.Schedd(ad) for ad in schedd_ads}
+        schedd_ads.append(coll.locate(DaemonTypes.Schedd))
+    return {ad["Name"]: Schedd(ad) for ad in schedd_ads}
