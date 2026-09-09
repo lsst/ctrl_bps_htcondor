@@ -179,13 +179,9 @@ class HtcStatusToWmsStateTestCase(unittest.TestCase):
             "HoldReasonCode": 3,
             "HoldReason": "Job raised a signal 9. Handling signal as if job has gone over memory limit.",
             "HoldReasonSubCode": 34,
-            "ToE": {
-                "ExitBySignal": False,
-                "ExitCode": 0,
-            },
             "JobStatus": JobStatus.COMPLETED,
             "ExitBySignal": False,
-            "ExitCode": 0,
+            "ReturnValue": 0,
         }
         result = common_utils._htc_status_to_wms_state(job)
         self.assertEqual(result, WmsStates.SUCCEEDED)

@@ -31,6 +31,7 @@ import logging
 from enum import IntEnum, auto
 from pathlib import Path
 
+from classad2 import ClassAd
 from htcondor2 import Collector, DaemonTypes, JobStatus, Schedd
 
 from lsst.ctrl.bps import (
@@ -207,7 +208,7 @@ def _wms_id_type(wms_id):
     return id_type
 
 
-def _wms_id_to_cluster(wms_id):
+def _wms_id_to_cluster(wms_id) -> tuple[ClassAd | None, int | None, WmsIdType]:
     """Convert WMS id to cluster id.
 
     Parameters
@@ -217,11 +218,11 @@ def _wms_id_to_cluster(wms_id):
 
     Returns
     -------
-    schedd_ad : `classad.ClassAd`
+    schedd_ad : `classad2.ClassAd`
         ClassAd describing the scheduler managing the job with the given id.
     cluster_id : `int`
         HTCondor cluster id.
-    id_type : `lsst.ctrl.bps.wms.htcondor.IdType`
+    id_type : `lsst.ctrl.bps.wms.htcondor.WmsIdType`
         The type of the provided id.
     """
     coll = Collector()
