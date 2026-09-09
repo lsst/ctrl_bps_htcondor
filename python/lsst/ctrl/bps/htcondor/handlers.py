@@ -33,8 +33,7 @@ __all__ = [
     "Handler",
     "JobAbortedByPeriodicRemoveHandler",
     "JobAbortedByUserHandler",
-    "JobCompletedWithExecTicketHandler",
-    "JobCompletedWithoutExecTicketHandler",
+    "JobCompletedHandler",
     "JobHeldByOtherHandler",
     "JobHeldBySignalHandler",
     "JobHeldByUserHandler",
@@ -46,8 +45,6 @@ import logging
 import re
 from collections.abc import Sequence
 from typing import Any, overload
-
-from deprecated.sphinx import deprecated
 
 _LOG = logging.getLogger(__name__)
 
@@ -152,19 +149,8 @@ class Chain(Sequence):
         return new_ad
 
 
-@deprecated(
-    reason="In `htcondor2`, the `JobEvent` no longer includes the ticket of execution.",
-    version="v30.0",
-    category=FutureWarning,
-)
-class JobCompletedWithExecTicketHandler(Handler):
-    """Handler of ClassAds for completed jobs with the ticket of execution.
-
-    Usually, the entry in the event log for a completed job contains the ticket
-    of execution -- a record describing how and when the job was terminated.
-    If it exists, this handler will use it to add the attributes describing
-    job's exit status.
-    """
+class JobCompletedHandler(Handler):
+    """Handler of ClassAds for completed jobs."""
 
     def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
         if not ad["MyType"].endswith("TerminatedEvent"):
@@ -175,62 +161,12 @@ class JobCompletedWithExecTicketHandler(Handler):
                 ad["ProcId"],
             )
             return None
-        if "ToE" in ad:
-            toe = ad["ToE"]
-            ad["ExitBySignal"] = toe["ExitBySignal"]
-            if ad["ExitBySignal"]:
-                ad["ExitSignal"] = toe["ExitSignal"]
-            else:
-                ad["ExitCode"] = toe["ExitCode"]
+
+        ad["ExitBySignal"] = not ad["TerminatedNormally"]
+        if ad["ExitBySignal"]:
+            ad["ExitSignal"] = ad["TerminatedBySignal"]
         else:
-            _LOG.debug(
-                "%s: refusing to process the ad for the job '%s.%s': ticket of execution missing",
-                self.__class__.__name__,
-                ad["ClusterId"],
-                ad["ProcId"],
-            )
-            return None
-        return ad
-
-
-@deprecated(
-    reason="In `htcondor2`, the `JobEvent` no longer includes the ticket of execution.",
-    version="v30.0",
-    category=FutureWarning,
-)
-class JobCompletedWithoutExecTicketHandler(Handler):
-    """Handler of ClassAds for completed jobs w/o the ticket of execution.
-
-    The entry in the event log for some completed jobs (e.g. jobs that run
-    ``condor_dagman``) do *not* contain the ticket of execution -- a record
-    describing how and when the job was terminated.  This handler will try
-    to use other existing attributes to add the ones describing job's exit
-    status.
-    """
-
-    def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
-        if not ad["MyType"].endswith("TerminatedEvent"):
-            _LOG.debug(
-                "Handler '%s': refusing to process the ad for the job '%s.%s': job not completed",
-                self.__class__.__name__,
-                ad["ClusterId"],
-                ad["ProcId"],
-            )
-            return None
-        if "ToE" not in ad:
-            ad["ExitBySignal"] = not ad["TerminatedNormally"]
-            if ad["ExitBySignal"]:
-                ad["ExitSignal"] = ad["TerminatedBySignal"]
-            else:
-                ad["ExitCode"] = ad["ReturnValue"]
-        else:
-            _LOG.debug(
-                "Handler %s: refusing to process the ad for the job '%s.%s': ticket of execution found",
-                self.__class__.__name__,
-                ad["ClusterId"],
-                ad["ProcId"],
-            )
-            return None
+            ad["ExitCode"] = ad["ReturnValue"]
         return ad
 
 
@@ -427,7 +363,6 @@ _handlers = [
     JobHeldByUserHandler(),
     JobHeldBySignalHandler(),
     JobHeldByOtherHandler(),
-    JobCompletedWithExecTicketHandler(),
-    JobCompletedWithoutExecTicketHandler(),
+    JobCompletedHandler(),
 ]
 HTC_JOB_AD_HANDLERS = Chain(handlers=_handlers)

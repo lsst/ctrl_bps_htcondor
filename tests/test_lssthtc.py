@@ -154,7 +154,8 @@ class HtcTweakJobInfoTestCase(unittest.TestCase):
     def testAddingExitStatusSuccess(self):
         job = self.job | {
             "MyType": "JobTerminatedEvent",
-            "ToE": {"ExitBySignal": False, "ExitCode": 1},
+            "ExitBySignal": False,
+            "ReturnValue": 1,
         }
         lssthtc.htc_tweak_log_info(self.log_dirname, job)
         self.assertIn("ExitBySignal", job)
