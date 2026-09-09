@@ -83,8 +83,8 @@ from enum import IntEnum, auto
 from pathlib import Path
 from typing import Any, TextIO
 
-import classad2
 import networkx
+from classad2 import parseAds, parseNext
 from htcondor2 import (
     Collector,
     DaemonTypes,
@@ -1610,7 +1610,7 @@ def read_single_dag_status(filename: str | os.PathLike) -> dict[str, Any]:
         node_stat_file = Path(filename)
         _LOG.debug("Reading Node Status File %s", node_stat_file)
         with open(node_stat_file) as infh:
-            dag_ad = dict(classad2.parseNext(infh))  # pylint: disable=E1101
+            dag_ad = dict(parseNext(infh))  # pylint: disable=E1101
 
         if not dag_ad:
             # Pegasus check here
@@ -1718,7 +1718,7 @@ def read_single_node_status(filename: str | os.PathLike, init_fake_id: int) -> d
     fake_id = init_fake_id  # For nodes that do not yet have a job id, give fake one
     try:
         with open(filename) as fh:
-            for ad in classad2.parseAds(fh):
+            for ad in parseAds(fh):
                 match ad["Type"]:
                     case "DagStatus":
                         # Skip DAG summary.
@@ -1978,18 +1978,6 @@ def read_single_dag_nodes_log(filename: str | os.PathLike) -> dict[str, dict[str
         else:
             if id_ not in info:
                 info[id_] = {}
-            # JobEvent does not include ToE information post HTCONDOR-2974
-            # In fact, even though the ToE line is in the log, the JobEvent
-            # doesn't even capture it for manual extraction, i.e., the raw
-            # `str(event)` doesn't include it.
-            if event.type is JobEventType.JOB_TERMINATED:
-                info[id_]["ToE"] = {}
-                if "ExitSignal" in event:
-                    info[id_]["ToE"]["ExitBySignal"] = True
-                    info[id_]["ToE"]["ExitSignal"] = event["ExitSignal"]
-                else:
-                    info[id_]["ToE"]["ExitBySignal"] = False
-                    info[id_]["ToE"]["ExitCode"] = event["ReturnValue"]
 
             # Workaround:  Please check to see if still problem in
             # future HTCondor versions.  Sometimes get a
@@ -2120,6 +2108,12 @@ def htc_tweak_log_info(wms_path: str | Path, job: dict[str, Any]) -> None:
     job : `dict` [ `str`, `~typing.Any` ]
         A mapping between HTCondor job id and job information read from
         the log.
+
+    Notes
+    -----
+    FIXME: this function works by side effect, replacing the ``job`` reference
+    with a new object. It should instead return the new object (or ``None``)
+    and resolve the object references in the caller.
     """
     _LOG.debug("htc_tweak_log_info: %s %s", wms_path, job)
 
