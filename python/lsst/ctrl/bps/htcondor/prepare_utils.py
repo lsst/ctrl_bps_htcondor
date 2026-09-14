@@ -381,23 +381,22 @@ def _translate_command_line(
             generic_workflow.add_job_inputs(gwjob.name, [gwfile])
             exec_name = os.path.basename(gwjob.executable.src_uri)
             # Ensure the executable copy is executable.
-            gwjobCommand = f"chmod u+x {exec_name}; ./{exec_name} {arguments}"
+            gwjob_command = f"chmod u+x {exec_name}; ./{exec_name} {arguments}"
         else:
             exec_name = _fix_env_var_syntax_shell(gwjob.executable.src_uri)
-            gwjobCommand = f"{exec_name} {arguments}"
+            gwjob_command = f"{exec_name} {arguments}"
 
-        payloadCommand = cached_vals["payloadCommand"]
-        _LOG.debug("%s payloadCommand pre-format: %s", gwjob.label, payloadCommand)
-        payloadCommand = re.sub("{gwjobCommand}", gwjobCommand, payloadCommand)
-        payloadCommand = re.sub("{gwjobExports}", job_exports, payloadCommand)
+        payload_command = cached_vals["payloadCommand"]
+        _LOG.debug("%s payload_command pre-format: %s", gwjob.label, payload_command)
+        payload_command = re.sub("{gwjobCommand}", gwjob_command, payload_command)
+        payload_command = re.sub("{gwjobExports}", job_exports, payload_command)
 
         # Remove newlines
-        payloadCommand = re.sub("\n", "", payloadCommand)
+        payload_command = re.sub("\n", "", payload_command)
 
-        _LOG.debug("%s payloadCommand post-format: %s", gwjob.label, payloadCommand)
+        _LOG.debug("%s payload_command post-format: %s", gwjob.label, payload_command)
 
-        # jobcmds["arguments"] = htc_escape(f"-c '{payloadCommand}'")
-        jobcmds["arguments"] = f"-c '{payloadCommand}'"
+        jobcmds["arguments"] = f"-c '{payload_command}'"
 
         jobcmds["executable"] = "/bin/bash"
         # Don't need to transfer /bin/bash
