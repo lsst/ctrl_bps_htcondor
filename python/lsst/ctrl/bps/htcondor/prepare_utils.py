@@ -336,6 +336,13 @@ def _translate_command_line(
             jobcmds["environment"] = htc_envs.rstrip()
             _LOG.debug("_translate_command_line: saving htc environment = %s", jobcmds["environment"])
 
+    arguments = ""
+    if gwjob.arguments:
+        arguments = gwjob.arguments
+        arguments = _replace_cmd_vars(arguments, gwjob)
+        arguments = _replace_wms_vars(arguments)
+        arguments = _replace_file_vars(cached_vals["bpsUseShared"], arguments, generic_workflow, gwjob)
+
     if cached_vals.get("bpsMakeCommand", True):
         # Way to have fallback to previous behavior as well as
         # a way forward to centralize logic in bps.
@@ -348,11 +355,7 @@ def _translate_command_line(
         else:
             jobcmds["executable"] = _fix_env_var_syntax(gwjob.executable.src_uri)
 
-        if gwjob.arguments:
-            arguments = gwjob.arguments
-            arguments = _replace_cmd_vars(arguments, gwjob)
-            arguments = _replace_wms_vars(arguments)
-            arguments = _replace_file_vars(cached_vals["bpsUseShared"], arguments, generic_workflow, gwjob)
+        if arguments:
             arguments = _fix_env_var_syntax(arguments)
             jobcmds["arguments"] = arguments
 
@@ -364,11 +367,7 @@ def _translate_command_line(
         # Don't set getenv as setting up the environment is assumed to be
         # part of the payloadCommand.
 
-        if gwjob.arguments:
-            arguments = gwjob.arguments
-            arguments = _replace_cmd_vars(arguments, gwjob)
-            arguments = _replace_wms_vars(arguments)
-            arguments = _replace_file_vars(cached_vals["bpsUseShared"], arguments, generic_workflow, gwjob)
+        if arguments:
             arguments = _fix_env_var_syntax_shell(arguments)
 
         if gwjob.executable.transfer_executable:
