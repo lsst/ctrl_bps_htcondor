@@ -35,6 +35,7 @@ from importlib.metadata import version
 from typing import TYPE_CHECKING, cast
 
 from htcondor2 import HTCondorException as _HTCondorException
+from htcondor2 import Submit
 from packaging.version import Version
 
 from lsst.utils import doImport
@@ -80,3 +81,23 @@ def ping(ad: ClassAd) -> None:
         _ping(ad)
 
     return None
+
+
+def compat_submit_ad(ad: Submit) -> Submit:
+    """Apply compatibility details to a ``htcondor2.Submit`` ad as necessary
+    based on package version.
+
+    Parameters
+    ----------
+    ad : ``htcondor2.Submit``
+        A ``Submit`` ad to make compatible with ``htcondor`` version 24.0 LTS.
+
+    Notes
+    -----
+    In ``htcondor==24.0.*``, the ``htcondor2.Schedd.submit`` method is broken
+    and raises an ``IndexError`` if no "queue arguments" are provided. A work-
+    around is to specify explicit "queue arguments" on the ``Submit`` ad.
+    """
+    if HTC_VERSION < Version("24.1"):
+        ad.setQArgs("queue 1")
+    return ad
