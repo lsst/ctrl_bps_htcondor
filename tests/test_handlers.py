@@ -36,8 +36,7 @@ from lsst.ctrl.bps.htcondor.handlers import (
     Handler,
     JobAbortedByPeriodicRemoveHandler,
     JobAbortedByUserHandler,
-    JobCompletedWithExecTicketHandler,
-    JobCompletedWithoutExecTicketHandler,
+    JobCompletedHandler,
     JobHeldByOtherHandler,
     JobHeldBySignalHandler,
     JobHeldByUserHandler,
@@ -49,7 +48,7 @@ logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 class DummyHandler(Handler):
     """A concrete handler that does nothing."""
 
-    def handle(self, ad: dict[str, Any]) -> dict[str, Any]:
+    def handle(self, ad: dict[str, Any]) -> dict[str, Any] | None:
         pass
 
 
@@ -92,58 +91,15 @@ class ChainTestCase(unittest.TestCase):
         handler = "foo"
         chain = Chain()
         with self.assertRaises(TypeError):
-            chain.append(handler)
+            chain.append(handler)  # type: ignore
 
 
-class JobCompletedWithExecTicketHandlerTestCase(unittest.TestCase):
-    """Test the handler for a completed job with the ticket of execution."""
-
-    def setUp(self):
-        self.ad = {"ClusterId": 1, "ProcId": 0, "MyType": "JobTerminatedEvent"}
-        self.handler = JobCompletedWithExecTicketHandler()
-
-    def tearDown(self):
-        pass
-
-    def testNormalTermination(self):
-        ad = self.ad | {"ToE": {"ExitBySignal": False, "ExitCode": 0}}
-        result = self.handler.handle(ad)
-        self.assertIsNotNone(result)
-        self.assertIn("ExitBySignal", result)
-        self.assertFalse(result["ExitBySignal"])
-        self.assertIn("ExitCode", result)
-        self.assertEqual(result["ExitCode"], 0)
-
-    def testAbnormalTermination(self):
-        ad = self.ad | {"ToE": {"ExitBySignal": True, "ExitSignal": 9}}
-        result = self.handler.handle(ad)
-        self.assertIsNotNone(result)
-        self.assertIn("ExitBySignal", result)
-        self.assertTrue(result["ExitBySignal"])
-        self.assertIn("ExitSignal", result)
-        self.assertEqual(result["ExitSignal"], 9)
-
-    def testNotHandlingMissingExecTicket(self):
-        with self.assertLogs(logger=logger, level="DEBUG") as cm:
-            result = self.handler.handle(self.ad)
-        self.assertIsNone(result)
-        self.assertIn("ticket of execution", cm.output[0])
-        self.assertIn("missing", cm.output[0])
-
-    def testNotHandlingJobNotCompleted(self):
-        ad = self.ad | {"MyType": "foo"}
-        with self.assertLogs(logger=logger, level="DEBUG") as cm:
-            result = self.handler.handle(ad)
-        self.assertIsNone(result)
-        self.assertIn("job not completed", cm.output[0])
-
-
-class JobCompletedWithoutExecTicketHandlerTestCase(unittest.TestCase):
+class JobCompletedHandlerTestCase(unittest.TestCase):
     """Test the handler for a completed job w/o the ticket of execution."""
 
     def setUp(self):
         self.ad = {"ClusterId": 1, "ProcId": 0, "MyType": "JobTerminatedEvent"}
-        self.handler = JobCompletedWithoutExecTicketHandler()
+        self.handler = JobCompletedHandler()
 
     def tearDown(self):
         pass
@@ -151,7 +107,7 @@ class JobCompletedWithoutExecTicketHandlerTestCase(unittest.TestCase):
     def testNormalTermination(self):
         ad = self.ad | {"TerminatedNormally": True, "ReturnValue": 0}
         result = self.handler.handle(ad)
-        self.assertIsNotNone(result)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertFalse(result["ExitBySignal"])
         self.assertIn("ExitCode", result)
@@ -160,19 +116,11 @@ class JobCompletedWithoutExecTicketHandlerTestCase(unittest.TestCase):
     def testAbnormalTermination(self):
         ad = self.ad | {"TerminatedNormally": False, "TerminatedBySignal": 9}
         result = self.handler.handle(ad)
-        self.assertIsNotNone(result)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertTrue(result["ExitBySignal"])
         self.assertIn("ExitSignal", result)
         self.assertEqual(result["ExitSignal"], 9)
-
-    def testNotHandlingExecTicketExists(self):
-        ad = self.ad | {"ToE": {"ExitBySignal": False, "ExitCode": 0}}
-        with self.assertLogs(logger=logger, level="DEBUG") as cm:
-            result = self.handler.handle(ad)
-        self.assertIsNone(result)
-        self.assertIn("ticket of execution", cm.output[0])
-        self.assertIn("found", cm.output[0])
 
     def testNotHandlingJobNotCompleted(self):
         ad = self.ad | {"MyType": "foo"}
@@ -195,7 +143,7 @@ class JobHeldOtherTestCase(unittest.TestCase):
     def testHeld(self):
         ad = self.ad | {"HoldReasonCode": 42}
         result = self.handler.handle(ad)
-        self.assertIsNotNone(result)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertFalse(result["ExitBySignal"])
         self.assertIn("ExitCode", result)
@@ -238,7 +186,7 @@ class JobHeldBySignalHandlerTestCase(unittest.TestCase):
     def testSignalAvailable(self):
         ad = self.ad | {"HoldReasonCode": 3, "HoldReason": "Job raised a signal 9."}
         result = self.handler.handle(ad)
-        self.assertIsNotNone(ad)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertTrue(result["ExitBySignal"])
         self.assertIn("ExitSignal", result)
@@ -279,7 +227,7 @@ class JobHeldByUserHandlerTestCase(unittest.TestCase):
     def testHandling(self):
         ad = self.ad | {"HoldReasonCode": 1}
         result = self.handler.handle(ad)
-        self.assertIsNotNone(result)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertFalse(result["ExitBySignal"])
         self.assertIn("ExitCode", result)
@@ -318,6 +266,7 @@ class JobAbortedByPeriodicRemoveHandlerTestCase(unittest.TestCase):
     def testHandling(self):
         self.ad |= {"HoldReason": "Job raised a signal 9."}
         result = self.handler.handle(self.ad)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertTrue(result["ExitBySignal"])
         self.assertIn("ExitSignal", result)
@@ -326,6 +275,7 @@ class JobAbortedByPeriodicRemoveHandlerTestCase(unittest.TestCase):
     def testHandlingWithHoldReasonNoExitSignal(self):
         self.ad |= {"HoldReason": "Job raised a signal."}
         result = self.handler.handle(self.ad)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertTrue(result["ExitBySignal"])
         self.assertIn("ExitSignal", result)
@@ -333,6 +283,7 @@ class JobAbortedByPeriodicRemoveHandlerTestCase(unittest.TestCase):
 
     def testHandlingWithoutHoldReason(self):
         result = self.handler.handle(self.ad)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertTrue(result["ExitBySignal"])
         self.assertIn("ExitSignal", result)
@@ -377,6 +328,7 @@ class JobAbortedByUserHandlerTestCase(unittest.TestCase):
     def testHandlingAbortedDagmanJob(self):
         self.ad |= {"Reason": "Python-initiated action"}
         result = self.handler.handle(self.ad)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertFalse(result["ExitBySignal"])
         self.assertIn("ExitCode", result)
@@ -385,6 +337,7 @@ class JobAbortedByUserHandlerTestCase(unittest.TestCase):
     def testHandlingAbortedPayloadJob(self):
         self.ad |= {"Reason": "DAG Removed"}
         result = self.handler.handle(self.ad)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertFalse(result["ExitBySignal"])
         self.assertIn("ExitCode", result)
@@ -393,6 +346,7 @@ class JobAbortedByUserHandlerTestCase(unittest.TestCase):
     def testHandlingAbortedSubdagJob(self):
         self.ad |= {"Reason": "OtherJobRemoveRequirements = DAGManJobId =?= 78"}
         result = self.handler.handle(self.ad)
+        assert result is not None
         self.assertIn("ExitBySignal", result)
         self.assertFalse(result["ExitBySignal"])
         self.assertIn("ExitCode", result)

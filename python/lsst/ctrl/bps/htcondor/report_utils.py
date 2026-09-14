@@ -33,7 +33,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-import htcondor
+from htcondor2 import JobStatus, Schedd
 
 from lsst.ctrl.bps import (
     WmsJobReport,
@@ -61,7 +61,7 @@ _LOG = logging.getLogger(__name__)
 
 
 def _get_status_from_id(
-    wms_workflow_id: str, hist: float, schedds: dict[str, htcondor.Schedd]
+    wms_workflow_id: str, hist: float, schedds: dict[str, Schedd]
 ) -> tuple[WmsStates, str]:
     """Gather run information using workflow id.
 
@@ -249,7 +249,7 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
 
 
 def _get_info_from_schedd(
-    wms_workflow_id: str, hist: float, schedds: dict[str, htcondor.Schedd]
+    wms_workflow_id: str, hist: float, schedds: dict[str, Schedd]
 ) -> dict[str, dict[str, dict[str, Any]]]:
     """Gather run information from HTCondor.
 
@@ -707,14 +707,9 @@ def _get_exit_code_summary(jobs):
             exit_code = 0
             job_status = job_ad["JobStatus"]
             match job_status:
-                case htcondor.JobStatus.COMPLETED | htcondor.JobStatus.HELD | htcondor.JobStatus.REMOVED:
+                case JobStatus.COMPLETED | JobStatus.HELD | JobStatus.REMOVED:
                     exit_code = job_ad["ExitSignal"] if job_ad["ExitBySignal"] else job_ad["ExitCode"]
-                case (
-                    htcondor.JobStatus.IDLE
-                    | htcondor.JobStatus.RUNNING
-                    | htcondor.JobStatus.TRANSFERRING_OUTPUT
-                    | htcondor.JobStatus.SUSPENDED
-                ):
+                case JobStatus.IDLE | JobStatus.RUNNING | JobStatus.TRANSFERRING_OUTPUT | JobStatus.SUSPENDED:
                     pass
                 case _:
                     _LOG.debug("Unknown 'JobStatus' value ('%d') in classad for job '%s'", job_status, job_id)
