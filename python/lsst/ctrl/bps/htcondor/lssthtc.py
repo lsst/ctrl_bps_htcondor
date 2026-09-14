@@ -98,6 +98,7 @@ from htcondor2 import (
 )
 
 from .handlers import HTC_JOB_AD_HANDLERS
+from .htcondor_compat import compat_submit_ad
 
 _LOG = logging.getLogger(__name__)
 
@@ -609,7 +610,7 @@ def htc_query_present(schedds, **kwargs):
             yield schedd_name, dict(job_ad)
 
 
-def htc_submit_dag(sub):
+def htc_submit_dag(sub: Submit):
     """Submit job for execution.
 
     Parameters
@@ -632,7 +633,7 @@ def htc_submit_dag(sub):
     # If Schedd.submit() fails, the method will raise an exception. Usually,
     # that implies issues with the HTCondor pool which BPS can't address.
     # Hence, no effort is made to handle the exception.
-    submit_result = schedd.submit(sub)
+    submit_result = schedd.submit(sub, itemdata=None)
 
     # Sadly, the ClassAd from Schedd.submit() (see above) does not have
     # 'GlobalJobId' so we need to run a regular query to get it anyway.
@@ -700,10 +701,12 @@ def htc_create_submit_from_dag(
         _LOG.debug("MaxIdle already in submit_options: %s", submit_options)
 
     _LOG.debug("Using submit_options = %s", submit_options)
-    return Submit.from_dag(dag_filename, submit_options)
+    submit_ad = Submit.from_dag(dag_filename, submit_options)
+    submit_ad = compat_submit_ad(submit_ad)
+    return submit_ad
 
 
-def htc_create_submit_from_cmd(dag_filename, submit_options=None):
+def htc_create_submit_from_cmd(dag_filename, submit_options=None) -> Submit:
     """Create a DAGMan job submit description.
 
     Create a DAGMan job submit description by calling ``condor_submit_dag``
@@ -775,7 +778,9 @@ def htc_create_submit_from_file(submit_file):
     except KeyError:
         pass
 
-    return Submit(descriptors)
+    submit_ad = Submit(descriptors)
+    submit_ad = compat_submit_ad(submit_ad)
+    return submit_ad
 
 
 def _htc_write_job_commands(stream, name, commands, node_type="JOB"):
