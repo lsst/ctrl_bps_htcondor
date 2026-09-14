@@ -1,0 +1,1 @@
+Fixed a bug in prepare_utils._translate_command_line that caused ``submitcmd`` to throw an exception when given 0 job arguments.
