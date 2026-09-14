@@ -364,6 +364,7 @@ def _translate_command_line(
         # Don't set getenv as setting up the environment is assumed to be
         # part of the payloadCommand.
 
+        arguments = ""
         if gwjob.arguments:
             arguments = gwjob.arguments
             arguments = _replace_cmd_vars(arguments, gwjob)

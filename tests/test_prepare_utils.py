@@ -233,7 +233,7 @@ class TranslateCommandLineTestCase(unittest.TestCase):
 
     def testPayloadCommandBasic(self):
         # bpsMakeCommand False wraps the payloadCommand in /bin/bash -c.
-        gw, gwjob = self._make_job(arguments="pipetask run")
+        gw, gwjob = self._make_job(arguments="run -b repo")
         cached_vals = {
             "bpsUseShared": True,
             "bpsMakeCommand": False,
@@ -243,7 +243,21 @@ class TranslateCommandLineTestCase(unittest.TestCase):
         self.assertEqual(jobcmds["executable"], "/bin/bash")
         self.assertEqual(jobcmds["transfer_executable"], "False")
         self.assertNotIn("getenv", jobcmds)
-        self.assertEqual(jobcmds["arguments"], "-c 'setup; /dummy/dir/pipetask pipetask run'")
+        self.assertEqual(jobcmds["arguments"], "-c 'setup; /dummy/dir/pipetask run -b repo'")
+
+    def testPayloadCommandNoArguments(self):
+        # No argument to the gwjob command
+        gw, gwjob = self._make_job(arguments="")
+        cached_vals = {
+            "bpsUseShared": True,
+            "bpsMakeCommand": False,
+            "payloadCommand": "setup; {gwjobCommand}",
+        }
+        jobcmds = prepare_utils._translate_command_line(cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["executable"], "/bin/bash")
+        self.assertEqual(jobcmds["transfer_executable"], "False")
+        self.assertNotIn("getenv", jobcmds)
+        self.assertEqual(jobcmds["arguments"], "-c 'setup; /dummy/dir/pipetask '")
 
     def testPayloadCommandStripsNewlines(self):
         gw, gwjob = self._make_job(arguments="run")
@@ -275,7 +289,7 @@ class TranslateCommandLineTestCase(unittest.TestCase):
 
     def testEnvironment(self):
         gw, gwjob = self._make_job()
-        gwjob.environment = {"TEST_INT": "1", "TEST_STR": "TWO"}
+        gwjob.environment = {"TEST_INT": 1, "TEST_STR": "TWO"}
         jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
         self.assertEqual(jobcmds["environment"], "TEST_INT='1' TEST_STR='TWO'")
 
