@@ -591,6 +591,7 @@ class HTCondorService(BaseWmsService):
         status = 0
         message = ""
         _LOG.info("Not verifying that compute resources exist.")
+        daemon_type = htcondor.DaemonTypes.Schedd  # To avoid possibly undefined error
         try:
             for daemon_type in [htcondor.DaemonTypes.Schedd, htcondor.DaemonTypes.Collector]:
                 _ = secman.ping(coll.locate(daemon_type))

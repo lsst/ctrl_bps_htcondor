@@ -1538,6 +1538,7 @@ def count_jobs_in_single_dag(
             )
             if m:
                 job_name = m.group("jobname")
+                job_type = WmsNodeType.UNKNOWN
                 name_parts = job_name.split("_")
 
                 label = ""
@@ -1765,6 +1766,7 @@ def read_single_node_status(filename: str | os.PathLike, init_fake_id: int) -> d
     # Get jobid info from other places to fill in gaps in info from node_status
     _, job_name_to_label, job_name_to_type = count_jobs_in_single_dag(filename.with_suffix(".dag"))
     loginfo: dict[str, dict[str, Any]] = {}
+    wms_workflow_id = MISSING_ID
     try:
         wms_workflow_id, _ = read_single_dag_log(filename.with_suffix(".dag.dagman.log"))
         loginfo = read_single_dag_nodes_log(filename.with_suffix(".dag.nodes.log"))
@@ -1933,7 +1935,7 @@ def read_single_dag_log(log_filename: str | os.PathLike) -> tuple[str, dict[str,
     FileNotFoundError
         If cannot find DAGMan log in given wms_path.
     """
-    wms_workflow_id = "0"
+    wms_workflow_id = MISSING_ID
     dag_info: dict[str, dict[str, Any]] = {}
 
     filename = Path(log_filename)
@@ -2266,6 +2268,11 @@ def htc_check_dagman_output(wms_path: str | os.PathLike) -> str:
     p = re.compile(r"^(\d\d/\d\d/\d\d \d\d:\d\d:\d\d) (Job submit try \d+/\d+ failed|Warning:.*$|ERROR:.*$)")
 
     message = ""
+    # Shouldn't normally see this warning.  Initializing it just in case.
+    last_warning = (
+        "Missing warning: Usually means the .dagman.out file has been truncated "
+        "or temporarily had a full quota."
+    )
     try:
         with open(filename) as fh:
             last_submit_failed = ""  # Since submit retries multiple times only report last one
