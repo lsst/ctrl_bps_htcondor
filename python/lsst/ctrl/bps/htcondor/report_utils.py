@@ -117,6 +117,7 @@ def _get_status_from_path(wms_path: str | os.PathLike) -> tuple[WmsStates, str]:
     """
     wms_path = Path(wms_path).resolve()
     message = ""
+    dag_ad: dict[str, Any] = {}
     try:
         wms_workflow_id, dag_ad = read_dag_log(wms_path)
     except FileNotFoundError:

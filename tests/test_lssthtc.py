@@ -221,6 +221,16 @@ class HtcCheckDagmanOutputTestCase(unittest.TestCase):
             results = lssthtc.htc_check_dagman_output(tmp_dir)
             self.assertEqual("", results)
 
+    def test_missing_warning(self):
+        with temporaryDirectory() as tmp_dir:
+            with open(os.path.join(tmp_dir, "test_missing_warning.dag.dagman.out"), "w") as fh:
+                print(
+                    "01/01/26 01:01:01 ERROR: Warning is fatal error because of DAGMAN_USE_STRICT setting",
+                    file=fh,
+                )
+            results = lssthtc.htc_check_dagman_output(tmp_dir)
+            self.assertIn("Missing warning", results)
+
 
 class SummarizeDagTestCase(unittest.TestCase):
     """Test summarize_dag function."""
@@ -791,6 +801,29 @@ class ReadSingleNodeStatusTestCase(unittest.TestCase):
         self.assertEqual(len(jobs), 5)
         for job in jobs.values():
             self.assertLess(job["ClusterId"], 0)
+            self.assertEqual(job["DAGManJobID"], lssthtc.MISSING_ID)
+
+        # NodeStatus values from the node_status file must still be preserved.
+        name_to_id = self._jobNameToId(jobs)
+        self.assertEqual(jobs[name_to_id["pipetaskInit"]]["NodeStatus"], lssthtc.NodeStatus.DONE)
+        self.assertEqual(jobs[name_to_id["finalJob"]]["NodeStatus"], lssthtc.NodeStatus.DONE)
+        self.assertEqual(jobs[name_to_id["provisioningJob"]]["NodeStatus"], lssthtc.NodeStatus.NOT_READY)
+
+    def testPermissionLogFiles(self):
+        # Check what happens if can't read dag log file.
+        self._copyFiles("tiny_success", [".dag", ".node_status", ".dag.dagman.log"])
+        filename = os.path.join(self.tmpdir, "tiny_success.dag.dagman.log")
+        current_mode = os.stat(filename).st_mode
+        no_read_mode = current_mode & ~stat.S_IRUSR & ~stat.S_IRGRP & ~stat.S_IROTH
+        os.chmod(filename, no_read_mode)
+
+        filename = pathlib.Path(self.tmpdir) / "tiny_success.node_status"
+        jobs = lssthtc.read_single_node_status(filename, -1)
+
+        self.assertEqual(len(jobs), 5)
+        for job in jobs.values():
+            self.assertLess(job["ClusterId"], 0)
+            self.assertEqual(job["DAGManJobID"], lssthtc.MISSING_ID)
 
         # NodeStatus values from the node_status file must still be preserved.
         name_to_id = self._jobNameToId(jobs)
