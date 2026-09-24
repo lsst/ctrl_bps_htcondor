@@ -88,7 +88,6 @@ from classad2 import parseAds, parseNext
 from htcondor2 import (
     Collector,
     DaemonTypes,
-    HTCondorException,
     JobEventLog,
     JobEventType,
     JobStatus,
@@ -98,7 +97,7 @@ from htcondor2 import (
 )
 
 from .handlers import HTC_JOB_AD_HANDLERS
-from .htcondor_compat import compat_submit_ad
+from .htcondor_compat import HTCondorException, compat_submit_ad
 
 _LOG = logging.getLogger(__name__)
 
@@ -553,6 +552,11 @@ def htc_tune_schedd_args(**kwargs):
     -------
     kwargs : `dict` [`str`, `~typing.Any`]
         Keywords arguments that were passed to the function.
+
+    Notes
+    -----
+    Left as a placeholder for any future changes to the keyword arguments
+    for ``Schedd.(history|query|xquery)``.
     """
     return kwargs
 
@@ -1391,7 +1395,7 @@ def condor_status(constraint=None, coll=None):
         coll = Collector()
     try:
         pool_ads = coll.query(constraint=constraint)
-    except OSError as ex:
+    except HTCondorException as ex:
         raise RuntimeError(f"Problem querying the Collector.  (Constraint='{constraint}')") from ex
 
     pool_info = {}
@@ -1705,7 +1709,7 @@ def read_single_node_status(filename: str | os.PathLike, init_fake_id: int) -> d
     try:
         wms_workflow_id, _ = read_single_dag_log(filename.with_suffix(".dag.dagman.log"))
         loginfo = read_single_dag_nodes_log(filename.with_suffix(".dag.nodes.log"))
-    except (OSError, PermissionError):
+    except (HTCondorException, OSError, PermissionError):
         pass
 
     job_name_to_id: dict[str, str] = {}

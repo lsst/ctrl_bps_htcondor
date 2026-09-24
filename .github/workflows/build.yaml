@@ -34,7 +34,6 @@ jobs:
           extra-args: --all-files
 
   test-matrix:
-    needs: [formatting, pre-commit]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -84,7 +83,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   test:
-    needs: test-matrix
+    needs: [formatting, pre-commit, test-matrix]
+
     runs-on: ubuntu-latest
     steps:
       - name: Test Matrix Passed
