@@ -12,13 +12,3 @@ updates:
       monthly-batch:
         patterns:
           - "*"
-  - package-ecosystem: "uv"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 7
-    groups:
-      weekly-batch:
-        patterns:
-          - "*"
