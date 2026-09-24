@@ -95,7 +95,7 @@ class ChainTestCase(unittest.TestCase):
 
 
 class JobCompletedHandlerTestCase(unittest.TestCase):
-    """Test the handler for a completed job w/o the ticket of execution."""
+    """Test the handler for a completed job."""
 
     def setUp(self):
         self.ad = {"ClusterId": 1, "ProcId": 0, "MyType": "JobTerminatedEvent"}

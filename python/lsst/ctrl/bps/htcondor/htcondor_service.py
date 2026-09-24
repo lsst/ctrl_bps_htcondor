@@ -586,7 +586,7 @@ class HTCondorService(BaseWmsService):
         status = 0
         message = ""
         _LOG.info("Not verifying that compute resources exist.")
-        daemon_type = htcondor.DaemonTypes.Schedd  # To avoid possibly undefined error
+        daemon_type = DaemonTypes.Schedd  # To avoid possibly undefined error
         try:
             for daemon_type in [DaemonTypes.Schedd, DaemonTypes.Collector]:
                 ping(coll.locate(daemon_type))

@@ -57,6 +57,11 @@ def ping(ad: ClassAd) -> None:
     ad : ``classad2.ClassAd``
         A location ``ClassAd`` to ping, usually a ``Collector`` or ``Schedd``.
 
+    Raises
+    ------
+    HTCondorException
+        Raised if the ``ping`` raises a legacy ``htcondor`` exception.
+
     Note
     ----
     The "preview" of ``htcondor2`` in the HTCondor LTS 24.0 release does not
@@ -74,13 +79,14 @@ def ping(ad: ClassAd) -> None:
             raise HTCondorException("Unable to locate daemon.") from e
         except HTCondorIOError as e:
             raise HTCondorException("Unable to connect to daemon.") from e
-        secman = None
-        sys.modules.pop("htcondor")
+        del secman
+        del HTCondorLocateError
+        del HTCondorIOError
+        del SecMan
+        del sys.modules["htcondor"]
     else:
         _ping = cast(Callable, doImport("htcondor2.ping"))
         _ping(ad)
-
-    return None
 
 
 def compat_submit_ad(ad: Submit) -> Submit:
