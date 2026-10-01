@@ -1,0 +1,7 @@
+When reading ``JobCompletion`` events, ``htcondor2`` does not parse a "ToE" (Ticket of Execution) tag from the event.
+The associated handler for these events no longer differentiates between events with and without a ToE tag and operates in a single mode (no ToE tag).
+
+Because the ``SecMan`` class is deprecated and removed in ``htcondor2``, the legacy 24.0.x client does not have access to a ``ping`` method in the ``htcondor2`` package.
+In this one case, the older ``htcondor`` package is loaded so the ``SecMan.ping`` method can be used.
+
+In all other cases, behaviors have been migrated and/or refactored to ``htcondor2`` standards.

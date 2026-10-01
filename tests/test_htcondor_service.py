@@ -32,8 +32,9 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-import htcondor
+from htcondor2 import Collector, HTCondorException
 
 import lsst.ctrl.bps.htcondor.lssthtc as lssthtc
 from lsst.ctrl.bps import BpsConfig, WmsStates
@@ -87,31 +88,31 @@ class HTCondorServiceTestCase(unittest.TestCase):
         self.assertEqual(self.service.defaults_uri, HTC_DEFAULTS_URI)
         self.assertFalse(self.service.defaults_uri.isdir())
 
-    @unittest.mock.patch.object(htcondor.SecMan, "ping", return_value=PING_SUCCESS)
-    @unittest.mock.patch.object(htcondor.Collector, "locate", return_value=LOCATE_SUCCESS)
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.ping", return_value=PING_SUCCESS)
+    @patch.object(Collector, "locate", return_value=LOCATE_SUCCESS)
     def testPingSuccess(self, mock_locate, mock_ping):
         status, message = self.service.ping(None)
         self.assertEqual(status, 0)
         self.assertEqual(message, "")
 
     def testPingFailure(self):
-        with unittest.mock.patch("htcondor.Collector.locate") as locate_mock:
-            locate_mock.side_effect = htcondor.HTCondorLocateError()
+        with patch("lsst.ctrl.bps.htcondor.htcondor_service.Collector.locate") as locate_mock:
+            locate_mock.side_effect = HTCondorException("Unable to locate local daemon.")
             status, message = self.service.ping(None)
             self.assertEqual(status, 1)
-            self.assertEqual(message, "Could not locate Schedd service.")
+            self.assertIn(message, "Could not locate Schedd service.")
 
-    @unittest.mock.patch.object(htcondor.Collector, "locate", return_value=LOCATE_SUCCESS)
+    @patch.object(Collector, "locate", return_value=LOCATE_SUCCESS)
     def testPingPermission(self, mock_locate):
-        with unittest.mock.patch("htcondor.SecMan.ping") as ping_mock:
-            ping_mock.side_effect = htcondor.HTCondorIOError()
+        with patch("lsst.ctrl.bps.htcondor.htcondor_service.ping") as ping_mock:
+            ping_mock.side_effect = HTCondorException("Failed to connect to schedd.")
             status, message = self.service.ping(None)
             self.assertEqual(status, 1)
             self.assertEqual(message, "Permission problem with Schedd service.")
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._get_status_from_id")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._locate_schedds")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._get_status_from_id")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._locate_schedds")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
     def testGetStatusLocal(self, mock_type, mock_locate, mock_status):
         mock_type.return_value = htcondor_service.WmsIdType.LOCAL
         mock_locate.return_value = {}
@@ -127,9 +128,9 @@ class HTCondorServiceTestCase(unittest.TestCase):
         self.assertEqual(state, WmsStates.RUNNING)
         self.assertEqual(message, "")
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._get_status_from_id")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._locate_schedds")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._get_status_from_id")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._locate_schedds")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
     def testGetStatusGlobal(self, mock_type, mock_locate, mock_status):
         mock_type.return_value = htcondor_service.WmsIdType.GLOBAL
         mock_locate.return_value = {}
@@ -146,8 +147,8 @@ class HTCondorServiceTestCase(unittest.TestCase):
         self.assertEqual(state, WmsStates.RUNNING)
         self.assertEqual(message, fake_message)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._get_status_from_path")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._get_status_from_path")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
     def testGetStatusPath(self, mock_type, mock_status):
         fake_message = "fake message"
         mock_type.return_value = htcondor_service.WmsIdType.PATH
@@ -162,7 +163,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
         self.assertEqual(state, WmsStates.FAILED)
         self.assertEqual(message, fake_message)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_type")
     def testGetStatusUnknownType(self, mock_type):
         mock_type.return_value = htcondor_service.WmsIdType.UNKNOWN
 
@@ -174,7 +175,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
         self.assertEqual(state, WmsStates.UNKNOWN)
         self.assertEqual(message, "Invalid job id")
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_workflow.HTCondorWorkflow.write")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_workflow.HTCondorWorkflow.write")
     def testPrepare(self, mock_write):
         generic_workflow = make_3_label_workflow("test1", True)
         config = BpsConfig(
@@ -193,7 +194,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
             mock_write.assert_called_once()
             self.assertEqual(len(htc_workflow.dag), 19)  # 3 visit * 2 detectors * 3 labels + init
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_workflow.HTCondorWorkflow.write")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_workflow.HTCondorWorkflow.write")
     def testPrepareProvision(self, mock_write):
         # Leaves testing provisioning code to test_provisioner.py.
         # Just checking HTCondorService.prepare bits (like nodeset).
@@ -251,9 +252,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             workflow.submit_path = tmpdir
-            with unittest.mock.patch(
-                "lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_dag"
-            ) as create_mock:
+            with patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_dag") as create_mock:
                 create_mock.side_effect = _fake_htc_create_submit_from_dag
                 with self.assertRaisesRegex(RuntimeError, "Fake exception from mock"):
                     self.service.submit(workflow)
@@ -281,9 +280,7 @@ class HTCondorServiceTestCase(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             workflow.submit_path = tmpdir
-            with unittest.mock.patch(
-                "lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_dag"
-            ) as create_mock:
+            with patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_dag") as create_mock:
                 create_mock.side_effect = _fake_htc_create_submit_from_dag
                 with self.assertRaisesRegex(RuntimeError, "Fake exception from mock"):
                     self.service.submit(workflow)
@@ -297,7 +294,7 @@ class RestartTestCase(unittest.TestCase):
         config = BpsConfig({}, wms_service_class_fqn="lsst.ctrl.bps.htcondor.HTCondorService")
         self.service = htcondor_service.HTCondorService(config)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
     def testIdNotFound(self, mock_to_dir):
         mock_to_dir.return_value = (None, htcondor_service.WmsIdType.UNKNOWN)
         run_id, run_name, message = self.service.restart("bad_id")
@@ -306,7 +303,7 @@ class RestartTestCase(unittest.TestCase):
         self.assertIn("not found", message)
         self.assertIn("submit directory", message)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
     def testSubmitDirNotFound(self, mock_to_dir):
         mock_to_dir.return_value = (Path("/does/not/exist"), htcondor_service.WmsIdType.LOCAL)
         run_id, run_name, message = self.service.restart("100.0")
@@ -315,7 +312,7 @@ class RestartTestCase(unittest.TestCase):
         self.assertIn("submit directory", message)
         self.assertIn("not found", message)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
     def testNoRescueDag(self, mock_to_dir):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             mock_to_dir.return_value = (Path(tmpdir), htcondor_service.WmsIdType.PATH)
@@ -324,8 +321,8 @@ class RestartTestCase(unittest.TestCase):
             self.assertIsNone(run_name)
             self.assertIn("rescue DAG", message)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
     def testAlreadyInQueue(self, mock_to_dir, mock_condor_q):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             (Path(tmpdir) / "test.dag.rescue001").touch()
@@ -337,9 +334,9 @@ class RestartTestCase(unittest.TestCase):
             self.assertIn("already in the job queue", message)
             self.assertIn("schedd#1.0#123", message)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
     def testAllJobsFinished(self, mock_to_dir, mock_condor_q, mock_status):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             (Path(tmpdir) / "test.dag.rescue001").touch()
@@ -351,11 +348,11 @@ class RestartTestCase(unittest.TestCase):
             self.assertIsNone(run_name)
             self.assertIn("finished successfully", message)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_backup_files")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_info")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_backup_files")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_info")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
     def testNoCondorSub(self, mock_to_dir, mock_condor_q, mock_status, mock_read_info, mock_backup):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             (Path(tmpdir) / "test.dag.rescue001").touch()
@@ -372,13 +369,13 @@ class RestartTestCase(unittest.TestCase):
             self.assertIsNone(run_name)
             self.assertIn("submit description file not found", message)
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_submit_dag")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_file")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_backup_files")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_info")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_submit_dag")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_file")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_backup_files")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_info")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
     def testSubmitInfoUnavailable(
         self,
         mock_to_dir,
@@ -406,14 +403,14 @@ class RestartTestCase(unittest.TestCase):
             self.assertIsNone(run_name)
             self.assertEqual(message, "DAGMan job information unavailable")
 
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.write_dag_info")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_submit_dag")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_file")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_backup_files")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_info")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
-    @unittest.mock.patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.write_dag_info")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_submit_dag")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_create_submit_from_file")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.htc_backup_files")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_info")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.read_dag_status")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service.condor_q")
+    @patch("lsst.ctrl.bps.htcondor.htcondor_service._wms_id_to_dir")
     def testSuccess(
         self,
         mock_to_dir,
