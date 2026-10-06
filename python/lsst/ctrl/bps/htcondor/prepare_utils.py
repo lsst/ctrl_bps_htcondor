@@ -30,6 +30,7 @@
 import logging
 import os
 import re
+import shutil
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, cast
@@ -283,6 +284,45 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
     return jobcmds
 
 
+def _resolve_executable(executable: str) -> str:
+    """Resolve a bare executable name to its full path via PATH.
+
+    HTCondor resolves a relative ``executable`` in the submit description
+    relative to the job's sandbox directory rather than searching ``PATH``.
+    So a bare command name (e.g., ``pipetask``) must be turned into a full
+    path at submit time, otherwise the job is held with a "No such file or
+    directory" error on the compute node.
+
+    Parameters
+    ----------
+    executable : `str`
+        The executable value from the job description.
+
+    Returns
+    -------
+    executable : `str`
+        A full path if ``executable`` was a bare name found on ``PATH``,
+        otherwise the value unchanged (already absolute/relative paths and
+        values containing HTCondor env syntax are left as is).
+    """
+    # Leave anything that already contains a path separator or HTCondor
+    # environment-variable syntax (e.g., $ENV(...), $(...)) untouched.
+    if "/" in executable or "$" in executable:
+        return executable
+
+    resolved = shutil.which(executable)
+    if resolved:
+        _LOG.debug("Resolved bare executable %s to %s", executable, resolved)
+        return resolved
+
+    _LOG.warning(
+        "Could not resolve executable '%s' on PATH; HTCondor resolves a bare "
+        "executable name relative to the job sandbox, so the job may be held.",
+        executable,
+    )
+    return executable
+
+
 def _translate_command_line(
     cached_vals: dict[str, Any], generic_workflow: GenericWorkflow, gwjob: GenericWorkflowJob
 ) -> dict[str, Any]:
@@ -353,7 +393,7 @@ def _translate_command_line(
             jobcmds["transfer_executable"] = "True"
             jobcmds["executable"] = gwjob.executable.src_uri
         else:
-            jobcmds["executable"] = _fix_env_var_syntax(gwjob.executable.src_uri)
+            jobcmds["executable"] = _resolve_executable(_fix_env_var_syntax(gwjob.executable.src_uri))
 
         if arguments:
             arguments = _fix_env_var_syntax(arguments)
