@@ -29,6 +29,7 @@
 
 import logging
 import os
+import shutil
 import unittest
 from copy import deepcopy
 
@@ -221,6 +222,26 @@ class TranslateCommandLineTestCase(unittest.TestCase):
         gw, gwjob = self._make_job(executable=gw_exec)
         jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
         self.assertEqual(jobcmds["executable"], "$ENV(CTRL_BPS_DIR)/bin/pipetask")
+
+    def testMakeCommandBareExecutableResolvedViaPath(self):
+        # A bare executable name (no path, no env var) is resolved to its
+        # full path via PATH because HTCondor resolves the executable
+        # relative to the job sandbox, not via PATH.
+        resolved = shutil.which("sh")
+        self.assertIsNotNone(resolved, "test requires 'sh' on PATH")
+        gw_exec = GenericWorkflowExec("sh", "sh")
+        gw, gwjob = self._make_job(executable=gw_exec)
+        jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
+        self.assertEqual(jobcmds["executable"], resolved)
+
+    def testMakeCommandBareExecutableNotOnPath(self):
+        # A bare executable name that cannot be found on PATH is left as is.
+        gw_exec = GenericWorkflowExec("nosuchcmd", "nosuchcmd_xyzzy")
+        gw, gwjob = self._make_job(executable=gw_exec)
+        with self.assertLogs(level="WARNING") as cm_log:
+            jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
+        self.assertRegex(cm_log.output[0], "Could not resolve executable 'nosuchcmd_xyzzy' on PATH.*")
+        self.assertEqual(jobcmds["executable"], "nosuchcmd_xyzzy")
 
     def testMakeCommandArguments(self):
         # Arguments should have cmd, wms, file, and env placeholders replaced.
