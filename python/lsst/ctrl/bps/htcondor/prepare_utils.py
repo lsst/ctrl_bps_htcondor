@@ -285,13 +285,13 @@ def _translate_job_cmds(cached_vals, generic_workflow, gwjob):
 
 
 def _resolve_executable(executable: str) -> str:
-    """Resolve a bare executable name to its full path via PATH.
+    """Resolve an executable name to its full path via PATH.
 
     HTCondor resolves a relative ``executable`` in the submit description
     relative to the job's sandbox directory rather than searching ``PATH``.
-    So a bare command name (e.g., ``pipetask``) must be turned into a full
-    path at submit time, otherwise the job is held with a "No such file or
-    directory" error on the compute node.
+    So a bare or relative command name (e.g., ``pipetask``) must be turned
+    into a full path at submit time, otherwise the job is held with a
+    "No such file or directory" error on the compute node.
 
     Parameters
     ----------
@@ -305,18 +305,23 @@ def _resolve_executable(executable: str) -> str:
         otherwise the value unchanged (already absolute/relative paths and
         values containing HTCondor env syntax are left as is).
     """
-    # Leave anything that already contains a path separator or HTCondor
+    # Leave anything that already starts with a path separator or
     # environment-variable syntax (e.g., $ENV(...), $(...)) untouched.
-    if "/" in executable or "$" in executable:
+    if executable.startswith(("/", "$")):
+        _LOG.debug("Executable started with / or $.  Using as-is (%s)", executable)
         return executable
 
-    resolved = shutil.which(executable)
-    if resolved:
-        _LOG.debug("Resolved bare executable %s to %s", executable, resolved)
-        return resolved
+    exec_path = shutil.which(executable)
+    if exec_path:
+        _LOG.debug("results of 'which %s' = %s", executable, exec_path)
+        # Still have to make sure it is not a relative path as
+        # shutil.which would skip checking PATH if executable
+        # contains '/' and then only check existence.
+        exec_path = os.path.abspath(exec_path)
+        return exec_path
 
     _LOG.warning(
-        "Could not resolve executable '%s' on PATH; HTCondor resolves a bare "
+        "Could not resolve executable '%s' on PATH; HTCondor resolves an "
         "executable name relative to the job sandbox, so the job may be held.",
         executable,
     )

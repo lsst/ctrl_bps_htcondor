@@ -238,7 +238,9 @@ class TranslateCommandLineTestCase(unittest.TestCase):
         # A bare executable name that cannot be found on PATH is left as is.
         gw_exec = GenericWorkflowExec("nosuchcmd", "nosuchcmd_xyzzy")
         gw, gwjob = self._make_job(executable=gw_exec)
-        jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
+        with self.assertLogs(level="WARNING") as cm_log:
+            jobcmds = prepare_utils._translate_command_line(self.cached_vals, gw, gwjob)
+        self.assertRegex(cm_log.output[0], "Could not resolve executable 'nosuchcmd_xyzzy' on PATH.*")
         self.assertEqual(jobcmds["executable"], "nosuchcmd_xyzzy")
 
     def testMakeCommandArguments(self):

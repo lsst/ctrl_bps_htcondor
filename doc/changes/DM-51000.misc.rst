@@ -1,0 +1,1 @@
+Updated the local submissions to handle the case when the given executable name is not an absolute path.  It uses the submit-side location of the executable or prints a warning that the job may be held.  This was triggered by ``ctrl_bps`` default yaml definitions no longer using ``*_DIR`` environment variables; instead they now rely on the PATH.
