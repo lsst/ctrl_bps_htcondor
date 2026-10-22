@@ -69,6 +69,7 @@ __all__ = [
 ]
 
 
+import contextlib
 import itertools
 import json
 import logging
@@ -634,10 +635,13 @@ def htc_submit_dag(sub: Submit):
     schedd_ad = coll.locate(DaemonTypes.Schedd)
     schedd = Schedd(schedd_ad)
 
-    # If Schedd.submit() fails, the method will raise an exception. Usually,
-    # that implies issues with the HTCondor pool which BPS can't address.
-    # Hence, no effort is made to handle the exception.
-    submit_result = schedd.submit(sub, itemdata=None)
+    # Suppress stdout during job submission seen with v24 where the
+    # dagman submit description is dumped to stdout.
+    with contextlib.redirect_stdout(open(os.devnull, "w")):  # pragma: no cover
+        # If Schedd.submit() fails, the method will raise an exception.
+        # Usually, that implies issues with the HTCondor pool which BPS
+        # can't address.  Hence, no effort is made to handle the exception.
+        submit_result = schedd.submit(sub, itemdata=None)
 
     # Sadly, the ClassAd from Schedd.submit() (see above) does not have
     # 'GlobalJobId' so we need to run a regular query to get it anyway.
