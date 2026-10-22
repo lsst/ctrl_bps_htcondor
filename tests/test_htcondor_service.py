@@ -44,31 +44,10 @@ from lsst.ctrl.bps.htcondor.htcondor_workflow import HTCondorWorkflow
 from lsst.ctrl.bps.tests.gw_test_utils import make_3_label_workflow
 from lsst.daf.butler import Config
 
+from .dag_test_utils import LOCATE_SUCCESS, PING_SUCCESS
+
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
-
-LOCATE_SUCCESS = """[
-        CondorPlatform = "$CondorPlatform: X86_64-CentOS_7.9 $";
-        MyType = "Scheduler";
-        Machine = "testmachine";
-        Name = "testmachine";
-        CondorVersion = "$CondorVersion: 23.0.3 2024-04-04 $";
-        MyAddress = "<127.0.0.1:9618?addrs=127.0.0.1-9618+snip>"
-    ]
-"""
-
-PING_SUCCESS = """[
-        AuthCommand = 60011;
-        AuthMethods = "FS_REMOTE";
-        Command = 60040;
-        AuthorizationSucceeded = true;
-        ValidCommands = "60002,60003,60011,60014,60045,60046,60047,60048,60049,60050,60052,523";
-        TriedAuthentication = true;
-        RemoteVersion = "$CondorVersion: 10.9.0 2023-09-28 BuildID: 678228 PackageID: 10.9.0-1 $";
-        MyRemoteUserName = "testuser@testmachine";
-        Authentication = "YES";
-    ]
-"""
 
 
 class HTCondorServiceTestCase(unittest.TestCase):

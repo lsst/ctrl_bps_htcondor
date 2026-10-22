@@ -1338,7 +1338,12 @@ def condor_query(constraint=None, schedds=None, query_func=htc_query_present, **
     return {key: val for key, val in job_info.items() if val}
 
 
-def condor_search(constraint=None, hist=None, schedds=None):
+def condor_search(
+    constraint: str | None = None,
+    hist: float | None = None,
+    schedds: dict[str, dict[str, Schedd]] | None = None,
+    skip_history: bool = False,
+) -> dict[str, dict[str, dict[str, Any]]]:
     """Search for running and finished jobs satisfying given criteria.
 
     Parameters
@@ -1350,6 +1355,9 @@ def condor_search(constraint=None, hist=None, schedds=None):
     schedds : `dict` [`str`, `htcondor.Schedd`], optional
         The list of the HTCondor schedulers which to query for job information.
         If None (default), only the local scheduler will be queried.
+    skip_history : `bool`, optional
+        If True, skip searching history if searching the queue returns any
+        information. Defaults to False.
 
     Returns
     -------
@@ -1367,7 +1375,7 @@ def condor_search(constraint=None, hist=None, schedds=None):
         schedds = {schedd_ad["Name"]: Schedd(location=schedd_ad)}
 
     job_info = condor_q(constraint=constraint, schedds=schedds)
-    if hist is not None:
+    if hist is not None and (not skip_history or not job_info):
         _LOG.debug("Searching history going back %s days", hist)
         epoch = (datetime.now() - timedelta(days=hist)).timestamp()
         constraint += f" && (CompletionDate >= {epoch} || JobFinishedHookDone >= {epoch})"
