@@ -34,7 +34,7 @@ from pathlib import Path
 from shutil import copy2, copytree
 from unittest.mock import patch
 
-from htcondor2 import JobStatus
+from htcondor2 import JobStatus, Schedd
 
 from lsst.ctrl.bps import (
     WmsSpecificInfo,
@@ -43,19 +43,11 @@ from lsst.ctrl.bps import (
 from lsst.ctrl.bps.htcondor import lssthtc, report_utils
 from lsst.utils.tests import temporaryDirectory
 
+from .dag_test_utils import LOCATE_SUCCESS
+
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
-
-LOCATE_SUCCESS = """[
-        CondorPlatform = "$CondorPlatform: X86_64-CentOS_7.9 $";
-        MyType = "Scheduler";
-        Machine = "testmachine";
-        Name = "testmachine";
-        CondorVersion = "$CondorVersion: 23.0.3 2024-04-04 $";
-        MyAddress = "<127.0.0.1:9618?addrs=127.0.0.1-9618+snip>"
-    ]
-"""
 
 
 class GetExitCodeSummaryTestCase(unittest.TestCase):
@@ -806,7 +798,7 @@ class GetStatusFromIdTestCase(unittest.TestCase):
 
         state, message = report_utils._get_status_from_id("100", 0, {})
 
-        mock_get.assert_called_once_with("100", 0, {})
+        mock_get.assert_called_once_with("100", 0, {}, skip_history=True)
 
         self.assertEqual(state, WmsStates.UNKNOWN)
         self.assertEqual(message, "DAGMan job 100 not found in queue or history.  Check id or try path.")
@@ -821,7 +813,7 @@ class GetStatusFromIdTestCase(unittest.TestCase):
 
         state, message = report_utils._get_status_from_id(fake_id, 0, {})
 
-        mock_get.assert_called_once_with(fake_id, 0, {})
+        mock_get.assert_called_once_with(fake_id, 0, {}, skip_history=True)
         mock_conversion.assert_called_once_with(dag_ads[fake_id])
 
         self.assertEqual(state, WmsStates.RUNNING)
@@ -860,6 +852,29 @@ class GetStatusFromPathTestCase(unittest.TestCase):
 
             self.assertEqual(state, WmsStates.FAILED)
             self.assertEqual(message, "")
+
+
+class GetInfoFromScheddTestCase(unittest.TestCase):
+    """Test _get_info_from_schedd function."""
+
+    @patch("lsst.ctrl.bps.htcondor.report_utils.condor_search")
+    def testNumericID(self, mock_search):
+        schedds = {"testmachine": Schedd(location=LOCATE_SUCCESS)}
+        _ = report_utils._get_info_from_schedd("26159", 2.5, schedds, True)
+        constraint = 'regexp("dagman$", Cmd) && ClusterId == 26159'
+        mock_search.assert_called_once_with(
+            constraint=constraint, hist=2.5, schedds=schedds, skip_history=True
+        )
+
+    @patch("lsst.ctrl.bps.htcondor.report_utils.condor_search")
+    def testGlobalID(self, mock_search):
+        schedds = {"testmachine": Schedd(location=LOCATE_SUCCESS)}
+        global_id = "testmachine#26159.0#1791323977"
+        _ = report_utils._get_info_from_schedd(global_id, 2.5, schedds, True)
+        constraint = f'regexp("dagman$", Cmd) && GlobalJobId == "{global_id}"'
+        mock_search.assert_called_once_with(
+            constraint=constraint, hist=2.5, schedds=schedds, skip_history=True
+        )
 
 
 if __name__ == "__main__":

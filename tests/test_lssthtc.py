@@ -36,7 +36,7 @@ import unittest
 from shutil import copy2, copytree, ignore_patterns, rmtree, which
 from unittest.mock import patch
 
-from htcondor2 import JobStatus
+from htcondor2 import Collector, JobStatus, Schedd
 
 from lsst.ctrl.bps import BpsConfig
 from lsst.ctrl.bps.bps_utils import chdir
@@ -44,7 +44,7 @@ from lsst.ctrl.bps.htcondor import dagman_configurator, htcondor_config, lssthtc
 from lsst.daf.butler import Config
 from lsst.utils.tests import temporaryDirectory
 
-from .dag_test_utils import make_lazy_dag
+from .dag_test_utils import LOCATE_SUCCESS, ConstraintMatch, ScheddMatch, make_lazy_dag
 
 logger = logging.getLogger("lsst.ctrl.bps.htcondor")
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
@@ -1821,6 +1821,125 @@ class WriteDagInfoTestCase(unittest.TestCase):
                 read_filename, read_data = lssthtc.read_dag_info(tmp_dir)
                 self.assertEqual(read_filename, path)
                 self.assertEqual(read_data, self.data)
+
+
+class CondorSearchTestCase(unittest.TestCase):
+    """Test condor_search."""
+
+    def setUp(self):
+        self.constraint = "ClusterId == 29169 || DAGManJobId == 29169"
+        hist_pattern = r"(CompletionDate >= \d+ || JobFinishedHookDone >= \d+)"
+        self.constraint_pattern = f"{self.constraint} && {hist_pattern}"
+        self.queue_results = {
+            "testmachine": {
+                "29169.0": {
+                    "ClusterId": 29169,
+                    "Cmd": "/path/to/condor_dagman",
+                    "GlobalJobId": "testmachine#29169.0#1782598587",
+                    "JobStatus": JobStatus.RUNNING,
+                },
+                "29172.0": {
+                    "ClusterId": 29172,
+                    "Cmd": "/path/to/pipetask",
+                    "GlobalJobId": "testmachine#29172.0#1782598587",
+                    "JobStatus": JobStatus.IDLE,
+                    "DAGManJobId": 29169,
+                    "DAGNodeName": "isr_96908_41",
+                },
+            }
+        }
+        self.history_results = {
+            "testmachine": {
+                "29171.0": {
+                    "ClusterId": 29171,
+                    "Cmd": "/path/to/pipetask",
+                    "GlobalJobId": "testmachine#29171.0#1782598587",
+                    "JobStatus": JobStatus.COMPLETED,
+                    "DAGManJobId": 29169,
+                    "DAGNodeName": "pipetaskInit",
+                }
+            }
+        }
+
+    @patch.object(Collector, "locate")
+    @patch("lsst.ctrl.bps.htcondor.lssthtc.condor_q")
+    @patch("lsst.ctrl.bps.htcondor.lssthtc.condor_history")
+    def testNoParams(self, mock_history, mock_q, mock_locate):
+        mock_locate.return_value = LOCATE_SUCCESS
+        mock_q.return_value = {}
+        mock_history.return_value = {}
+
+        results = lssthtc.condor_search()
+        mock_locate.assert_called_once()
+        mock_q.assert_called_once_with(constraint="", schedds={"testmachine": ScheddMatch(LOCATE_SUCCESS)})
+        mock_history.assert_not_called()
+        self.assertEqual(results, {})
+
+    @patch.object(Collector, "locate")
+    @patch("lsst.ctrl.bps.htcondor.lssthtc.condor_q")
+    @patch("lsst.ctrl.bps.htcondor.lssthtc.condor_history")
+    def testSearchParams(self, mock_history, mock_q, mock_locate):
+        self.maxDiff = None
+        mock_locate.return_value = LOCATE_SUCCESS
+        mock_q.return_value = self.queue_results
+        mock_history.return_value = self.history_results
+
+        results = lssthtc.condor_search(
+            constraint=self.constraint, hist=3, schedds={"testmachine": Schedd(LOCATE_SUCCESS)}
+        )
+        mock_locate.assert_not_called()
+        mock_q.assert_called_once_with(
+            constraint=self.constraint, schedds={"testmachine": ScheddMatch(LOCATE_SUCCESS)}
+        )
+        mock_history.assert_called_once_with(
+            ConstraintMatch(self.constraint_pattern), schedds={"testmachine": ScheddMatch(LOCATE_SUCCESS)}
+        )
+        all_results = {"testmachine": self.queue_results["testmachine"] | self.history_results["testmachine"]}
+        self.assertEqual(results, all_results)
+
+    @patch.object(Collector, "locate")
+    @patch("lsst.ctrl.bps.htcondor.lssthtc.condor_q")
+    @patch("lsst.ctrl.bps.htcondor.lssthtc.condor_history")
+    def testSkipHistory(self, mock_history, mock_q, mock_locate):
+        mock_locate.return_value = LOCATE_SUCCESS
+        mock_q.return_value = self.queue_results
+        mock_history.return_value = self.history_results
+
+        results = lssthtc.condor_search(
+            constraint=self.constraint,
+            hist=3,
+            skip_history=True,
+            schedds={"testmachine": Schedd(LOCATE_SUCCESS)},
+        )
+        mock_locate.assert_not_called()
+        mock_q.assert_called_once_with(
+            constraint=self.constraint, schedds={"testmachine": ScheddMatch(LOCATE_SUCCESS)}
+        )
+        mock_history.assert_not_called()
+        self.assertEqual(results, self.queue_results)
+
+    @patch.object(Collector, "locate")
+    @patch("lsst.ctrl.bps.htcondor.lssthtc.condor_q")
+    @patch("lsst.ctrl.bps.htcondor.lssthtc.condor_history")
+    def testSkipHistoryNoQueue(self, mock_history, mock_q, mock_locate):
+        mock_locate.return_value = LOCATE_SUCCESS
+        mock_q.return_value = {}
+        mock_history.return_value = self.history_results
+
+        results = lssthtc.condor_search(
+            constraint=self.constraint,
+            hist=3,
+            skip_history=True,
+            schedds={"testmachine": Schedd(LOCATE_SUCCESS)},
+        )
+        mock_locate.assert_not_called()
+        mock_q.assert_called_once_with(
+            constraint=self.constraint, schedds={"testmachine": ScheddMatch(LOCATE_SUCCESS)}
+        )
+        mock_history.assert_called_once_with(
+            ConstraintMatch(self.constraint_pattern), schedds={"testmachine": ScheddMatch(LOCATE_SUCCESS)}
+        )
+        self.assertEqual(results, self.history_results)
 
 
 if __name__ == "__main__":

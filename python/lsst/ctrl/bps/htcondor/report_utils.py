@@ -88,7 +88,7 @@ def _get_status_from_id(
 
     # Collect information about the job by querying HTCondor schedd and
     # HTCondor history.
-    schedd_dag_info = _get_info_from_schedd(wms_workflow_id, hist, schedds)
+    schedd_dag_info = _get_info_from_schedd(wms_workflow_id, hist, schedds, skip_history=True)
     if len(schedd_dag_info) == 1:
         schedd_name = next(iter(schedd_dag_info))
         dag_id = next(iter(schedd_dag_info[schedd_name]))
@@ -250,7 +250,7 @@ def _report_from_id(wms_workflow_id, hist, schedds=None):
 
 
 def _get_info_from_schedd(
-    wms_workflow_id: str, hist: float, schedds: dict[str, Schedd]
+    wms_workflow_id: str, hist: float, schedds: dict[str, Schedd], skip_history: bool = False
 ) -> dict[str, dict[str, dict[str, Any]]]:
     """Gather run information from HTCondor.
 
@@ -263,6 +263,9 @@ def _get_info_from_schedd(
     schedds : `dict` [ `str`, `htcondor.Schedd` ]
         HTCondor schedulers which to query for job information. If empty
         dictionary, all queries will be run against the local scheduler only.
+    skip_history : `bool`, optional
+        If True, skip searching history if searching the queue returns any
+        information. Defaults to False.
 
     Returns
     -------
@@ -271,7 +274,13 @@ def _get_info_from_schedd(
         Scheduler, local HTCondor job ids are mapped to their respective
         classads.
     """
-    _LOG.debug("_get_info_from_schedd: id=%s, hist=%s, schedds=%s", wms_workflow_id, hist, schedds)
+    _LOG.debug(
+        "_get_info_from_schedd: id=%s, hist=%s, schedds=%s, skip_history=%s",
+        wms_workflow_id,
+        hist,
+        schedds,
+        skip_history,
+    )
 
     dag_constraint = 'regexp("dagman$", Cmd)'
     try:
@@ -289,7 +298,9 @@ def _get_info_from_schedd(
     # the cluster ids were rolled over (and as a result there is more then
     # one job with the same cluster id) they will not show up in
     # the results.
-    schedd_dag_info = condor_search(constraint=dag_constraint, hist=hist, schedds=schedds)
+    schedd_dag_info = condor_search(
+        constraint=dag_constraint, hist=hist, schedds=schedds, skip_history=skip_history
+    )
     return schedd_dag_info
 
 

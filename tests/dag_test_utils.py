@@ -28,11 +28,74 @@
 """Utility functions for ctrl_bps_htcondor tests."""
 
 import logging
+import re
 from pathlib import Path
+
+from htcondor2 import Schedd, classad
 
 from lsst.ctrl.bps.htcondor.lssthtc import HTC_VALID_JOB_KEYS, HTCDag, HTCJob, RestrictedDict
 
 _LOG = logging.getLogger(__name__)
+
+
+LOCATE_SUCCESS = classad.ClassAd("""[
+        CondorPlatform = "$CondorPlatform: X86_64-CentOS_7.9 $";
+        MyType = "Scheduler";
+        Machine = "testmachine";
+        Name = "testmachine";
+        CondorVersion = "$CondorVersion: 23.0.3 2024-04-04 $";
+        MyAddress = "<127.0.0.1:9618?addrs=127.0.0.1-9618+snip>"
+    ]
+""")
+
+PING_SUCCESS = classad.ClassAd("""[
+        AuthCommand = 60011;
+        AuthMethods = "FS_REMOTE";
+        Command = 60040;
+        AuthorizationSucceeded = true;
+        ValidCommands = "60002,60003,60011,60014,60045,60046,60047,60048,60049,60050,60052,523";
+        TriedAuthentication = true;
+        RemoteVersion = "$CondorVersion: 10.9.0 2023-09-28 BuildID: 678228 PackageID: 10.9.0-1 $";
+        MyRemoteUserName = "testuser@testmachine";
+        Authentication = "YES";
+    ]
+""")
+
+
+class ScheddMatch:
+    """Matches any Schedd object whose address equals the expected
+    address string.  Useful for assert_called_once_with.
+
+    Parameters
+    ----------
+    schedd_classad : `str`
+        Expected value to be compared against in __eq__.
+    """
+
+    def __init__(self, schedd_classad: classad.ClassAd):
+        self.addr_str = schedd_classad["MyAddress"]
+
+    def __eq__(self, other_schedd: Schedd):
+        return other_schedd._addr == self.addr_str
+
+
+class ConstraintMatch:
+    """Matches any constraint string against the expected pattern
+    (regular expressions allowed).  Useful for assert_called_once_with.
+
+    Parameters
+    ----------
+    expected : `str`
+        Expected value to be compared against in __eq__.
+    """
+
+    def __init__(self, expected: str):
+        self.expected_pattern = expected
+
+    def __eq__(self, other: object):
+        if not isinstance(other, str):  # pragma: no cover
+            return NotImplemented
+        return re.match(self.expected_pattern, other) is not None
 
 
 def make_lazy_dag(name: str, final: bool = True) -> tuple[HTCDag, list[str]]:
