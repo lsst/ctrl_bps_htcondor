@@ -1,1 +1,0 @@
-Added the capability to ``condor_search`` to skip checking history if found information in the queue.  The skipping is enabled by a new optional parameter.

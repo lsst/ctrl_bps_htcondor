@@ -1,3 +1,55 @@
+lsst-ctrl-bps-htcondor v30.0.12 (2026-10-27)
+============================================
+
+New Features
+------------
+
+- Migrated ``htcondor`` usage to ``htcondor2``, the next-generation Python package for HTCondor.
+
+  Added support for HTCondor 24.x and 25.x, which only implements ``htcondor2``.
+  Existing support for HTCondor 24.0.x implements ``htcondor2`` as a feature preview.
+  Support for a future HTCondor 26.x is not declared at this time. (`DM-53098 <https://rubinobs.atlassian.net/browse/DM-53098>`_)
+- Added capabilities needed to run submit processes as batch jobs on same cluster with shared filesystems.  This included handling of lazy subdags. (`DM-53494 <https://rubinobs.atlassian.net/browse/DM-53494>`_)
+
+
+API Changes
+-----------
+
+- When reading ``JobCompletion`` events, ``htcondor2`` does not parse a "ToE" (Ticket of Execution) tag from the event.
+  The associated handler for these events no longer differentiates between events with and without a ToE tag and operates in a single mode (no ToE tag).
+
+  Because the ``SecMan`` class is deprecated and removed in ``htcondor2``, the legacy 24.0.x client does not have access to a ``ping`` method in the ``htcondor2`` package.
+  In this one case, the older ``htcondor`` package is loaded so the ``SecMan.ping`` method can be used.
+
+  In all other cases, behaviors have been migrated and/or refactored to ``htcondor2`` standards. (`DM-53098 <https://rubinobs.atlassian.net/browse/DM-53098>`_)
+
+
+Bug Fixes
+---------
+
+- Fixed bug when setting an environment variable in the HTCondor submit description's environment when the value included an environment variable. (`DM-55998 <https://rubinobs.atlassian.net/browse/DM-55998>`_)
+- Fixed a bug in prepare_utils._translate_command_line that caused ``submitcmd`` to throw an exception when given 0 job arguments. (`DM-56065 <https://rubinobs.atlassian.net/browse/DM-56065>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Updated the local submissions to handle the case when the given executable name is not an absolute path.  It uses the submit-side location of the executable or prints a warning that the job may be held.  This was triggered by ``ctrl_bps`` default yaml definitions no longer using ``*_DIR`` environment variables; instead they now rely on the PATH. (`DM-51000 <https://rubinobs.atlassian.net/browse/DM-51000>`_)
+- Library versions for development and packaging builds are now managed using ``uv.lock`` instead of ``requirements.txt``.
+
+  Development environments are now managed by ``uv``, with ``uv sync`` sufficient to create a virtual environment for local development.
+  Dependency specifications have been consolidated in the ``pyproject.toml`` file.
+  LSST dependencies are installed from VCS sources according to the ``override-dependencies`` section.
+
+  Github Actions configurations have been updated to use ``uv`` tooling for test setup and execution.
+  Where possible, Github Actions toolings have been pinned to commit SHAs.
+
+  The redundant and misconfigured ``docstyle.yaml`` Github Actions workflow has been removed.
+
+  Dependabot configuration has been extended to include the ``uv`` package ecosystem. (`DM-53098 <https://rubinobs.atlassian.net/browse/DM-53098>`_)
+- Added the capability to ``condor_search`` to skip checking history if found information in the queue.  The skipping is enabled by a new optional parameter. (`DM-56633 <https://rubinobs.atlassian.net/browse/DM-56633>`_)
+
+
 lsst-ctrl-bps-htcondor v30.0.10 (2026-07-20)
 ============================================
 
