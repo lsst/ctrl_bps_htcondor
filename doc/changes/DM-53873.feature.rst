@@ -1,0 +1,1 @@
+Added support for running a telemetry application (e.g., a log collector such as Fluent Bit) alongside the payload command in each job of the workflow.
