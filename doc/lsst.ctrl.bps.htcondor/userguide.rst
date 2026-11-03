@@ -516,6 +516,173 @@ existing file.
 
 .. __: https://htcondor.readthedocs.io/en/latest/codes-other-values/glossary.html#term-Glidein
 
+.. _htc-plugin-telemetry:
+
+Enabling telemetry
+------------------
+
+**ctrl_bps_htcondor** can run a telemetry application, for example a log
+collector such as `Fluent Bit`_, alongside the payload command in every job of
+your workflow.  This allows you, for instance, to ship the logs of your
+pipeline tasks to an external service (e.g., OpenSearch) while the jobs are
+still running.  You can use any telemetry application you like as long as it
+can be started and stopped from the command line.
+
+Telemetry is disabled by default.  To enable it, complete the steps below.
+
+#. **Make sure the telemetry application is available on the compute nodes.**
+   The application must be installed on the nodes where your jobs will run and
+   must be found in the jobs' ``PATH`` (or you need to use its absolute path
+   in the commands described below).
+
+#. **Let BPS build the job's command.** Telemetry requires the following
+   setting in your submit YAML:
+
+   .. code-block:: yaml
+
+      bpsMakeCommand: false
+
+   With this setting, the job sets up the LSST Stack itself before running the
+   payload command (see ``setupEnv`` and ``softwarePath`` in
+   ``${CTRL_BPS_HTCONDOR_DIR}/python/lsst/ctrl/bps/htcondor/etc/htcondor_defaults.yaml``),
+   so make sure these settings are correct for the computational resource you
+   use.
+
+#. **Make the pipeline tasks write their logs to a file** if your telemetry
+   application needs to read them from one.  For example, to write the logs in
+   JSON format to the file ``payload-log.json`` in the job's working directory,
+   add
+
+   .. code-block:: yaml
+
+      defaultPreCmdOpts: "--long-log --log-level=VERBOSE --log-file payload-log.json"
+
+   Optionally, add ``--no-log-tty`` to stop the logs from also being written
+   to the job's standard error file.  Keep in mind that in such a case the logs
+   will not be in the job's ``*.err`` files (see
+   :ref:`htc-plugin-troubleshooting`).
+
+#. **Add the** ``telemetry`` **section to your submit YAML** describing how to
+   configure, start, and stop the telemetry application.  The section supports
+   the following settings:
+
+   ``telemetryConfig``
+      The content of the configuration file of the telemetry application
+      (optional).  Its format is not checked in any way, it is up to you to
+      provide a configuration in the format your application understands.
+      Leave it out if your application does not need a configuration file.
+
+   ``telemetryConfigPath``
+      The name of the file the content of ``telemetryConfig`` will be written
+      to (required if ``telemetryConfig`` is set).  It must be a relative
+      path.  The file will be available in the working directory of each job,
+      so you can refer to it in ``telemetrySetup`` using
+      ``{telemetryConfigPath}``.  Use the file extension your application
+      expects, as some applications use it to detect the format of the file.
+
+   ``telemetrySetup``
+      Commands starting the telemetry application.  They are executed just
+      before the payload command.  The application must be started in the
+      background so the payload command can run.
+
+   ``telemetryTeardown``
+      Commands stopping the telemetry application.  They are executed just
+      after the payload command finishes.  Make sure they wait for the
+      application to exit, otherwise it may not have a chance to send the
+      remaining data.
+
+For example, the settings below configure `Fluent Bit`_ to send the logs from
+the file ``payload-log.json`` (see step 3 above) to an OpenSearch instance:
+
+.. code-block:: yaml
+
+   bpsMakeCommand: false
+   defaultPreCmdOpts: "--long-log --log-level=VERBOSE --log-file payload-log.json"
+   telemetry:
+     telemetryConfig: |
+       parsers:
+         - name: pipetask_log_parser
+           format: json
+           time_key: asctime
+           time_format: "%Y-%m-%dT%H:%M:%S.%LZ"
+           time_keep: on
+       pipeline:
+         inputs:
+           - name: tail
+             path: payload-log.json
+             parser: pipetask_log_parser
+             read_from_head: true
+             refresh_interval: 1
+         outputs:
+           - name: opensearch
+             match: "*"
+             host: opensearch.example.org
+             port: 9200
+             index: bps
+             suppress_type_name: on
+     telemetryConfigPath: telemetry.yaml
+     telemetrySetup: >
+       fluent-bit -c {telemetryConfigPath} &
+       FLT_PID=$!;
+       TLM_SHELL_PID=$BASHPID;
+       ( while kill -0 $TLM_SHELL_PID 2>/dev/null; do sleep 1; done; kill -TERM $FLT_PID 2>/dev/null ) &
+       TLM_WATCHER_PID=$!;
+     telemetryTeardown: >
+       kill $TLM_WATCHER_PID 2>/dev/null;
+       wait $TLM_WATCHER_PID 2>/dev/null;
+       kill -TERM $FLT_PID 2>/dev/null;
+       wait $FLT_PID;
+
+Here, ``telemetrySetup`` starts Fluent Bit in the background and, in
+addition, starts a small background loop.  Its purpose is to stop Fluent Bit
+gracefully if HTCondor terminates the job before the payload command finishes
+(e.g., when the job is removed or put on hold), so the logs collected so far
+are not lost.  ``telemetryTeardown`` stops both of them once the payload command
+finishes.  If you don't need this safeguard, the following simpler settings
+will do:
+
+.. code-block:: yaml
+
+   telemetry:
+     telemetrySetup: >
+       fluent-bit -c {telemetryConfigPath} &
+       FLT_PID=$!;
+     telemetryTeardown: >
+       kill -TERM $FLT_PID;
+       wait $FLT_PID;
+
+When writing your own settings, keep in mind that:
+
+* Each command in ``telemetrySetup`` and ``telemetryTeardown`` must end with
+  ``;`` or ``&`` as all the commands executed by the job are combined into a
+  single line.
+
+* ``telemetrySetup`` and ``telemetryTeardown`` must not contain any single
+  (``'``) or double (``"``) quotes, nor ``$(``.
+
+* BPS variables (e.g., ``{operator}``) and environment variables (e.g.,
+  ``${HOME}``) in ``telemetryConfig`` and ``telemetryConfigPath`` are replaced
+  with their values during the submission, i.e., on the submit node and not on
+  the compute node.  BPS variables that are not defined are replaced with an
+  empty string.  Hence, avoid using placeholders in the configuration of your
+  telemetry application if their syntax looks the same.
+
+* If HTCondor kills the job immediately (e.g., when the job exceeds its memory
+  limit), the telemetry application will be killed as well and the data it
+  has not sent yet will be lost.
+
+* The same configuration of the telemetry application is used by all jobs in
+  the workflow.  However, you can disable telemetry for jobs of a given
+  pipeline task by setting ``telemetrySetup`` and ``telemetryTeardown`` to
+  empty strings in its section, for example:
+
+  .. code-block:: yaml
+
+     pipetask:
+       isr:
+         telemetrySetup: ""
+         telemetryTeardown: ""
+
 .. _htc-plugin-releasing:
 
 Releasing held jobs
@@ -732,6 +899,7 @@ complete your run.
 .. __: https://developer.lsst.io/usdf/batch.html#ctrl-bps-htcondor
 
 .. _DAGMan: https://htcondor.readthedocs.io/en/latest/automated-workflows/index.html#dagman-workflows
+.. _Fluent Bit: https://docs.fluentbit.io/
 .. _HTCondor: https://htcondor.readthedocs.io/en/latest/
 .. _Slurm: https://slurm.schedmd.com/overview.html
 .. _bps cancel: https://pipelines.lsst.io/v/weekly/modules/lsst.ctrl.bps/quickstart.html#canceling-submitted-jobs
