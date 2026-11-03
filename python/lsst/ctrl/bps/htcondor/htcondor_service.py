@@ -70,6 +70,7 @@ from .report_utils import (
     _report_from_path,
     _summary_report,
 )
+from .telemetry_configurator import TelemetryConfigurator
 
 _LOG = logging.getLogger(__name__)
 
@@ -114,6 +115,16 @@ class HTCondorService(BaseWmsService):
             if enable_provisioning:
                 config[".bps_defined.nodeset"] = config[".bps_defined.timestamp"]
 
+            # Telemetry settings must be in place before the HTCondor workflow
+            # is created as that is when the payload command is resolved.
+            try:
+                telemetry_configurator = TelemetryConfigurator(config)
+            except KeyError:
+                _LOG.debug("No telemetry section found in BPS config; skipping telemetry setup.")
+                telemetry_configurator = None
+            else:
+                telemetry_configurator.prepare(prefix=out_prefix)
+
             workflow = HTCondorWorkflow.from_generic_workflow(
                 config,
                 generic_workflow,
@@ -138,6 +149,8 @@ class HTCondorService(BaseWmsService):
                 configurator.prepare("dagman.conf", prefix=out_prefix)
                 configurator.configure(workflow.dag)
 
+            if telemetry_configurator is not None:
+                telemetry_configurator.configure(workflow.dag)
         with time_this(
             log=_LOG, level=logging.INFO, prefix=None, msg="Completed writing out HTCondor workflow"
         ):

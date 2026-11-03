@@ -93,6 +93,7 @@ payloadCommand: >
   {setupEnv}
   {gwjobExports}
   {postEnvSetup}
+  {telemetrySetup}
   logDir={jobLogDir};
   pwd;
   echo -n BPS Before running command:\ ;
@@ -104,6 +105,7 @@ payloadCommand: >
   echo -n BPS After running command:\ ;
   /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
   echo Command exited with code: $ret;
+  {telemetryTeardown}
   {jobCleanup}
   echo -n BPS End of job commands:\ ;
   /usr/bin/date +%Y-%m-%dT%H:%M:%S.%N%:z;
@@ -130,6 +132,10 @@ postEnvSetup: ""
 jobInitDir: "`pwd`"
 jobLogDir: "{jobInitDir}"
 jobCleanup: ""
+
+# Telemetry (optional): commands to start/stop a telemetry application.
+telemetrySetup: ""
+telemetryTeardown: ""
 
 # Special slot on K8 AP node for running preparePayloadWorkflow
 site:
